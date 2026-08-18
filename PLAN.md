@@ -203,10 +203,28 @@ labeled composite PNG of both panes. Panes stack vertically on narrow screens.
 Verified by `tests/compare.js` (13 checks): sync drift, pair looping, dual frame-step,
 nudge, file-as-model, composite PNG, mode enter/exit.
 
+### ✅ v1.10 — Photos-first intake + game-film library (shipped)
+First real-world-use feedback (Photos-app drags silently failing) turned into a
+device-aware intake flow:
+- **Empty state is now a launcher**: a big primary button that reads **"Open from
+  Photos"** on iPhone/iPad (the file input there opens Apple's native Photos picker,
+  albums included — the best possible path, no code needed beyond leading with it) and
+  "Open a video…" elsewhere, plus **📁 My games**.
+- **📁 Games library (Mac Chrome/Edge)**: File System Access API. Point Film Room at a
+  game-film folder once (directory handle persisted in IndexedDB, permission re-granted
+  via a Reconnect button after browser restarts); the app lists the folder's videos
+  newest-first with a 📝 has-work marker (matched against the autosave key) and opens
+  any game in one click. An iCloud Drive folder makes the library cross-device. Hidden
+  where the API doesn't exist (Safari, iOS — iOS has the native picker instead).
+- Failed drops explain themselves (Photos-app file promises never reach browsers); docs
+  restructured per device. Verified by `tests/library.js` (8 checks) with a stubbed
+  `showDirectoryPicker` serving real video bytes: listing/filtering/ordering, one-click
+  open, has-work marker, hidden-when-unsupported.
+
 ## Roadmap
 
 ### Next (highest value first)
-*(empty — the design-input roadmap is fully shipped; new items come from real-world use)*
+*(empty — new items come from real-world use)*
 
 ### Later
 - [ ] Track multiple spotlights in one pass; track backwards from an anchor.
@@ -282,6 +300,7 @@ nudge, file-as-model, composite PNG, mode enter/exit.
 | 2026-08-18 | Autosave flushes on beforeunload | The 600ms debounce could drop the last write if the tab closed immediately (surfaced by the session suite); flush-on-unload closes the race for all data |
 | 2026-08-18 | Board reuses the video draw functions + tool palette on a separate canvas | One visual language everywhere; board items are the same shapes minus time, plus a `chip` type; undo snapshots widened to boards/reel/sessions |
 | 2026-08-18 | Compare: A is the master clock, B hard-resynced per frame (no free-running B) | Start-sync alone drifts; per-frame correction keeps the pair within one frame indefinitely; B side can be an external file (loaded, never persisted) |
+| 2026-08-18 | Photos intake: native picker on iOS, folder library on Mac — never fight macOS Photos drags | No web API can browse the Mac Photos library; iOS's file input IS the Photos picker; a remembered iCloud Drive folder is the cross-device equivalent of an album |
 
 ## Working agreements for future sessions
 
