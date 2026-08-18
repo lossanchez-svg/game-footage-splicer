@@ -164,11 +164,25 @@ take the reel's full length; a toast says so on unsupported browsers). Verified 
 `tests/fastexport.js`: two clips + title → one mp4 with exactly the expected frame count
 (intro 90 + 2×card 84 + media 105 + freeze 96 = 459) and title-bearing filename.
 
+### ✅ v1.7 — guided session builder (shipped)
+The interactive sibling of the reel, runnable by anyone (mom-proof by design):
+**🎓 Run session** plays the reel list as an in-app Q&A. For each clip the **question
+comes first** (per-clip "Ask him" field on the clip, sensible default otherwise) — he
+commits to an answer out loud, optionally typed in his words — then the clip plays
+(decision points inside still fire), with *watch again* one tap away. The session ends
+with the recap the Coach tab preaches: **2 things done well + 1 to work on, in his
+words**. Everything lands in a **📓 session log** (persisted in the project, shown in
+the Clips tab) with per-session **notes file export** — ready to text to a coach.
+Ending early keeps any captured answers. Also fixed for real: autosave now flushes on
+page unload, so a tab closed seconds after finishing a session (or any edit) can't lose
+the last write — this closed a latent race the debounced autosave always had.
+Verified in `tests/session.js` (16 checks): question-before-clip ordering, auto-pause
+into the answer screen, custom vs default questions, recap capture, log rendering,
+notes-file content, and reload persistence.
+
 ## Roadmap
 
-### Next (reordered per design inputs, highest value first)
-- [ ] **Session builder**: ordered clip playlist with per-clip questions, runnable as a
-      guided session by mom or solo; logs his answers.
+### Next (highest value first)
 - [ ] **Field-diagram mode**: tactics-board panel for teaching schemes off-video.
 - [ ] **Side-by-side compare**: two clips in sync — "your touch vs. the model touch."
 
@@ -242,6 +256,8 @@ take the reel's full length; a toast says so on unsupported browsers). Verified 
 | 2026-08-18 | Fast exports are silent; audio stays on the realtime path for now | AAC encode/mux is a large addition; game audio rarely carries the teaching; roadmap item tracks adding it |
 | 2026-08-18 | Tracker ZNCC centers each RGB channel separately | With one global mean, every grass patch correlates ~0.6 with the template's green component and the tracker "matches" anywhere; per-channel centering makes uniform background score ~0 (found via trace on the hard fixture) |
 | 2026-08-18 | Fast-export audio = demux AAC → range decode → sample-exact reassembly → re-encode (no edit lists) | Multi-edit `elst` silence gaps play unreliably outside Apple players; decoding only the clip's range keeps memory flat on hour-long files; passthrough covers browsers without AAC encode when the timeline has no gaps |
+| 2026-08-18 | Sessions run the reel list (one "this week" set), not a separate playlist | One ordering UI; the reel IS the session's content — export it for TV or run it live |
+| 2026-08-18 | Autosave flushes on beforeunload | The 600ms debounce could drop the last write if the tab closed immediately (surfaced by the session suite); flush-on-unload closes the race for all data |
 
 ## Working agreements for future sessions
 

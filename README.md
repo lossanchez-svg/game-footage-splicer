@@ -100,6 +100,16 @@ high note), give it a title, and **🎬 Export reel** produces **one video**: an
 title card, then every clip with its own coaching card, decision-point freezes, and the
 game audio. AirDrop it once, AirPlay to the TV, and the whole week's review runs itself.
 
+### 🎓 Guided sessions — anyone can run film night
+**Run session** plays the same reel list as an interactive Q&A right in the app: each
+clip shows its question **first** ("Where is the space?" — set per clip, or use the
+default), he answers out loud (type it in his words if you want it kept), then the clip
+plays, decision-point pauses and all, with *watch again* one tap away. It ends with the
+recap that keeps sessions positive: **two things he did well + one thing to work on —
+his words**. Every session lands in the **📓 session log** with a downloadable notes
+file, so you can see his answers even when his mom ran the session or he did it solo —
+and watch his game-reading sharpen week over week.
+
 ### 📤 Sharing it back to him — clips that teach on their own
 Exports are built so the clip works **without you in the room** (his mom can play it,
 or he can watch solo on a phone, iPad, or the TV):

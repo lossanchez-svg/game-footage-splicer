@@ -153,11 +153,23 @@ const VIDEO = path.join(FIXTURES, 'game.webm');
   check('export produced video file (' + dl2.suggestedFilename() + ', ' + size + ' bytes)', size > 20000);
   check('busy overlay hidden after export', await page.evaluate(() => document.querySelector('#busyOverlay').style.display !== 'flex'));
 
-  // undo
-  const before = await page.textContent('#annCount');
+  // undo pops the last mutation — the clip save — then re-save it so the
+  // autosave-restore section below has a clip to find
   await page.keyboard.press('Control+z');
-  await page.waitForTimeout(100);
-  check('undo works (annCount ' + before + ' -> ' + await page.textContent('#annCount') + ')', true);
+  await page.waitForTimeout(150);
+  check('undo removes the last change (the saved clip)',
+    !(await page.textContent('#clipList')).includes('Great scan then pass'));
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 1; });
+  await page.waitForTimeout(150);
+  await page.click('#btnMarkIn');
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 3; });
+  await page.waitForTimeout(150);
+  await page.click('#btnMarkOut');
+  await page.click('#btnSaveClip');
+  await page.waitForSelector('#clipModal.open');
+  await page.fill('#clipTitle', 'Great scan then pass');
+  await page.click('#clipSave');
+  await page.waitForTimeout(200);
 
   // autosave restore: reload and re-open same file
   await page.reload();
