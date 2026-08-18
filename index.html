@@ -333,7 +333,8 @@
         <div class="big">⚽🎥</div>
         <div><b>Open a video</b> or drag one anywhere on this window.</div>
         <div class="sub">
-          iPhone footage: AirDrop the clip to your Mac (or export from Photos) and open it here.<br>
+          From <b>Apple Photos</b>: click Open video… — your Photos library is in the picker’s sidebar under <b>Media → Photos</b>. (Dragging straight out of the Photos app doesn’t work — browsers never receive the file.)<br>
+          Dragging works from <b>Finder</b>, the Desktop, or AirDropped files.<br>
           YouTube film someone shared: screen-record the part you need (⌘⇧5 on Mac), then open that recording.
         </div>
       </div>
@@ -682,7 +683,7 @@
     <h3>How to use Film Room</h3>
     <h4>Daily workflow</h4>
     <ol>
-      <li><b>Get the footage in.</b> iPhone: AirDrop the video to your Mac (or Photos → File → Export). YouTube film someone shared: press <kbd>⌘⇧5</kbd>, screen-record the section, open that file here. Everything stays on your machine — nothing is uploaded.</li>
+      <li><b>Get the footage in.</b> From Apple Photos: click <b>Open video…</b> and find your library under <b>Media → Photos</b> in the picker's sidebar (dragging straight out of the Photos app doesn't work — browsers never get the file; dragging from Finder or the Desktop is fine). YouTube film someone shared: press <kbd>⌘⇧5</kbd>, screen-record the section, open that file here. Everything stays on your machine — nothing is uploaded.</li>
       <li><b>Find a moment.</b> Use slow-mo and frame-step to land on the exact touch or decision.</li>
       <li><b>Draw it.</b> Spotlight him (it follows between keyframes), arrow where the pass/run should go, zone the open space.</li>
       <li><b>Add a decision point</b> just before the moment — on playback it pauses and asks him the question first.</li>
@@ -847,10 +848,19 @@ $('#fileVideo').onchange = e => { if (e.target.files[0]) loadVideo(e.target.file
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('drop', e => {
   e.preventDefault();
-  const f = [...(e.dataTransfer.files||[])].find(f => /video|quicktime/.test(f.type) || /\.(mp4|mov|m4v|webm)$/i.test(f.name));
-  const j = [...(e.dataTransfer.files||[])].find(f => /\.(json|filmroom)$/i.test(f.name));
+  const files = [...(e.dataTransfer.files || [])];
+  const f = files.find(f => /video|quicktime/.test(f.type) || /\.(mp4|mov|m4v|webm)$/i.test(f.name));
+  const j = files.find(f => /\.(json|filmroom)$/i.test(f.name));
   if (f) loadVideo(f);
   else if (j) loadProjectFile(j);
+  else if (files.length){
+    // real files arrived, just not a video (e.g. a photo)
+    toast('“' + files[0].name + '” isn’t a video this browser can read — .mp4/.mov/.webm work. Drag from Finder, or use Open video…', 6500);
+  } else {
+    // empty drop: dragging out of apps like Apple Photos hands the browser a
+    // "file promise" web pages can't read — no file ever arrives
+    toast('That drag didn’t deliver a file — dragging straight from the Photos app doesn’t work in browsers. Click Open video… and find it under Media → Photos in the picker, or drag the video to your Desktop first.', 8000);
+  }
 });
 
 let currentFile = null;   // kept for the fast exporter's audio demuxer

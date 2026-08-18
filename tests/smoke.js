@@ -16,6 +16,15 @@ const VIDEO = path.join(FIXTURES, 'game.webm');
   check('help modal auto-opens on first run', await page.$('#helpModal.open') !== null);
   await page.click('#helpClose');
 
+  // an empty drop (e.g. dragging out of Apple Photos delivers no file) must explain itself
+  await page.evaluate(() => {
+    document.dispatchEvent(new DragEvent('drop', { dataTransfer: new DataTransfer(), cancelable: true }));
+  });
+  await page.waitForTimeout(200);
+  const dropToast = await page.evaluate(() =>
+    [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' '));
+  check('empty drop shows Photos-app guidance', dropToast.includes('Photos app'));
+
   // load video
   await page.setInputFiles('#fileVideo', VIDEO);
   await page.waitForSelector('#videoWrap', { state: 'visible' });

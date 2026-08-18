@@ -33,8 +33,12 @@ To make it a real home-screen app on the iPad:
 
 ## Getting your footage in
 
-- **iPhone videos (Apple Photos):** AirDrop the clip to your Mac, or in Photos use
-  *File → Export → Export Unmodified Original*. Open the `.mov`/`.mp4` in Film Room.
+- **iPhone videos (Apple Photos):** click **Open video…** — in the Mac file picker's
+  sidebar, your Photos library appears under **Media → Photos**; pick the game video
+  right from there. (Heads up: *dragging* a video straight out of the Photos app does
+  not work — browsers never receive the file. Drag-and-drop works from Finder, the
+  Desktop, and AirDropped files; or use *File → Export → Export Unmodified Original*
+  from Photos first.)
 - **YouTube videos shared with you:** press **⌘⇧5** on your Mac, screen-record the
   section you care about, then open that recording in Film Room. You can trim it first in
   QuickTime (*Edit → Trim*) if you want a smaller file.
