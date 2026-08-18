@@ -254,6 +254,7 @@
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
   <button id="btnOpen" class="primary">Open video…</button>
+  <button id="btnLibrary" title="Your game-film folder: point Film Room at it once and every game is one click away">📁 Games</button>
   <span id="videoName"></span>
   <div class="spacer"></div>
   <button id="btnBoard" title="Tactics board: a top-down pitch with draggable players — teach shape, runs, and schemes off-video. Works with all the drawing tools.">🗒 Board</button>
@@ -331,9 +332,13 @@
       </div>
       <div id="dropHint">
         <div class="big">⚽🎥</div>
-        <div><b>Open a video</b> or drag one anywhere on this window.</div>
+        <div class="chipRow" style="justify-content:center">
+          <button class="primary" id="bigOpen" style="font-size:16px;padding:12px 22px">🎞 Open a video…</button>
+          <button id="bigLibrary" style="font-size:16px;padding:12px 22px;display:none">📁 My games</button>
+        </div>
         <div class="sub">
-          iPhone footage: AirDrop the clip to your Mac (or export from Photos) and open it here.<br>
+          On <b>iPhone/iPad</b>: Open video… → <b>Photo Library</b> — your albums are right there.<br>
+          On the <b>Mac</b>: keep game films in a folder (drag them there from Photos — that works, unlike dragging into a browser) and use <b>📁 Games</b> to reopen any of them in one click. An iCloud Drive folder puts the same films on every device.<br>
           YouTube film someone shared: screen-record the part you need (⌘⇧5 on Mac), then open that recording.
         </div>
       </div>
@@ -658,6 +663,19 @@
   </div>
 </div>
 
+<!-- ======================= GAME LIBRARY MODAL ======================= -->
+<div class="modal" id="libModal">
+  <div class="box">
+    <h3>📁 Game film</h3>
+    <div class="hint" id="libHint">Pick the folder where you keep game videos — an <b>iCloud Drive</b> folder works great (the same films show up on your Mac, iPhone, and iPad). Film Room remembers it; drag new games into it from Photos or Finder and they appear here.</div>
+    <div id="libList" style="margin-top:10px"></div>
+    <div class="foot" style="justify-content:space-between">
+      <button id="libChoose">📂 Choose folder…</button>
+      <button class="primary" id="libClose">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- ======================= SESSION MODAL ======================= -->
 <div class="modal" id="sessionModal" style="z-index:80">
   <div class="box" id="sessionBox"></div>
@@ -682,7 +700,7 @@
     <h3>How to use Film Room</h3>
     <h4>Daily workflow</h4>
     <ol>
-      <li><b>Get the footage in.</b> iPhone: AirDrop the video to your Mac (or Photos → File → Export). YouTube film someone shared: press <kbd>⌘⇧5</kbd>, screen-record the section, open that file here. Everything stays on your machine — nothing is uploaded.</li>
+      <li><b>Get the footage in.</b> On iPhone/iPad: <b>Open from Photos</b> is Apple's own picker, albums and all. On the Mac: keep games in one folder (an iCloud Drive folder shares it with every device) and point <b>📁 Games</b> at it once — every game is then one click away. Drag films into that folder from the Photos app via Finder (that drag works; dragging into a browser window doesn't). YouTube film someone shared: press <kbd>⌘⇧5</kbd>, screen-record the section, open that file here. Everything stays on your machine — nothing is uploaded.</li>
       <li><b>Find a moment.</b> Use slow-mo and frame-step to land on the exact touch or decision.</li>
       <li><b>Draw it.</b> Spotlight him (it follows between keyframes), arrow where the pass/run should go, zone the open space.</li>
       <li><b>Add a decision point</b> just before the moment — on playback it pauses and asks him the question first.</li>
@@ -842,15 +860,29 @@ function mutate(fn){
 
 /* ---------------- video loading ---------------- */
 $('#btnOpen').onclick = () => $('#fileVideo').click();
+$('#bigOpen').onclick = () => $('#fileVideo').click();
+/* on iPhone/iPad the file input opens Apple's own sheet with Photo Library
+   (albums included) — lead with that on touch devices */
+if (navigator.maxTouchPoints > 1 && /iPhone|iPad|Macintosh/.test(navigator.userAgent))
+  $('#bigOpen').textContent = '🖼 Open from Photos';
 $('#fileVideo').onchange = e => { if (e.target.files[0]) loadVideo(e.target.files[0]); e.target.value=''; };
 
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('drop', e => {
   e.preventDefault();
-  const f = [...(e.dataTransfer.files||[])].find(f => /video|quicktime/.test(f.type) || /\.(mp4|mov|m4v|webm)$/i.test(f.name));
-  const j = [...(e.dataTransfer.files||[])].find(f => /\.(json|filmroom)$/i.test(f.name));
+  const files = [...(e.dataTransfer.files || [])];
+  const f = files.find(f => /video|quicktime/.test(f.type) || /\.(mp4|mov|m4v|webm)$/i.test(f.name));
+  const j = files.find(f => /\.(json|filmroom)$/i.test(f.name));
   if (f) loadVideo(f);
   else if (j) loadProjectFile(j);
+  else if (files.length){
+    // real files arrived, just not a video (e.g. a photo)
+    toast('“' + files[0].name + '” isn’t a video this browser can read — .mp4/.mov/.webm work. Drag from Finder, or use Open video…', 6500);
+  } else {
+    // empty drop: dragging out of apps like Apple Photos hands the browser a
+    // "file promise" web pages can't read — no file ever arrives
+    toast('That drag didn’t deliver a file — dragging straight from the Photos app doesn’t work in browsers. Click Open video… and find it under Media → Photos in the picker, or drag the video to your Desktop first.', 8000);
+  }
 });
 
 let currentFile = null;   // kept for the fast exporter's audio demuxer
@@ -887,6 +919,120 @@ function loadVideo(file){
     layout();
     renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); updateInOutUI();
   };
+}
+
+/* ---------------- game-film folder library ----------------
+  Mac (Chrome/Edge): the File System Access API lets Film Room remember one
+  "game film" folder and list its videos in-app — one click to reopen any
+  game, with a marker on games that already have saved work. Point it at an
+  iCloud Drive folder and the same films are on every device.
+  (Safari/iOS hide the button: iOS already has the native Photos picker.)
+----------------------------------------------------------- */
+const FS_LIB_OK = typeof window.showDirectoryPicker === 'function';
+if (!FS_LIB_OK) $('#btnLibrary').style.display = 'none';
+else $('#bigLibrary').style.display = '';
+
+const libIdb = {
+  db: null,
+  open(){
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('filmroom-fs', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async get(k){
+    this.db = this.db || await this.open();
+    return new Promise((res, rej) => {
+      const t = this.db.transaction('kv').objectStore('kv').get(k);
+      t.onsuccess = () => res(t.result);
+      t.onerror = () => rej(t.error);
+    });
+  },
+  async set(k, v){
+    this.db = this.db || await this.open();
+    return new Promise((res, rej) => {
+      const t = this.db.transaction('kv', 'readwrite').objectStore('kv').put(v, k);
+      t.onsuccess = () => res();
+      t.onerror = () => rej(t.error);
+    });
+  },
+};
+let gameDir = null;
+
+async function openLibrary(){
+  $('#libModal').classList.add('open');
+  if (!gameDir){
+    try { gameDir = await libIdb.get('gameDir') || null; } catch(e){}
+  }
+  renderLibrary();
+}
+$('#btnLibrary').onclick = openLibrary;
+$('#bigLibrary').onclick = openLibrary;
+$('#libClose').onclick = () => $('#libModal').classList.remove('open');
+$('#libChoose').onclick = async () => {
+  try {
+    gameDir = await showDirectoryPicker({ id: 'filmroom-games', mode: 'read' });
+    try { await libIdb.set('gameDir', gameDir); } catch(e){}  // test stubs aren't storable
+    renderLibrary();
+  } catch(e){ /* user cancelled the picker */ }
+};
+
+async function renderLibrary(){
+  const host = $('#libList');
+  host.innerHTML = '';
+  $('#libHint').style.display = gameDir ? 'none' : '';
+  if (!gameDir) return;
+
+  // permission must be re-granted after a browser restart, from a click
+  try {
+    if (gameDir.queryPermission && await gameDir.queryPermission({ mode:'read' }) !== 'granted'){
+      const b = document.createElement('button');
+      b.className = 'primary';
+      b.textContent = '🔓 Reconnect “' + gameDir.name + '”';
+      b.onclick = async () => {
+        try { await gameDir.requestPermission({ mode:'read' }); } catch(e){}
+        renderLibrary();
+      };
+      host.appendChild(b);
+      return;
+    }
+  } catch(e){}
+
+  const files = [];
+  try {
+    for await (const entry of gameDir.values()){
+      if (entry.kind !== 'file' || !/\.(mp4|mov|m4v|webm)$/i.test(entry.name)) continue;
+      try { files.push(await entry.getFile()); } catch(e){}
+    }
+  } catch(e){
+    host.innerHTML = '<div class="hint">Couldn’t read the folder — choose it again with 📂.</div>';
+    return;
+  }
+  files.sort((a, b) => b.lastModified - a.lastModified);
+  if (!files.length){
+    host.innerHTML = '<div class="hint">No videos in “' + escapeHtml(gameDir.name) +
+      '” yet — drag game films into that folder from Photos or Finder, then reopen this list.</div>';
+  }
+  for (const f of files){
+    const hasWork = !!localStorage.getItem('filmroom:' + f.name + ':' + f.size);
+    const el = document.createElement('div');
+    el.className = 'annItem';
+    el.style.cursor = 'pointer';
+    el.innerHTML = `<div class="row1"><span class="kind">🎥</span>
+      <span class="lbl">${escapeHtml(f.name)}</span>
+      ${hasWork ? '<span class="timeTag">📝 has work</span>' : ''}
+      <span class="timeTag">${new Date(f.lastModified).toLocaleDateString()}</span></div>`;
+    el.onclick = () => { $('#libModal').classList.remove('open'); loadVideo(f); };
+    host.appendChild(el);
+  }
+  const r = document.createElement('button');
+  r.className = 'miniBtn';
+  r.textContent = '⟲ Refresh';
+  r.style.marginTop = '6px';
+  r.onclick = renderLibrary;
+  host.appendChild(r);
 }
 
 /* ---------------- layout ---------------- */

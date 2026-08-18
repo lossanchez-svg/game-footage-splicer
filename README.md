@@ -33,8 +33,20 @@ To make it a real home-screen app on the iPad:
 
 ## Getting your footage in
 
-- **iPhone videos (Apple Photos):** AirDrop the clip to your Mac, or in Photos use
-  *File → Export → Export Unmodified Original*. Open the `.mov`/`.mp4` in Film Room.
+The best path depends on the device — each one leads with its strongest option:
+
+- **iPhone / iPad:** tap **Open from Photos** — that's Apple's own Photos picker,
+  with your albums right there. Native, one tap, done.
+- **Mac — the 📁 Games library:** keep game films in one folder and point **📁 Games**
+  at it once (Chrome/Edge; the button hides in browsers that can't do this). From then
+  on every game is one click away, newest first, with a 📝 marker on games that already
+  have clips and drawings. Getting films *into* the folder is one drag from the Photos
+  app to that folder in Finder — that drag works (it's only dragging into a browser
+  window that macOS Photos can't do). **Make it an iCloud Drive folder** and the same
+  films appear on your Mac, iPhone, and iPad automatically.
+- Mac fallbacks: drag files in from Finder/Desktop, or **Open video…** (the picker's
+  sidebar has *Media → Photos* on some setups, though it can be unreliable about
+  albums — the Games folder is the dependable path).
 - **YouTube videos shared with you:** press **⌘⇧5** on your Mac, screen-record the
   section you care about, then open that recording in Film Room. You can trim it first in
   QuickTime (*Edit → Trim*) if you want a smaller file.
