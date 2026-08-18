@@ -8,17 +8,22 @@ This is the source of truth for where the project is and where it's going.
 You are picking up a working, fully-tested product. Before writing any code:
 
 1. Read `CLAUDE.md` (conventions, test workflow) and this file top to bottom.
-2. **Check PR #1** (`claude/soccer-video-analysis-tool-t0tfym` → `main`). If it has been
-   merged, branch off `main`; if it's still open, either wait for the owner to merge it
-   or continue committing to that same branch (its commits flow into the PR).
-3. **The current epic is “v2 — The Grandma Test”** (next section). Implement it
-   workstream by workstream; each has acceptance criteria and test requirements.
+2. **The v2 “Grandma Test” epic is complete** (all six workstreams — see the section
+   below, kept as the record of what was built and why). The next work is the
+   **Roadmap → Next** list: cross-device continuity via the Games folder, then tracker
+   tuning once there is real-footage feedback.
+3. **Before starting anything new, ask the user how the v2 onboarding actually landed.**
+   The epic's whole premise is a person who has never seen the app; only they can say
+   whether the walkthrough, the tooltips and the watch banner survived contact with a
+   real first-time user. Screenshots of the current flow: `cd tests && node walkthrough.js`
+   writes `tests/out/walk_*.png`.
 4. Non-negotiables: single self-contained `index.html`, zero dependencies, works from
    `file://`, footage never leaves the machine. Run the full test suite in `tests/`
    (`npm test`, see `tests/README.md`) before every push; add suites for new behavior.
+   The suite is 251 checks across 15 files and takes a few minutes.
 5. Update this file (checkboxes + decision log) as part of every feature commit.
 
-## Current epic — v2: The Grandma Test (intuitive-first UX + onboarding)
+## ✅ Shipped epic — v2: The Grandma Test (intuitive-first UX + onboarding)
 
 **Goal:** an 88-year-old grandmother who has never seen the app can open it and, with no
 one helping, watch this week's film session with her grandson — and a first-time dad can
@@ -34,7 +39,7 @@ discover annotate → clip → export without reading the README. Judge every ch
 - Mistakes are cheap: destructive actions confirm or offer Undo; the app never fails
   silently (the drop-feedback fix is the model — copy that standard everywhere).
 
-### Workstream A — guided first-run tour (do-based coach marks)
+### ✅ Workstream A — guided first-run tour (do-based coach marks) — SHIPPED
 Replace the auto-opening help modal with a step-by-step tour anchored to the real UI.
 Each step is a small bubble pointing at one control, and it advances when the user
 **does the thing**, not when they click "next":
@@ -49,8 +54,16 @@ Requirements: a "Skip tour" link on every bubble; completed/skipped state persis
 reposition on resize and work on touch; non-target UI stays usable (dim, don't block).
 Tests: a suite that walks the tour by doing the actions, verifies advancement, skip, and
 never-again-after-completion.
+**Shipped:** five coach marks (`#tourBubble` + a `pointer-events:none` `#tourRing` that dims
+without blocking), each advancing only when the user does the thing — video loaded, first
+play/scrub, first spotlight, first saved clip, Clips tab opened. Step 4 re-words itself as
+Start → End → Save. Bubbles get out of the way of any dialog/export/decision overlay
+(MutationObserver) and follow their control on resize. "Skip the tour" on every bubble;
+`filmroom:tourDone` (legacy `filmroom:seenHelp` also counts) means it never auto-returns;
+❓ Help has "↻ Restart the walkthrough". The help modal no longer auto-opens.
+Verified by `tests/tour.js` (24 checks) including touch taps and a resize.
 
-### Workstream B — real tooltips (hover + touch), first-use hints
+### ✅ Workstream B — real tooltips (hover + touch), first-use hints — SHIPPED
 Native `title` attributes are invisible on iPad and slow on desktop. Build a lightweight
 tooltip system (no dependencies):
 - Source of truth: move every `title` into `data-tip`; render as a styled bubble on
@@ -64,8 +77,15 @@ tooltip system (no dependencies):
   first reel add → "Export one video, or Run session to watch it together".
 Tests: tooltip appears on hover and on simulated long-press; one-time hints fire once
 and never again after reload.
+**Shipped:** every `title` is gone — controls carry `data-tip` and a `#tipBubble` renders it
+after a 400ms hover or a 500ms long-press (the long press is swallowed, so reading a tip
+never fires the button underneath). Copy audited across the whole app for "what it does
+AND when you'd use it", in plain words. Four one-time hints (`filmroom:hint:*`): first
+tool pick, first spotlight, first saved clip, first reel add — held back while the
+walkthrough is running, since that already says what to do. Verified by `tests/tips.js`
+(19 checks), which also audits *every* reachable control for a full-sentence, jargon-free tip.
 
-### Workstream C — plain-language pass over every surface
+### ✅ Workstream C — plain-language pass over every surface — SHIPPED
 - Copy audit of all buttons/labels/toasts/modals. Keep layouts compact, but prefer words
   where they fit: e.g. "⟦ In / Out ⟧" → "Start clip / End clip"; "📸 Still" → "📸 Photo";
   "🎬 Export clip" → "🎬 Save video"; "fps" moves out of the transport bar into a small
@@ -74,8 +94,19 @@ and never again after reload.
 - Every empty state states the single next action in one sentence (most exist — audit).
 - Every toast is a full sentence a non-technical person understands.
 Tests: screenshot pass over each tab/mode; smoke assertions updated for renamed labels.
+**Shipped:** "Start clip here / End clip here", "📸 Photo", "🎬 Save video",
+"🎬 Save as one video", "🎓 Watch together"; frame rate folded into an **Advanced**
+disclosure as "pictures per second"; export modes renamed "Best for iPhone" /
+"Keeps sound, slower". "Keyframe" and "playhead" are gone ("📍 Pin him here",
+"Appears/Disappears here"), and a decision point is now simply a question you ask him.
+Every toast rewritten as a full sentence that also says what to do next where there is
+one; empty states name their single next action (including the Safari note about the
+Games folder). Help and README rewritten to the same words. Verified by
+`tests/plainwords.js` (20 checks): renames, the disclosure, a jargon sweep over every
+visible surface, a toast-is-a-sentence check parsed out of the app's own source, and a
+screenshot walk through every tab and mode.
 
-### Workstream D — "Watch" front door for the family
+### ✅ Workstream D — "Watch" front door for the family — SHIPPED
 Grandma's real job is **watching**, not editing. When a project has a reel:
 - On load, show a friendly banner/button: **"▶ This week's film session is ready —
   Start"** → launches the guided session (already mom-proof).
@@ -83,25 +114,59 @@ Grandma's real job is **watching**, not editing. When a project has a reel:
   ensure every button is thumb-big).
 Tests: banner appears only when a reel exists; starts the session; dismissible and stays
 dismissed for that visit.
+**Shipped:** a full-width banner above everything — "▶ This week's film session is ready"
+with the reel title, clip count and rough length — appears the moment a game has clips
+lined up, and its one primary button starts the guided session. "Not right now" hides it
+for the visit; finishing a session hides it too; reopening the game offers it again.
+Session screens got the XL treatment (26px headings, 28px questions, 56px-tall buttons,
+17px inputs) so they read from a sofa. Verified by `tests/watch.js` (15 checks).
 
-### Workstream E — comfort & accessibility
+### ✅ Workstream E — comfort & accessibility — SHIPPED
 - "Aa" text-size toggle (normal / large) persisted; large mode bumps base font and
   control padding app-wide.
 - Contrast audit to WCAG AA on the dark theme; visible keyboard focus states.
 - Longer toast duration in large mode.
 Tests: toggle persists; spot-check computed font sizes.
+**Shipped:** an **Aa** button in the top bar switches the whole app between normal and
+large — base font 14→17px, buttons taller and wider, small print, tabs, tooltips, the
+walkthrough bubble and the watch banner all scale — persisted in `filmroom:textSize`,
+and toasts stay on screen 1.6× longer in large mode. Contrast: white-on-green primary
+buttons were 3.4:1, so text now sits on a darker `--accent-btn` (#1a7f37, 4.5:1) while
+`--accent` stays the bright brand green for borders and marks; placeholders pinned to a
+passing grey. Keyboard focus shows a 3px `:focus-visible` ring on every control.
+Verified by `tests/comfort.js` (21 checks) — including a real WCAG AA audit that walks
+every visible text node on every screen (both text sizes, both tabs, Help, the
+save-clip dialog, the watch banner, the walkthrough bubble and tooltips), computing the
+effective background and the correct threshold for large vs normal text.
 
-### Workstream F — friction backlog from real use (fix while in there)
+### ✅ Workstream F — friction backlog from real use — SHIPPED
 - Deleting anything offers **Undo in the toast** (replace `confirm()` dialogs where the
   action is cheap to restore).
 - "Play does nothing" when no video is open → point at Open, don't stay silent.
 - Whole-video export confirm should state the expected duration in minutes.
 - Safari on Mac: 📁 Games hides (correct) — the empty state should mention that the
   library needs Chrome/Edge on Mac so its absence isn't confusing.
+**Shipped:** `toast()` grew an optional action button, and every delete (drawing,
+question, clip, board, session-log entry, this week's list, a clip taken out of it) now
+just happens and offers **↩ Undo** in its own message — no `confirm()` anywhere it is
+cheap to restore. The Undo captures its own snapshot rather than popping the undo stack,
+so it still restores *that* deletion after other edits. `needVideo()` backs every
+transport/clip/export/photo/save control: with nothing open it names the button that
+fixes it and pulses that button, instead of doing nothing. The whole-game export confirm
+now states the length in minutes and points at the cheaper alternative. The Safari note
+landed with the empty-state rewrite in workstream C. Verified by `tests/friction.js`
+(26 checks).
 
 **Definition of done for the epic:** all six workstreams merged with their tests, all
 existing suites still green, README/help updated, and a fresh-eyes walkthrough
 (screenshots at each step) attached to the PR description.
+**Status: done.** All six workstreams shipped with their suites; the full suite runs
+**251 checks green**. README and in-app help rewritten to the new words.
+`tests/walkthrough.js` drives the entire first-time journey — cold open → walkthrough →
+video → play → spotlight → mark → save → library → tooltip → this week's set → the
+front door → session question → large text → delete-and-undo — writing
+`tests/out/walk_*.png` at every step; that's the screenshot set for a PR description
+(and it re-runs, so it never goes stale).
 
 ## Vision
 
@@ -321,12 +386,25 @@ device-aware intake flow:
   `showDirectoryPicker` serving real video bytes: listing/filtering/ordering, one-click
   open, has-work marker, hidden-when-unsupported.
 
+### ✅ v2 — The Grandma Test (shipped)
+Six workstreams, each with its own suite (`tour`, `tips`, `plainwords`, `watch`,
+`comfort`, `friction`, plus the `walkthrough` screenshot pass): a do-based first-run
+walkthrough that advances only when the user does the thing; real `data-tip` tooltips on
+hover and long-press with four one-time hints; a plain-language pass that removed
+In/Out, fps, keyframes and playheads from every surface (and a test that keeps them
+out); a "this week's film session is ready" front door with XL session screens; an **Aa**
+comfort mode plus a computed-contrast WCAG AA audit and visible focus rings; and a
+friction pass where every delete is undoable from its own message and no control ever
+fails silently. Details and rationale in the epic section above.
+
 ## Roadmap
 
 ### Next (in order)
-- [ ] **v2 epic — The Grandma Test** (full spec in "Current epic" above): guided
+- [x] **v2 epic — The Grandma Test** (full spec in "Current epic" above): guided
       do-based tour, real tooltips + one-time hints, plain-language pass, Watch front
-      door, comfort/text-size mode, friction fixes.
+      door, comfort/text-size mode, friction fixes. **All six workstreams shipped**
+      with suites `tour.js`, `tips.js`, `plainwords.js`, `watch.js`, `comfort.js`,
+      `friction.js`; 242 checks green across the whole suite.
 - [ ] **Cross-device continuity via the Games folder**: when the 📁 Games folder is
       connected with readwrite permission, auto-save the project JSON *next to its
       video* (`<video>.filmroom.json`) and auto-load it when the video opens on another
@@ -428,6 +506,17 @@ device-aware intake flow:
 | 2026-08-18 | Board reuses the video draw functions + tool palette on a separate canvas | One visual language everywhere; board items are the same shapes minus time, plus a `chip` type; undo snapshots widened to boards/reel/sessions |
 | 2026-08-18 | Compare: A is the master clock, B hard-resynced per frame (no free-running B) | Start-sync alone drifts; per-frame correction keeps the pair within one frame indefinitely; B side can be an external file (loaded, never persisted) |
 | 2026-08-18 | Photos intake: native picker on iOS, folder library on Mac — never fight macOS Photos drags | No web API can browse the Mac Photos library; iOS's file input IS the Photos picker; a remembered iCloud Drive folder is the cross-device equivalent of an album |
+| 2026-08-18 | Tour steps advance on the user's action, never a "Next" button | A "Next"-driven tour teaches nothing — the hand has to do it once; the do-based version also can't get ahead of a user who is still figuring the step out |
+| 2026-08-18 | Tour ring dims via a giant `box-shadow` spread with `pointer-events:none` | Keeps the rest of the UI visible AND clickable (no trap), with no overlay maths and no extra elements |
+| 2026-08-18 | Custom `data-tip` bubbles replace native `title` everywhere | `title` never renders on iPad and takes ~1.5s on desktop — useless for someone hunting for what a button does; a long-press tip also has to swallow its click so exploring can't trigger anything |
+| 2026-08-18 | One-time hints stay silent while the tour is running | Two voices telling a first-timer what to do at once is worse than either alone; the hints then land later, when the tour is no longer there to say it |
+| 2026-08-18 | Frame rate hides under "Advanced"; everything else is spelled out | It is the only genuinely technical setting left, and it only affects two buttons — burying it costs nothing and removes the one piece of jargon from the main transport bar |
+| 2026-08-18 | The jargon ban is enforced by a test, not by review | Wording drifts back in with every feature; `tests/plainwords.js` sweeps the rendered DOM and the toast literals so a regression fails the suite |
+| 2026-08-18 | The watch banner is dismissed per visit, never permanently | It is an offer, not a notification: someone who came to edit dismisses it once, and the next person to open the game still finds the session waiting |
+| 2026-08-18 | Primary-button green split into `--accent` (marks) and `--accent-btn` (text backgrounds) | White on the brand green measured 3.4:1 — below AA. Darkening only the button background keeps the brand colour everywhere it carries no text |
+| 2026-08-18 | Contrast is enforced by a computed-style audit in the test suite | A one-off manual audit rots on the next feature; the audit walks real rendered text, so new screens are covered automatically |
+| 2026-08-18 | Deletes never ask, they offer Undo — with their own captured snapshot | A confirm dialog taxes every correct deletion to prevent a rare wrong one; an Undo that pops the shared stack would restore the wrong thing once anything else has been edited, so the toast holds the exact snapshot |
+| 2026-08-18 | Every control that needs a video says so and points at Open | "Nothing happened" is the worst possible feedback for a first-time user — it reads as broken software rather than a missing step |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions

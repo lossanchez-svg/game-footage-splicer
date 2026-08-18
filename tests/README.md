@@ -6,6 +6,15 @@ Run them before every push.
 ```sh
 npm install            # installs playwright-core only
 ./make-fixtures.sh     # generates tests/fixtures/*.webm (needs ffmpeg; see script header)
+node tour.js           # guided first-run tour: do-based advancement through all five
+                       # steps, wording that follows the task, skip, restart from Help,
+                       # never-again-after-completion, resize + touch
+node tips.js           # tooltips + one-time hints: hover delay, long-press on touch
+                       # (without pressing the control), a tip on every control, and
+                       # each contextual hint firing exactly once, ever
+node plainwords.js     # plain-language pass: renamed controls, the Advanced disclosure,
+                       # jargon sweep over every visible surface, toasts that are full
+                       # sentences, plus a screenshot walk through every tab and mode
 node smoke.js          # core suite: loading, drawing tools, decision points, clips,
                        # exports, undo, autosave restore
 node tracking.js       # auto-track suite: tracks a synthetic moving ball and asserts
@@ -18,6 +27,18 @@ node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exi
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise
 node session.js        # guided session: question-first flow, answer capture, recap,
                        # session log + notes file + reload persistence
+node watch.js          # the "this week's session is ready" front door: when it appears,
+                       # what it says, starting the session, XL session type, dismissal
+                       # lasting the visit and the offer returning next time
+node comfort.js        # comfort mode + accessibility: the Aa text-size toggle (sizes,
+                       # persistence, longer toasts), a real WCAG AA contrast audit of
+                       # every screen in both sizes, and visible keyboard focus
+node friction.js       # friction backlog: no control fails silently without a video,
+                       # every delete is undoable from its own message (even after later
+                       # edits), whole-game export states its length
+node walkthrough.js    # fresh-eyes walkthrough: drives the whole first-time journey and
+                       # screenshots every step into out/walk_*.png (the evidence for
+                       # "could someone who has never seen this work it out alone?")
 node board.js          # tactics board: formation seeding, chip place/drag/rename,
                        # drawing tools, format switch, clip-linked boards, PNG, persistence
 node compare.js        # side-by-side: lockstep sync, pair looping, frame-step both,

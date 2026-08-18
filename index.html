@@ -15,7 +15,7 @@
   :root{
     --bg:#0d1117; --bg2:#161b22; --bg3:#1f2630; --line:#2d333b;
     --text:#e6edf3; --dim:#8b949e; --accent:#2ea043; --accent2:#58a6ff;
-    --pos:#3fb950; --neg:#f85149; --neu:#8b949e; --warn:#d29922;
+    --pos:#3fb950; --neg:#f85149; --neu:#8b949e; --warn:#d29922; --accent-btn:#1a7f37;
     --radius:8px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -31,14 +31,21 @@
   button{font:inherit; color:inherit; background:var(--bg3); border:1px solid var(--line);
     border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap; touch-action:manipulation;}
   button:hover{background:#2b3340;}
-  button.primary{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;}
-  button.primary:hover{background:#38b155;}
+  /* --accent stays the bright brand green for borders and marks; text sits on the
+     darker --accent-btn so white-on-green clears WCAG AA (4.5:1) */
+  button.primary{background:var(--accent-btn); border-color:var(--accent-btn); color:#fff; font-weight:600;}
+  button.primary:hover{background:#1c883b; border-color:#1c883b;}
   button.active{background:var(--accent2); border-color:var(--accent2); color:#04121f; font-weight:600;}
   button.danger:hover{background:#5c1f1f; border-color:var(--neg);}
   button:disabled{opacity:.4; cursor:default;}
   input,select,textarea{font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line);
     border-radius:6px; padding:5px 8px;}
-  input:focus,select:focus,textarea:focus{outline:1px solid var(--accent2);}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent2);}
+  /* keyboard users must always be able to see where they are */
+  :focus-visible{outline:3px solid #79c0ff; outline-offset:2px; border-radius:6px;}
+  button:focus-visible,summary:focus-visible,.chip:focus-visible,.colorChip:focus-visible,
+  #tabs button:focus-visible,#timeline:focus-visible{outline:3px solid #79c0ff; outline-offset:2px;}
+  ::placeholder{color:#8b949e; opacity:1;}
   ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-thumb{background:#333c48;border-radius:6px}
 
   /* ---------- Top bar ---------- */
@@ -111,13 +118,17 @@
     display:none; align-items:center; gap:10px; z-index:40;
     background:rgba(13,17,23,.92); border:1px solid var(--accent); border-radius:24px;
     padding:7px 10px 7px 16px; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px;}
-  #sessionModal .box{text-align:center;}
-  .sessKicker{color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.8px; margin-bottom:8px;}
-  .sessQ{font-size:20px; font-weight:700; margin:10px 0 18px; line-height:1.35;}
-  .sessBtns{display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap;}
-  .sessBtns button{padding:10px 18px; font-size:15px;}
-  #sessionModal textarea, #sessionModal input[type=text]{width:100%; text-align:left; margin-top:6px;}
-  .sessRecapLabel{text-align:left; color:var(--dim); font-size:12px; margin-top:12px;}
+  #sessionModal .box{text-align:center; padding:28px 26px; width:min(620px, 94vw);}
+  #sessionModal h3{font-size:26px; line-height:1.25; margin-bottom:10px;}
+  #sessionModal p{font-size:16px; line-height:1.5;}
+  .sessKicker{color:var(--dim); font-size:14px; text-transform:uppercase; letter-spacing:.8px; margin-bottom:10px;}
+  .sessQ{font-size:28px; font-weight:700; margin:14px 0 20px; line-height:1.3;}
+  .sessBtns{display:flex; gap:12px; justify-content:center; margin-top:22px; flex-wrap:wrap;}
+  .sessBtns button{padding:16px 26px; font-size:18px; min-height:56px;}
+  #sessionModal textarea, #sessionModal input[type=text]{width:100%; text-align:left; margin-top:8px;
+    font-size:17px; padding:12px 14px;}
+  .sessRecapLabel{text-align:left; color:var(--dim); font-size:14px; margin-top:16px;}
+  #sessionBar{font-size:15px;}
 
   /* tracking progress pill */
   #trackPill{position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
@@ -220,9 +231,93 @@
   #panel-coach .body .dimhead{color:var(--dim); font-size:11px; text-transform:uppercase;
     letter-spacing:.6px; margin-top:10px;}
 
+  /* ---------- "this week's session is ready" front door ---------- */
+  #watchBanner{display:none; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:14px 18px; background:linear-gradient(90deg,#15301d,#161b22);
+    border-bottom:1px solid var(--accent);}
+  #watchBanner .who{font-size:17px; font-weight:600; flex:1; min-width:200px;}
+  #watchBanner .who small{display:block; font-weight:400; color:var(--dim); font-size:13px; margin-top:2px;}
+  #watchStart{font-size:17px; padding:12px 24px;}
+  #watchLater{background:none; border:none; color:var(--dim); text-decoration:underline;}
+  #watchLater:hover{background:none; color:var(--text);}
+
+  /* ---------- "advanced" disclosure in the transport bar ---------- */
+  .adv{font-size:12px;}
+  .adv > summary{cursor:pointer; color:var(--dim); list-style:none; padding:5px 8px;
+    border:1px solid var(--line); border-radius:6px; background:var(--bg3);}
+  .adv > summary::-webkit-details-marker{display:none;}
+  .adv > summary::before{content:'⚙︎ ';}
+  .adv[open] > summary{color:var(--text);}
+  .advBody{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 2px 0;}
+  .advBody label{color:var(--dim);}
+
+  /* ---------- tooltips ---------- */
+  #tipBubble{position:fixed; z-index:140; display:none; max-width:min(300px, 88vw);
+    background:#f0f6fc; color:#0d1117; border-radius:8px; padding:9px 12px;
+    font-size:14px; line-height:1.4; box-shadow:0 8px 28px rgba(0,0,0,.55);
+    pointer-events:none;}
+
+  /* ---------- guided first-run tour ---------- */
+  #tourRing{position:fixed; border-radius:12px; pointer-events:none; z-index:130; display:none;
+    box-shadow:0 0 0 9999px rgba(4,8,15,.62), 0 0 0 3px var(--accent2), 0 0 22px rgba(88,166,255,.55);
+    transition:left .18s ease, top .18s ease, width .18s ease, height .18s ease;}
+  #tourBubble{position:fixed; z-index:131; display:none; width:min(330px, 88vw);
+    background:var(--bg2); border:1px solid var(--accent2); border-radius:12px; padding:14px 16px;
+    box-shadow:0 12px 44px rgba(0,0,0,.65);}
+  #tourBubble .step{color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.8px;}
+  #tourBubble .msg{font-size:15px; line-height:1.45; margin:6px 0 12px;}
+  #tourBubble .msg b{color:var(--accent2);}
+  #tourBubble .row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  #tourSkip{background:none; border:none; color:var(--dim); text-decoration:underline;
+    padding:6px 2px; font-size:13px;}
+  #tourSkip:hover{background:none; color:var(--text);}
+
+  /* ---------- comfort mode: bigger type and bigger targets, app-wide ---------- */
+  body.bigText{font-size:17px;}
+  body.bigText button,body.bigText input,body.bigText select,body.bigText textarea{font-size:17px;}
+  body.bigText button{padding:10px 16px;}
+  body.bigText .miniBtn{font-size:15px; padding:8px 13px;}
+  body.bigText .speedBtn{font-size:15px; padding:9px 12px;}
+  body.bigText .chip{font-size:15px; padding:7px 14px;}
+  body.bigText .colorChip{width:34px; height:34px; padding:0;}
+  body.bigText .toolGrid button{font-size:14px; padding:11px 4px;}
+  body.bigText .toolGrid button .ico{font-size:19px;}
+  body.bigText .hint,body.bigText .timeTag,body.bigText .fieldRow label,
+  body.bigText .cmpLabel,body.bigText .clipItem .tag,body.bigText .clipItem .notes,
+  body.bigText .section h4,body.bigText .tagGroup h5{font-size:15px;}
+  body.bigText #timecode{font-size:16px; min-width:180px;}
+  body.bigText .clipItem .title,body.bigText .annItem .lbl{font-size:16px;}
+  body.bigText #tabs button{font-size:16px; padding:14px 4px;}
+  body.bigText #sidebar{width:400px;}
+  body.bigText #topbar .logo{font-size:19px;}
+  body.bigText #videoName{font-size:14px;}
+  body.bigText #tipBubble{font-size:17px; max-width:min(360px,90vw);}
+  body.bigText #tourBubble{width:min(400px,92vw);}
+  body.bigText #tourBubble .msg{font-size:18px;}
+  body.bigText #tourBubble .step{font-size:13px;}
+  body.bigText .toast{font-size:17px; padding:13px 20px;}
+  body.bigText #panel-coach .body,body.bigText #panel-coach summary,
+  body.bigText #helpBox p,body.bigText #helpBox li,body.bigText #helpBox td{font-size:16px;}
+  body.bigText #dropHint .sub{font-size:16px;}
+  body.bigText #watchBanner .who{font-size:20px;}
+  body.bigText #watchBanner .who small{font-size:15px;}
+  body.bigText #watchStart{font-size:20px; padding:15px 28px;}
+  body.bigText #timeline{height:54px;}
+  #btnTextSize.active{background:var(--accent2); border-color:var(--accent2); color:#04121f; font-weight:700;}
+
   .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
     background:var(--bg3); border:1px solid var(--line); border-radius:8px; padding:9px 16px;
-    z-index:120; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px; transition:opacity .3s; }
+    z-index:120; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px; transition:opacity .3s;
+    display:flex; align-items:center; gap:14px; max-width:min(560px, 92vw); }
+  .toastBtn{flex:none; padding:5px 12px; font-weight:600;
+    background:var(--bg2); border:1px solid var(--accent2); color:var(--accent2);}
+  .toastBtn:hover{background:#132540;}
+  body.bigText .toastBtn{padding:8px 16px;}
+
+  /* nudge the control someone is looking for */
+  @keyframes pointAt{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0);}
+    50%{box-shadow:0 0 0 6px rgba(88,166,255,.5);}}
+  .pointAt{animation:pointAt 1s ease-in-out 2;}
 
   /* ---------- Touch & small screens (iPad portrait, phones) ---------- */
   #timeline{touch-action:none;}
@@ -253,25 +348,34 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <button id="btnOpen" class="primary">Open video…</button>
-  <button id="btnLibrary" title="Your game-film folder: point Film Room at it once and every game is one click away">📁 Games</button>
+  <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
+  <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
   <div class="spacer"></div>
-  <button id="btnBoard" title="Tactics board: a top-down pitch with draggable players — teach shape, runs, and schemes off-video. Works with all the drawing tools.">🗒 Board</button>
-  <button id="btnCompare" title="Side-by-side: play two clips in sync — his moment next to the model version (another clip, or a video file like a pro example)">⚖ Compare</button>
-  <button id="btnSnapshot" title="Save a still image of this frame with all drawings">📸 Still</button>
-  <button id="btnExport" title="Export the current In→Out range (or the whole video) as an annotated video file">🎬 Export clip</button>
-  <select id="exportMode" style="display:none" title="⚡ mp4: renders frame-by-frame into an H.264 .mp4 that plays natively on iPhone/iPad, carrying the game audio over from iPhone/.mov footage (silent under title cards and decision freezes). 🔊 real-time: records the screen pass in real time instead; format depends on the browser.">
-    <option value="fast">⚡ mp4 (fast)</option>
-    <option value="realtime">🔊 real-time</option>
+  <button id="btnBoard" data-tip="A top-down pitch you can draw on, with players you drag around. Use it when you want to show shape or a run away from the video.">🗒 Board</button>
+  <button id="btnCompare" data-tip="Play two clips at once, side by side and in step. Use it to put his moment next to the way it should look.">⚖ Compare</button>
+  <button id="btnSnapshot" data-tip="Save this exact frame, drawings and all, as a picture. Fastest way to text him one teaching image.">📸 Photo</button>
+  <button id="btnExport" data-tip="Turn the marked moment — or the whole game — into a video file with the drawings burned in, ready to send to his phone or play on the TV.">🎬 Save video</button>
+  <select id="exportMode" style="display:none" data-tip="How the video file gets made. “Best for iPhone” plays anywhere and is much faster. “Keeps sound” re-records the video as it plays, so it takes as long as the clip does.">
+    <option value="fast">Best for iPhone</option>
+    <option value="realtime">Keeps sound, slower</option>
   </select>
   <div class="divider"></div>
-  <button id="btnSaveProj" title="Download all clips + drawings as a project file">💾 Save project</button>
-  <button id="btnLoadProj">📂 Load project</button>
+  <button id="btnSaveProj" data-tip="Save all his clips and drawings into one small file you can back up or move to another computer. Your work is already saved automatically here.">💾 Save project</button>
+  <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
   <div class="divider"></div>
-  <button id="btnHelp">❓ Help</button>
+  <button id="btnTextSize" data-tip="Make everything on screen bigger — text, buttons, everything. Press it again to go back to normal.">Aa</button>
+  <button id="btnHelp" data-tip="How everything works, plus a button to run the walkthrough again.">❓ Help</button>
   <input type="file" id="fileVideo" accept="video/*,.mov,.mp4,.m4v,.webm" hidden>
   <input type="file" id="fileProj" accept=".json,.filmroom" hidden>
+</div>
+
+<!-- ============ "this week's film session is ready" front door ============ -->
+<div id="watchBanner">
+  <div class="who">▶ This week’s film session is ready
+    <small id="watchSub"></small></div>
+  <button class="primary" id="watchStart" data-tip="Play this week’s clips one at a time. Each one asks a question first, he answers out loud, then you watch what really happened.">Start watching</button>
+  <button id="watchLater" data-tip="Hide this for now. It comes back next time you open this game.">Not right now</button>
 </div>
 
 <!-- ======================= MAIN ======================= -->
@@ -283,41 +387,41 @@
         <canvas id="overlay"></canvas>
       </div>
       <div id="boardBar">
-        <select id="boardSelect" style="max-width:180px"></select>
-        <button class="miniBtn" id="boardNew">＋ New</button>
-        <button class="miniBtn" id="boardRename">✎ Rename</button>
+        <select id="boardSelect" style="max-width:180px" data-tip="Switch between the boards you have drawn. Each clip can have its own."></select>
+        <button class="miniBtn" id="boardNew" data-tip="Start another board with a fresh pitch and both teams lined up.">＋ New</button>
+        <button class="miniBtn" id="boardRename" data-tip="Give this board a name so you can find it again.">✎ Rename</button>
         <div class="divider"></div>
-        <select id="boardFormat"><option>9v9</option><option>7v7</option><option>5v5</option><option>11v11</option></select>
-        <button class="miniBtn" id="boardReset" title="Line the players back up in formation (keeps your drawings)">⟲ Line up</button>
+        <select id="boardFormat" data-tip="How many players a side. Changing it lines both teams up for that format."><option>9v9</option><option>7v7</option><option>5v5</option><option>11v11</option></select>
+        <button class="miniBtn" id="boardReset" data-tip="Put the players back in their starting formation. Your arrows and notes stay.">⟲ Line up</button>
         <div class="divider"></div>
-        <button class="miniBtn" id="boardPng" title="Save this board as an image">📸 PNG</button>
-        <button class="miniBtn danger" id="boardDelete">🗑</button>
+        <button class="miniBtn" id="boardPng" data-tip="Save this board as a picture you can text or print.">📸 PNG</button>
+        <button class="miniBtn danger" id="boardDelete" data-tip="Delete this board.">🗑</button>
         <div class="spacer"></div>
-        <button class="miniBtn primary" id="boardClose">✕ Close board</button>
+        <button class="miniBtn primary" id="boardClose" data-tip="Go back to the game video.">✕ Close board</button>
       </div>
       <div id="boardWrap"><canvas id="boardCanvas"></canvas></div>
       <div id="compareBar">
         <span style="color:var(--dim);font-size:12px">HIS</span>
-        <select id="cmpA"></select>
+        <select id="cmpA" data-tip="Which of his clips plays on the left."></select>
         <span style="color:var(--dim);font-size:12px">MODEL</span>
-        <select id="cmpB"></select>
-        <button class="miniBtn" id="cmpFileBtn" title="Use an outside video as the model side — e.g. a screen-recorded pro example">📂 File…</button>
+        <select id="cmpB" data-tip="What he is being compared against — another one of his clips, or a video from outside."></select>
+        <button class="miniBtn" id="cmpFileBtn" data-tip="Use a video from this computer as the example side — a pro clip you screen-recorded, say.">📂 File…</button>
         <div class="divider"></div>
-        <button class="miniBtn" id="cmpPlay" style="min-width:36px">▶</button>
-        <button class="miniBtn" id="cmpRestart" title="Back to the start of both">⟲</button>
-        <button class="miniBtn" id="cmpStepBack" title="One frame back (both)">◀︎</button>
-        <button class="miniBtn" id="cmpStepFwd" title="One frame forward (both)">▶︎</button>
-        <select id="cmpSpeed" title="Playback speed for both sides">
+        <button class="miniBtn" id="cmpPlay" style="min-width:36px" data-tip="Play or pause both sides together.">▶</button>
+        <button class="miniBtn" id="cmpRestart" data-tip="Send both sides back to the beginning.">⟲</button>
+        <button class="miniBtn" id="cmpStepBack" data-tip="Nudge both sides one frame back, for looking at the exact moment of the touch.">◀︎</button>
+        <button class="miniBtn" id="cmpStepFwd" data-tip="Nudge both sides one frame forward.">▶︎</button>
+        <select id="cmpSpeed" data-tip="Slow both sides down together. Half speed is usually enough to see the decision.">
           <option value="0.25">¼×</option><option value="0.5">½×</option>
           <option value="0.75">¾×</option><option value="1" selected>1×</option>
         </select>
         <div class="divider"></div>
-        <span style="color:var(--dim);font-size:12px" title="Nudge the model side so the key moments line up">align</span>
-        <button class="miniBtn" id="cmpOffMinus">−0.1</button>
+        <span style="color:var(--dim);font-size:12px" data-tip="Shift the example side a little earlier or later so the two moments happen at the same time.">align</span>
+        <button class="miniBtn" id="cmpOffMinus" data-tip="Start the example side a tenth of a second earlier.">−0.1</button>
         <span id="cmpOff" class="timeTag" style="min-width:44px;text-align:center">+0.0s</span>
-        <button class="miniBtn" id="cmpOffPlus">+0.1</button>
+        <button class="miniBtn" id="cmpOffPlus" data-tip="Start the example side a tenth of a second later.">+0.1</button>
         <div class="spacer"></div>
-        <button class="miniBtn primary" id="cmpClose">✕ Close</button>
+        <button class="miniBtn primary" id="cmpClose" data-tip="Go back to the single video.">✕ Close</button>
         <input type="file" id="cmpFile" accept="video/*,.mov,.mp4,.m4v,.webm" hidden>
       </div>
       <div id="compareWrap">
@@ -333,13 +437,15 @@
       <div id="dropHint">
         <div class="big">⚽🎥</div>
         <div class="chipRow" style="justify-content:center">
-          <button class="primary" id="bigOpen" style="font-size:16px;padding:12px 22px">🎞 Open a video…</button>
-          <button id="bigLibrary" style="font-size:16px;padding:12px 22px;display:none">📁 My games</button>
+          <button class="primary" id="bigOpen" style="font-size:16px;padding:12px 22px" data-tip="Pick a video of his game from this device. It never leaves your computer.">🎞 Open a video…</button>
+          <button id="bigLibrary" style="font-size:16px;padding:12px 22px;display:none" data-tip="Reopen a game from the film folder you chose.">📁 My games</button>
         </div>
         <div class="sub">
-          On <b>iPhone/iPad</b>: Open video… → <b>Photo Library</b> — your albums are right there.<br>
-          On the <b>Mac</b>: keep game films in a folder (drag them there from Photos — that works, unlike dragging into a browser) and use <b>📁 Games</b> to reopen any of them in one click. An iCloud Drive folder puts the same films on every device.<br>
-          YouTube film someone shared: screen-record the part you need (⌘⇧5 on Mac), then open that recording.
+          <b style="font-size:15px">Start by opening a video of his game.</b><br>
+          On an <b>iPhone or iPad</b>, that button opens your photo albums directly.<br>
+          On a <b>Mac</b>, keep game films in one folder and press <b>📁 Games</b> to reopen any of them in a single click from then on — the folder button needs Chrome or Edge, so on Safari use <b>Open a video…</b> instead.<br>
+          Sent film from YouTube? Screen-record the part you need (⌘⇧5 on a Mac) and open that recording.<br>
+          Nothing is uploaded — the video never leaves this device.
         </div>
       </div>
       <div id="trackPill">🎯 Tracking… <span id="trackPct">0%</span>
@@ -351,16 +457,16 @@
       <div id="decisionOverlay">
         <div class="card">
           <div class="brain">🧠</div>
-          <h3>Decision point</h3>
+          <h3>Your turn</h3>
           <p id="decisionQ"></p>
-          <button class="primary" id="btnResume">Show what happened ▶</button>
+          <button class="primary" id="btnResume">Show me what happened ▶</button>
         </div>
       </div>
     </div>
 
     <!-- transport -->
     <div id="transport">
-      <div id="timeline">
+      <div id="timeline" data-tip="The whole game, left to right. Drag anywhere on it to jump there. The coloured bars are clips you have saved.">
         <div id="tlInOut"></div>
         <div id="tlClips"></div>
         <div id="tlAnns"></div>
@@ -370,31 +476,35 @@
         <span id="timecode">0:00.00 / 0:00.00</span>
         <div class="divider"></div>
         <div class="ctlGroup">
-          <button id="btnBack5" title="Back 5s (J)">⏮ 5s</button>
-          <button id="btnFrameBack" title="Previous frame (←)">◀︎ fr</button>
-          <button id="btnPlay" class="primary" title="Play/Pause (Space)" style="min-width:44px">▶</button>
-          <button id="btnFrameFwd" title="Next frame (→)">fr ▶︎</button>
-          <button id="btnFwd5" title="Forward 5s (L)">5s ⏭</button>
+          <button id="btnBack5" data-tip="Jump back five seconds. Good for “run that back”. Keyboard: J">⏮ 5s</button>
+          <button id="btnFrameBack" data-tip="Go back one single frame — for landing exactly on the touch. Keyboard: left arrow">◀︎ fr</button>
+          <button id="btnPlay" class="primary" data-tip="Play or pause the game. Keyboard: space bar" style="min-width:44px">▶</button>
+          <button id="btnFrameFwd" data-tip="Go forward one single frame. Keyboard: right arrow">fr ▶︎</button>
+          <button id="btnFwd5" data-tip="Jump forward five seconds. Keyboard: L">5s ⏭</button>
         </div>
         <div class="divider"></div>
-        <div class="ctlGroup" id="speeds">
+        <div class="ctlGroup" id="speeds" data-tip="Slow the game down. Quarter speed makes a first touch or a scan easy to see and talk about.">
           <button class="speedBtn" data-speed="0.25">¼×</button>
           <button class="speedBtn" data-speed="0.5">½×</button>
           <button class="speedBtn" data-speed="0.75">¾×</button>
           <button class="speedBtn active" data-speed="1">1×</button>
         </div>
         <div class="divider"></div>
-        <div class="ctlGroup">
-          <button id="btnMarkIn" title="Mark clip start (I)">⟦ In</button>
-          <button id="btnMarkOut" title="Mark clip end (O)">Out ⟧</button>
-          <button id="btnSaveClip" class="primary" title="Tag and save the In→Out range as a clip">＋ Save clip</button>
-          <button id="btnStopLoop" style="display:none" title="Stop looping this clip">⏹ Stop loop</button>
+        <div class="ctlGroup" id="clipCtl">
+          <button id="btnMarkIn" data-tip="Mark where this moment begins. Press it a second or two before the touch you want to talk about. Keyboard: I">Start clip here</button>
+          <button id="btnMarkOut" data-tip="Mark where this moment ends. Keyboard: O">End clip here</button>
+          <button id="btnSaveClip" class="primary" data-tip="Keep the marked moment as a clip — you name it, say whether it is a strength or a work-on, and it goes in his library.">＋ Save clip</button>
+          <button id="btnStopLoop" style="display:none" data-tip="Stop replaying this clip over and over.">⏹ Stop loop</button>
         </div>
         <div class="spacer"></div>
-        <div class="ctlGroup">
-          <label style="color:var(--dim);font-size:12px">fps</label>
-          <input id="fpsInput" type="number" value="30" min="10" max="120" step="1" style="width:56px" title="Frame rate used for frame-stepping. iPhone video is usually 30 or 60.">
-        </div>
+        <details class="adv" id="advBox">
+          <summary data-tip="Settings you almost never need. Everything works without opening this.">Advanced</summary>
+          <div class="advBody">
+            <label for="fpsInput">Pictures per second in this video</label>
+            <input id="fpsInput" type="number" value="30" min="10" max="120" step="1" style="width:66px" data-tip="Only the single-frame buttons use this. Most video is 30; iPhone video is often 60. If frame-stepping feels off, try 60.">
+            <span class="hint" style="margin:0">Most video is 30 — iPhone is often 60.</span>
+          </div>
+        </details>
       </div>
     </div>
   </div>
@@ -402,9 +512,9 @@
   <!-- ======================= SIDEBAR ======================= -->
   <div id="sidebar">
     <div id="tabs">
-      <button data-tab="draw" class="active">✏️ Draw</button>
-      <button data-tab="clips">🎬 Clips</button>
-      <button data-tab="coach">🧠 Coach</button>
+      <button data-tab="draw" class="active" data-tip="The drawing tools — spotlights, arrows, zones — for marking up what is on screen.">✏️ Draw</button>
+      <button data-tab="clips" data-tip="Every moment you have saved, plus this week's reel and the session log. This is his library.">🎬 Clips</button>
+      <button data-tab="coach" data-tip="Coaching notes to lean on: what to look for by position, and questions to ask instead of telling him.">🧠 Coach</button>
     </div>
 
     <!-- ---- DRAW TAB ---- -->
@@ -412,68 +522,68 @@
       <div class="section">
         <h4>Tool</h4>
         <div class="toolGrid" id="toolGrid">
-          <button data-tool="select" class="active"><span class="ico">🖱</span>Select</button>
-          <button data-tool="spot"><span class="ico">🔦</span>Spotlight</button>
-          <button data-tool="arrow"><span class="ico">➡️</span>Arrow</button>
-          <button data-tool="zone"><span class="ico">▨</span>Zone</button>
-          <button data-tool="pen"><span class="ico">✍️</span>Pen</button>
-          <button data-tool="text"><span class="ico">🔤</span>Text</button>
+          <button data-tool="select" class="active" data-tip="Pick up a drawing you already made, to move it, retime it, or delete it."><span class="ico">🖱</span>Select</button>
+          <button data-tool="spot" data-tip="Put a ring around a player so you both know exactly who you are talking about. Use it on him first, and on the defender in another colour."><span class="ico">🔦</span>Spotlight</button>
+          <button data-tool="arrow" data-tip="Draw where the ball or the run should go. You can say whether it is a pass, a run, a dribble or a shot."><span class="ico">➡️</span>Arrow</button>
+          <button data-tool="zone" data-tip="Shade an area of the pitch — the space that was open, or the space he needed to cover."><span class="ico">▨</span>Zone</button>
+          <button data-tool="pen" data-tip="Draw freehand, like a pen on a photo. Good for circling something quickly."><span class="ico">✍️</span>Pen</button>
+          <button data-tool="text" data-tip="Type a short note right on the video, such as “look up here”."><span class="ico">🔤</span>Text</button>
         </div>
-        <div class="hint" id="toolHint">Click a drawing to select it. Drag to move it. With a spotlight selected, drag on the video to set where the player is <i>at the current time</i> — it will follow between keyframes.</div>
+        <div class="hint" id="toolHint">Tap a drawing to pick it up, then drag it to move it. With a ring picked up, dragging it on the video says where the player is <i>at this moment</i> — the ring glides between the spots you set.</div>
       </div>
 
       <div class="section">
         <h4>Color</h4>
-        <div class="chipRow" id="colorRow"></div>
+        <div class="chipRow" id="colorRow" data-tip="The colour of the next drawing. Give him one colour and the defender another, so it is obvious who is who."></div>
       </div>
 
       <div class="section" id="labelSection">
-        <div class="fieldRow"><label>Label</label><input type="text" id="labelInput" placeholder="e.g. Marco, #10, CB…"></div>
+        <div class="fieldRow"><label>Label</label><input type="text" id="labelInput" placeholder="e.g. Marco, #10, CB…" data-tip="The name that gets printed next to the next drawing you make — his name, a shirt number, or a position."></div>
       </div>
 
       <div class="section" id="arrowStyleSection" style="display:none">
         <h4>Arrow means</h4>
         <div class="chipRow" id="arrowStyleRow">
-          <button class="chip active" data-astyle="pass">Pass ➝</button>
-          <button class="chip" data-astyle="run">Run ⇢</button>
-          <button class="chip" data-astyle="dribble">Dribble ↝</button>
-          <button class="chip" data-astyle="shot">Shot ⤞</button>
+          <button class="chip active" data-astyle="pass" data-tip="A solid line — the ball played to someone.">Pass ➝</button>
+          <button class="chip" data-astyle="run" data-tip="A dashed line — a player running, without the ball.">Run ⇢</button>
+          <button class="chip" data-astyle="dribble" data-tip="A wavy line — carrying the ball himself.">Dribble ↝</button>
+          <button class="chip" data-astyle="shot" data-tip="A heavy line — a strike at goal.">Shot ⤞</button>
         </div>
       </div>
 
       <div class="section" id="zoneShapeSection" style="display:none">
         <h4>Zone shape</h4>
         <div class="chipRow" id="zoneShapeRow">
-          <button class="chip active" data-zshape="rect">Rectangle</button>
-          <button class="chip" data-zshape="ellipse">Ellipse</button>
+          <button class="chip active" data-zshape="rect" data-tip="A box — good for a channel or a third of the pitch.">Rectangle</button>
+          <button class="chip" data-zshape="ellipse" data-tip="An oval — good for a pocket of space between defenders.">Ellipse</button>
         </div>
       </div>
 
       <div class="section">
-        <h4>Decision point</h4>
+        <h4>Stop and ask him a question</h4>
         <div class="fieldRow">
-          <input type="text" id="pauseQInput" placeholder="What would you do here?" style="flex:1">
-          <button id="btnAddPause" title="Video will auto-pause here and show this question before playing on">⏸ Add</button>
+          <input type="text" id="pauseQInput" placeholder="What would you do here?" style="flex:1" data-tip="The question he should answer before he sees what happened, such as “where is the space?”">
+          <button id="btnAddPause" data-tip="Stop the video right here and put your question on screen. He answers first, then you press play and the film shows him.">⏸ Add</button>
         </div>
-        <div class="hint">The video pauses here on playback and asks the question — let him answer out loud, then hit play to see what actually happened.</div>
+        <div class="hint">The video stops at this exact moment and puts your question on screen. He answers out loud first, then you press play and the film shows him what really happened.</div>
       </div>
 
       <div class="section" id="selSection" style="display:none">
         <h4>Selected drawing</h4>
-        <div class="fieldRow"><label>Label</label><input type="text" id="selLabel"></div>
+        <div class="fieldRow"><label>Label</label><input type="text" id="selLabel" data-tip="Rename the drawing you have picked — the name shows on the video."></div>
         <div class="fieldRow"><label>Visible</label>
           <span class="timeTag" id="selTimes"></span>
         </div>
         <div class="chipRow" style="margin-bottom:6px">
-          <button class="miniBtn" id="selStartHere">Start = playhead</button>
-          <button class="miniBtn" id="selEndHere">End = playhead</button>
-          <button class="miniBtn" id="selKeyHere" style="display:none">＋ Keyframe here</button>
-          <button class="miniBtn" id="selTrack" style="display:none" title="Automatically follow the player from the playhead to this spotlight's End time — no manual keyframes needed">🎯 Auto-track → End</button>
-          <button class="miniBtn" id="selSizeDown" style="display:none" title="Smaller ring — for zoomed-out footage where players are small">Ring −</button>
-          <button class="miniBtn" id="selSizeUp" style="display:none" title="Bigger ring — for close-up footage">Ring ＋</button>
+          <button class="miniBtn" id="selStartHere" data-tip="Make this drawing appear from the moment you are stopped on, instead of earlier.">Appears here</button>
+          <button class="miniBtn" id="selEndHere" data-tip="Make this drawing disappear at the moment you are stopped on. Set this to the end of the play before using Auto-track.">Disappears here</button>
+          <button class="miniBtn" id="selKeyHere" style="display:none" data-tip="Pin the ring to where he is standing right now. Do that a few times through a play and the ring glides along with him.">📍 Pin him here</button>
+          <button class="miniBtn" id="selTrack" style="display:none" data-tip="Follows the player you spotlighted for the rest of the play, so you do not have to move the ring by hand. Press Escape to stop it.">🎯 Auto-track</button>
+          <button class="miniBtn" id="selSizeDown" style="display:none" data-tip="Make the ring smaller. Use it when the camera is far away and the players are tiny.">Ring −</button>
+          <button class="miniBtn" id="selSizeUp" style="display:none" data-tip="Make the ring bigger, for close-up video.">Ring ＋</button>
         </div>
         <div class="chipRow">
-          <button class="miniBtn danger" id="selDelete">🗑 Delete</button>
+          <button class="miniBtn danger" id="selDelete" data-tip="Remove this drawing. If it was a mistake you can undo it straight away.">🗑 Delete</button>
         </div>
       </div>
 
@@ -487,35 +597,35 @@
     <div class="tabPanel" id="panel-clips">
       <div class="section">
         <div class="chipRow" id="clipFilterRow">
-          <button class="chip active" data-cfilter="all">All</button>
-          <button class="chip" data-cfilter="positive">👍 Strengths</button>
-          <button class="chip" data-cfilter="negative">🔧 Work-ons</button>
-          <button class="chip" data-cfilter="neutral">💡 Teachable</button>
+          <button class="chip active" data-cfilter="all" data-tip="Show every clip you have saved.">All</button>
+          <button class="chip" data-cfilter="positive" data-tip="Show only the things he did well. Start film sessions here.">👍 Strengths</button>
+          <button class="chip" data-cfilter="negative" data-tip="Show only the things to work on.">🔧 Work-ons</button>
+          <button class="chip" data-cfilter="neutral" data-tip="Show the teaching moments — not good or bad, just worth understanding.">💡 Teachable</button>
         </div>
         <div class="fieldRow" style="margin-top:8px">
-          <select id="clipTagFilter" style="flex:1"><option value="">Any tag…</option></select>
+          <select id="clipTagFilter" style="flex:1" data-tip="Narrow the list to one theme, such as first touch or scanning."><option value="">Any tag…</option></select>
         </div>
       </div>
       <div class="section">
         <h4>🎞 Highlight reel</h4>
-        <div class="fieldRow"><input type="text" id="reelTitle" placeholder="Reel title, e.g. Week 3 — playing between the lines" style="flex:1"></div>
+        <div class="fieldRow"><input type="text" id="reelTitle" placeholder="Reel title, e.g. Week 3 — playing between the lines" style="flex:1" data-tip="What to call this week's set of clips. It shows on the opening card of the video and at the top of a session."></div>
         <div id="reelList"></div>
         <div class="chipRow" style="margin-top:6px">
-          <button class="primary" id="btnExportReel">🎬 Export reel</button>
-          <button id="btnRunSession" title="Run these clips as a guided film session: each clip asks its question first, he answers, then you watch what happened. Anyone can run it — no coaching required.">🎓 Run session</button>
-          <button id="btnClearReel">Clear</button>
+          <button class="primary" id="btnExportReel" data-tip="Make one video out of all the clips below, with a title card in front of each. That is the file to send to a phone and play on the TV.">🎬 Save as one video</button>
+          <button id="btnRunSession" data-tip="Watch the clips below together, right here. Each one asks its question first, he answers out loud, then you watch what really happened. Anyone can run it — no coaching needed.">🎓 Watch together</button>
+          <button id="btnClearReel" data-tip="Empty this week's list. The clips themselves stay in his library.">Clear</button>
         </div>
-        <div class="hint">Add clips with <b>➕ Reel</b> below, order them with ↑↓. <b>Export reel</b> makes one video for the TV; <b>Run session</b> plays the same list as a guided Q&amp;A right here and logs his answers.</div>
+        <div class="hint">This is the set you watch together this week. Add moments with <b>➕ Reel</b> on any clip below, put them in order with ↑↓, then either save them as one video for the TV or press <b>🎓 Watch together</b> to go through them here.</div>
       </div>
       <div class="section">
         <h4>Clips <span id="clipCount" style="color:var(--dim)"></span></h4>
         <div id="clipList"></div>
-        <div class="hint" id="clipEmptyHint">Mark <b>In</b> and <b>Out</b> around a moment, then hit <b>＋ Save clip</b> to tag it. Clips loop when you play them — perfect for “watch it again, what do you see?”</div>
+        <div class="hint" id="clipEmptyHint">No moments saved yet. Under the video, press <b>Start clip here</b> when a moment begins and <b>End clip here</b> when it ends, then <b>＋ Save clip</b>. Saved clips replay on a loop — perfect for “watch it again, what do you see?”</div>
       </div>
       <div class="section">
         <h4>📓 Session log <span id="sessionCount" style="color:var(--dim)"></span></h4>
         <div id="sessionLog"></div>
-        <div class="hint" id="sessionEmptyHint">Finished sessions land here — his answers, what went well, and the week’s work-on.</div>
+        <div class="hint" id="sessionEmptyHint">Nothing here yet. After you watch a set of clips together with <b>🎓 Watch together</b>, his answers and the week’s one thing to work on are kept here.</div>
       </div>
     </div>
 
@@ -626,35 +736,35 @@
   <div class="box">
     <h3 id="clipModalTitle">Save clip</h3>
     <div class="fieldRow"><label>Range</label><span class="timeTag" id="clipModalRange"></span></div>
-    <div class="fieldRow"><label>Title</label><input type="text" id="clipTitle" placeholder="e.g. Great scan → line-breaking pass" style="flex:1"></div>
+    <div class="fieldRow"><label>Title</label><input type="text" id="clipTitle" placeholder="e.g. Great scan → line-breaking pass" style="flex:1" data-tip="Name this moment in a few words, the way you would describe it to him. It shows on the clip's title card."></div>
     <div class="fieldRow"><label>This is…</label>
       <div class="chipRow" id="ratingRow">
-        <button class="chip" data-rating="positive">👍 Strength</button>
-        <button class="chip" data-rating="negative">🔧 Work-on</button>
-        <button class="chip" data-rating="neutral">💡 Teachable</button>
+        <button class="chip" data-rating="positive" data-tip="Something he did well. Sessions go better when these come first.">👍 Strength</button>
+        <button class="chip" data-rating="negative" data-tip="Something to work on. Never “bad” — just the next thing to get better at.">🔧 Work-on</button>
+        <button class="chip" data-rating="neutral" data-tip="A moment worth understanding, good or bad — a decision worth talking through.">💡 Teachable</button>
       </div>
     </div>
     <div class="fieldRow">
       <label>Position</label>
-      <select id="clipPosition">
+      <select id="clipPosition" data-tip="Where he was playing in this moment. It gets printed on the clip's title card.">
         <option>Attacking Mid</option><option>Winger</option><option>Striker</option>
         <option>Center Mid</option><option>Def Mid</option><option>Defender</option>
         <option>Goalkeeper</option><option>Team</option>
       </select>
       <label style="min-width:0">Format</label>
-      <select id="clipFormat"><option>9v9</option><option>7v7</option><option>5v5</option><option>11v11</option></select>
+      <select id="clipFormat" data-tip="How many players a side this game was."><option>9v9</option><option>7v7</option><option>5v5</option><option>11v11</option></select>
     </div>
     <div style="display:flex; justify-content:flex-end; margin-top:10px">
-      <button class="miniBtn" id="btnEditTags" title="Rename, remove, or add tags so they match the words he hears from his coach">✎ Edit tag list</button>
+      <button class="miniBtn" id="btnEditTags" data-tip="Change these labels to the words his own coach uses. Rename them, delete the ones you never use, add your own.">✎ Edit tag list</button>
     </div>
     <div id="tagGroups" style="margin-top:4px"></div>
     <div class="fieldRow" style="align-items:flex-start; margin-top:8px">
       <label>Notes</label>
-      <textarea id="clipNotes" rows="3" style="flex:1" placeholder="What to look for, the coaching point, what he said he saw…"></textarea>
+      <textarea id="clipNotes" rows="3" style="flex:1" placeholder="What to look for, the coaching point, what he said he saw…" data-tip="The coaching point. It gets printed on the title card when you save this clip as a video, so the clip explains itself without you."></textarea>
     </div>
     <div class="fieldRow">
       <label>Ask him</label>
-      <input type="text" id="clipAsk" style="flex:1" placeholder="Session question, e.g. Where is the space? (optional)">
+      <input type="text" id="clipAsk" style="flex:1" placeholder="Session question, e.g. Where is the space? (optional)" data-tip="The question he gets asked before this clip plays in a guided session. Leave it blank and a general one is used.">
     </div>
     <div class="foot">
       <button id="clipCancel">Cancel</button>
@@ -670,7 +780,7 @@
     <div class="hint" id="libHint">Pick the folder where you keep game videos — an <b>iCloud Drive</b> folder works great (the same films show up on your Mac, iPhone, and iPad). Film Room remembers it; drag new games into it from Photos or Finder and they appear here.</div>
     <div id="libList" style="margin-top:10px"></div>
     <div class="foot" style="justify-content:space-between">
-      <button id="libChoose">📂 Choose folder…</button>
+      <button id="libChoose" data-tip="Pick the folder where you keep game films. Film Room remembers it, so every game is one click away after this.">📂 Choose folder…</button>
       <button class="primary" id="libClose">Close</button>
     </div>
   </div>
@@ -688,7 +798,7 @@
     <div class="hint" style="margin-bottom:10px">Click a tag to rename it (clear the name to remove it). Renames update this project’s saved clips too — use the words his coach uses.</div>
     <div id="tagEditor"></div>
     <div class="foot" style="justify-content:space-between">
-      <button id="tagReset">Reset to defaults</button>
+      <button id="tagReset" data-tip="Put the original list of labels back, undoing your renames.">Reset to defaults</button>
       <button class="primary" id="tagDone">Done</button>
     </div>
   </div>
@@ -702,40 +812,56 @@
     <ol>
       <li><b>Get the footage in.</b> On iPhone/iPad: <b>Open from Photos</b> is Apple's own picker, albums and all. On the Mac: keep games in one folder (an iCloud Drive folder shares it with every device) and point <b>📁 Games</b> at it once — every game is then one click away. Drag films into that folder from the Photos app via Finder (that drag works; dragging into a browser window doesn't). YouTube film someone shared: press <kbd>⌘⇧5</kbd>, screen-record the section, open that file here. Everything stays on your machine — nothing is uploaded.</li>
       <li><b>Find a moment.</b> Use slow-mo and frame-step to land on the exact touch or decision.</li>
-      <li><b>Draw it.</b> Spotlight him (it follows between keyframes), arrow where the pass/run should go, zone the open space.</li>
-      <li><b>Add a decision point</b> just before the moment — on playback it pauses and asks him the question first.</li>
-      <li><b>Save it as a clip</b> with tags (👍 strength / 🔧 work-on) so it goes in his library.</li>
-      <li><b>Export</b> the annotated clip and AirDrop it to his iPad/phone, or review together in the app.</li>
-      <li>End of the week: tick the best clips into the <b>🎞 highlight reel</b> (Clips tab), order them strengths-first, and export one video for the TV — or hit <b>🎓 Run session</b> to play the same list as a guided Q&amp;A that logs his answers. Anyone can run it; the questions are built in.</li>
+      <li><b>Draw on it.</b> Put a ring on him (it follows him along), an arrow where the pass or run should have gone, a shaded area over the space that was open.</li>
+      <li><b>Add a question</b> just before the moment — the video stops there and asks him first, before he sees what happened.</li>
+      <li><b>Keep the moment.</b> Press <b>Start clip here</b> when it begins and <b>End clip here</b> when it is over, then <b>＋ Save clip</b> and mark it 👍 strength / 🔧 work-on so it goes in his library.</li>
+      <li><b>🎬 Save video</b> turns that clip into a file you can AirDrop to his iPad or phone — or just watch it together here.</li>
+      <li>End of the week: press <b>➕ Reel</b> on the best clips (Clips tab), put the strengths first, then either <b>🎬 Save as one video</b> for the TV or <b>🎓 Watch together</b> to go through them here — each clip asks its question first and his answers are written down for you. Anyone can run it; the questions are built in.</li>
     </ol>
     <h4>Keyboard shortcuts</h4>
     <table>
       <tr><td><kbd>Space</kbd> or <kbd>K</kbd></td><td>Play / pause</td></tr>
-      <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Step one frame (set fps to match the video — iPhone is usually 30 or 60)</td></tr>
+      <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Move one single picture at a time</td></tr>
       <tr><td><kbd>J</kbd> / <kbd>L</kbd></td><td>Back / forward 5 seconds</td></tr>
-      <tr><td><kbd>I</kbd> / <kbd>O</kbd></td><td>Mark clip In / Out</td></tr>
-      <tr><td><kbd>Enter</kbd></td><td>Save clip from In→Out</td></tr>
+      <tr><td><kbd>I</kbd> / <kbd>O</kbd></td><td>Start clip here / End clip here</td></tr>
+      <tr><td><kbd>Enter</kbd></td><td>Save the marked moment as a clip</td></tr>
       <tr><td><kbd>1</kbd>–<kbd>6</kbd></td><td>Tools: Select, Spotlight, Arrow, Zone, Pen, Text</td></tr>
       <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Slower / faster playback</td></tr>
       <tr><td><kbd>Delete</kbd></td><td>Delete selected drawing</td></tr>
       <tr><td><kbd>⌘Z</kbd></td><td>Undo</td></tr>
     </table>
     <h4>Spotlights that follow a player</h4>
-    <p><b>Auto-track:</b> drop a spotlight on him, scrub to where the play ends and press <b>End = playhead</b>, scrub back, then hit <b>🎯 Auto-track → End</b>. It follows him automatically and writes editable keyframes (Esc cancels). If it says it lost him — players crossing, camera whip — drag the ring back onto him at that moment and Track again from there.</p>
-    <p><b>By hand:</b> scrub forward a second or two and, with the spotlight selected, drag it to where he is now (or press <b>＋ Keyframe here</b>). The ring glides between keyframes, so 3–4 keyframes usually covers a whole play. Either way, give it his name and a color — and spotlight a defender or teammate in another color to show the relationship.</p>
+    <p><b>Auto-track:</b> put a spotlight on him, move to where the play ends and press <b>Disappears here</b>, come back to the start, then press <b>🎯 Auto-track</b>. The ring follows him on its own, and you can still drag it anywhere it is not quite right (Esc stops it). If it says it lost him — players crossing, camera whip — drag the ring back onto him at that moment and press Auto-track again from there.</p>
+    <p><b>By hand:</b> move forward a second or two and, with the spotlight picked, drag it to where he is now (or press <b>📍 Pin him here</b>). The ring glides between the points you set, so three or four of them usually covers a whole play. Either way, give it his name and a color — and spotlight a defender or teammate in another color to show the relationship.</p>
     <h4>Saving your work</h4>
     <p>Everything autosaves in this browser per video file (matched by file name + size), so reopening the same file restores your clips and drawings. <b>💾 Save project</b> downloads a backup file you can move between machines or keep with the video; <b>📂 Load project</b> brings it back.</p>
     <h4>Exports — made to watch without you</h4>
-    <p><b>🎬 Export clip</b> renders a saved clip with every drawing burned in, at up to 1080p (looks right on a big TV). The export opens with a <b>title card</b> showing the rating, position, and your coaching note, and any <b>decision point</b> in the clip becomes a built-in freeze-frame showing the question before the play continues — so the clip teaches on its own when Mom runs it or he watches solo. The fast ⚡ mp4 mode carries the <b>game audio</b> over from iPhone/.mov footage, muted under the card and freezes. AirDrop the file to a phone/iPad and AirPlay it to the TV. <b>📸 Still</b> saves the current frame as an image — fastest way to text him one teaching picture.</p>
-    <h4>Side-by-side compare</h4>
-    <p><b>⚖</b> on any clip plays it in sync next to a “model” — another clip, or an outside file (📂 in the compare bar). Both sides slow-mo and frame-step together, the pair loops, and the <b>align</b> nudge lines the moments up. <b>📸</b> saves a labeled two-pane image.</p>
+    <p><b>🎬 Save video</b> turns a saved clip into a video file with every drawing burned in, big enough to look right on a large TV. It opens with a <b>title card</b> — the clip's name, whether it is a strength or a work-on, and your coaching note — and any <b>question</b> you added inside the clip becomes a built-in pause showing that question before the play continues. That is what makes a clip teach on its own when someone else is watching it with him, or when he watches alone. The game sound comes along too. AirDrop the file to a phone or iPad and play it on the TV. <b>📸 Photo</b> saves the frame you are on as a picture — the fastest way to text him one teaching image.</p>
+    <h4>Two clips side by side</h4>
+    <p><b>⚖</b> on any clip plays it next to an example — another one of his clips, or a video from this computer (📂 in the bar at the top). Both sides slow down and step together, the pair repeats, and the <b>align</b> buttons shift the example a little so the two moments happen at the same time. <b>📸</b> saves both sides as one labelled picture.</p>
     <h4>Tactics board</h4>
     <p><b>🗒 Board</b> swaps to a top-down pitch with both teams in formation — drag the chips, double-click to name them, and draw with the same tools to teach shape and runs off-video. Each clip's <b>🗒</b> button opens a board linked to that moment. <b>📸</b> exports the board as an image.</p>
     <h4>Your words, not mine</h4>
     <p>The tag list is a starting point. In the Save-clip dialog hit <b>✎ Edit tag list</b> to rename any tag to the words his coach uses, remove ones you don't use, or add your own — renames update clips you've already saved.</p>
     <h4>Zoomed-out footage</h4>
-    <p>On far sideline or Trace-camera film, players are small: use <b>Ring −</b> on a selected spotlight to shrink the ring so it fits the player — Auto-track then automatically works at higher resolution to keep the lock. The tracker shrugs off exposure/brightness drift and coasts through another player briefly crossing in front (watch the <b>lock</b> number in the tracking pill — it dips and recovers). Set fps to match the footage (Trace/YouTube is usually 30).</p>
-    <div class="foot"><button class="primary" id="helpClose">Got it</button></div>
+    <p>On far-away sideline or Trace-camera film the players are small: press <b>Ring −</b> on a spotlight to shrink the ring until it fits him — Auto-track then works harder to keep hold of him. It copes with the picture getting brighter and darker, and with another player crossing in front for a moment (watch the <b>lock</b> number while it runs — it dips and recovers).</p>
+    <div class="foot" style="justify-content:space-between">
+      <button id="helpTour">↻ Restart the walkthrough</button>
+      <button class="primary" id="helpClose">Got it</button>
+    </div>
+  </div>
+</div>
+
+<div id="tipBubble" role="tooltip"></div>
+
+<!-- ======================= GUIDED TOUR ======================= -->
+<div id="tourRing"></div>
+<div id="tourBubble" role="dialog" aria-live="polite">
+  <div class="step" id="tourStep"></div>
+  <div class="msg" id="tourMsg"></div>
+  <div class="row">
+    <button id="tourSkip">Skip the tour</button>
+    <span class="step" id="tourDots"></span>
   </div>
 </div>
 
@@ -810,9 +936,30 @@ function fmtT(t){
   const m = Math.floor(t/60), s = t%60;
   return m + ':' + (s<10?'0':'') + s.toFixed(2);
 }
-function toast(msg, ms=2200){
+let bigText = false;
+function setTextSize(big){
+  bigText = !!big;
+  document.body.classList.toggle('bigText', bigText);
+  $('#btnTextSize').classList.toggle('active', bigText);
+  try { localStorage.setItem('filmroom:textSize', bigText ? 'large' : 'normal'); } catch(e){}
+  layout();
+  if (typeof tourPlace === 'function') tourPlace();
+}
+
+function toast(msg, ms=2200, action){
+  if (bigText) ms = Math.round(ms * 1.6);   // more words on screen, more time to read them
   const el = document.createElement('div');
-  el.className = 'toast'; el.textContent = msg;
+  el.className = 'toast';
+  const span = document.createElement('span');
+  span.textContent = msg;
+  el.appendChild(span);
+  if (action){
+    const b = document.createElement('button');
+    b.className = 'toastBtn';
+    b.textContent = action.label;
+    b.onclick = () => { el.remove(); action.fn(); };
+    el.appendChild(b);
+  }
   document.body.appendChild(el);
   setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(), 350); }, ms);
 }
@@ -841,14 +988,33 @@ function pushUndo(){
     boards: project.boards || [], reel: project.reel || [], sessions: project.sessions || [] }));
   if (undoStack.length > 60) undoStack.shift();
 }
-function undo(){
-  const snap = undoStack.pop();
-  if (!snap) return toast('Nothing to undo');
-  const s = JSON.parse(snap);
+function restoreState(s){
   project.annotations = s.annotations; project.clips = s.clips;
   project.boards = s.boards || []; project.reel = s.reel || []; project.sessions = s.sessions || [];
   ui.selectedId = null; ui.boardSel = null;
-  persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); renderBoardBar();
+  persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+  renderBoardBar(); updateWatchBanner();
+}
+function undo(){
+  const snap = undoStack.pop();
+  if (!snap) return toast('There is nothing left to undo.');
+  restoreState(JSON.parse(snap));
+}
+/* Deleting is cheap to take back, so nothing asks "are you sure?" — it just
+   happens, and the message that says so carries the way back. The snapshot is
+   captured here rather than popped off the undo stack later, so the Undo button
+   still restores exactly this deletion even after other edits. */
+function deleteWithUndo(what, fn){
+  pushUndo();
+  const snap = undoStack[undoStack.length - 1];
+  fn();
+  persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+  renderBoardBar(); updateWatchBanner();
+  toast(what + ' deleted.', 7000, { label: '↩ Undo', fn: () => {
+    pushUndo();
+    restoreState(JSON.parse(snap));
+    toast('Put back.');
+  }});
 }
 /* every mutation goes through mutate(fn) */
 function mutate(fn){
@@ -856,6 +1022,7 @@ function mutate(fn){
   fn();
   persist();
   renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); renderBoardBar();
+  updateWatchBanner();
 }
 
 /* ---------------- video loading ---------------- */
@@ -902,7 +1069,7 @@ function loadVideo(file){
     if (restored && (restored.annotations?.length || restored.clips?.length)) {
       project = restored;
       project.videoKey = key; project.videoName = file.name;
-      toast(`Restored ${project.clips.length} clip(s) and ${project.annotations.length} drawing(s) for this video`);
+      toast(`Picked up where you left off: ${project.clips.length} clip${project.clips.length === 1 ? '' : 's'} and ${project.annotations.length} drawing${project.annotations.length === 1 ? '' : 's'} for this game.`, 5000);
     } else {
       project = { version:1, videoName:file.name, videoKey:key, fps: project.fps||30, annotations:[], clips:[] };
     }
@@ -918,6 +1085,9 @@ function loadVideo(file){
     undoStack = [];
     layout();
     renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); updateInOutUI();
+    watchDismissed = false;                 // a newly opened game offers its session again
+    updateWatchBanner();
+    tourEvent('open');
   };
 }
 
@@ -1057,25 +1227,40 @@ window.addEventListener('resize', layout);
 const fps = () => Number($('#fpsInput').value) || 30;
 $('#fpsInput').onchange = () => { project.fps = fps(); persist(); };
 
+/* Pressing play with nothing open used to do nothing at all, which reads as
+   "this app is broken". Say what is missing and point at the button that fixes it. */
+function needVideo(){
+  if (video.src) return true;
+  const btn = $('#dropHint').style.display === 'none' ? $('#btnOpen') : $('#bigOpen');
+  btn.classList.remove('pointAt');
+  void btn.offsetWidth;                       // restart the animation if it is already running
+  btn.classList.add('pointAt');
+  setTimeout(() => btn.classList.remove('pointAt'), 2200);
+  toast('There is no game open yet — press “' + btn.textContent.trim() + '” to pick one.', 4500);
+  return false;
+}
+
 function togglePlay(){
   if (ui.compareMode) return cmpToggle();
-  if (!video.src || ui.boardMode) return;
+  if (ui.boardMode) return;
+  if (!needVideo()) return;
   hideDecision();
   if (video.paused) video.play(); else video.pause();
 }
 $('#btnPlay').onclick = togglePlay;
-video.addEventListener('play',  () => $('#btnPlay').textContent = '❚❚');
+video.addEventListener('play',  () => { $('#btnPlay').textContent = '❚❚'; tourEvent('play'); });
 video.addEventListener('pause', () => $('#btnPlay').textContent = '▶');
 
 function step(frames){
   if (ui.compareMode) return cmpStep(frames);
+  if (!needVideo()) return;
   video.pause();
   video.currentTime = clamp(video.currentTime + frames / fps(), 0, video.duration || 0);
 }
 $('#btnFrameBack').onclick = () => step(-1);
 $('#btnFrameFwd').onclick  = () => step(1);
-$('#btnBack5').onclick = () => video.currentTime = clamp(video.currentTime - 5, 0, video.duration||0);
-$('#btnFwd5').onclick  = () => video.currentTime = clamp(video.currentTime + 5, 0, video.duration||0);
+$('#btnBack5').onclick = () => { if (needVideo()) video.currentTime = clamp(video.currentTime - 5, 0, video.duration||0); };
+$('#btnFwd5').onclick  = () => { if (needVideo()) video.currentTime = clamp(video.currentTime + 5, 0, video.duration||0); };
 
 $$('#speeds .speedBtn').forEach(b => b.onclick = () => setSpeed(Number(b.dataset.speed)));
 function setSpeed(sp){
@@ -1097,6 +1282,7 @@ function seekFromEvent(e){
 }
 timeline.addEventListener('pointerdown', e => {
   if (!video.duration) return;
+  tourEvent('play');
   timeline.setPointerCapture(e.pointerId);
   seekFromEvent(e);
   const mv = ev => seekFromEvent(ev);
@@ -1144,6 +1330,7 @@ function updateInOutUI(){
     el.style.left = (ui.tIn/D*100) + '%';
     el.style.width = '2px';
   } else el.style.display = 'none';
+  tourRefresh();
 }
 
 /* ---------------- decision points ---------------- */
@@ -1169,14 +1356,14 @@ function hideDecision(){ $('#decisionOverlay').style.display = 'none'; decisionS
 $('#btnResume').onclick = () => { hideDecision(); video.play(); };
 
 $('#btnAddPause').onclick = () => {
-  if (!video.src) return toast('Open a video first');
+  if (!needVideo()) return;
   const q = $('#pauseQInput').value.trim();
   mutate(() => {
     project.annotations.push({ id:uid(), type:'pause', t:video.currentTime,
       question: q || 'What are the options here? What would you do?' });
   });
   $('#pauseQInput').value = '';
-  toast('⏸ Decision point added at ' + fmtT(video.currentTime));
+  toast('Question added at ' + fmtT(video.currentTime) + '. The video will stop there and ask it.');
 };
 
 /* ---------------- drawing model ----------------
@@ -1452,6 +1639,8 @@ overlay.addEventListener('pointerdown', e => {
     ui.selectedId = a.id;
     ui.drag = { mode:'spotkey', ann:a };
     afterMutate();
+    tourEvent('spot');
+    hintOnce('spot', 'Nice. Now scrub ahead a few seconds and try 🎯 Auto-track — the ring follows him on its own.', 6000);
     return;
   }
 
@@ -1548,7 +1737,7 @@ function setTool(tool){
   $('#zoneShapeSection').style.display = tool === 'zone' ? '' : 'none';
   overlay.className = tool === 'select' ? 'tool-select' : 'tool-crosshair';
   const hints = {
-    select: 'Click a drawing to select it. Drag to move it. With a spotlight selected, drag on the video to set where the player is at the current time — it follows between keyframes.',
+    select: 'Tap a drawing to pick it up, then drag it to move it. With a ring picked up, dragging it on the video says where the player is at this moment — the ring glides between the spots you set.',
     spot: 'Click on a player to spotlight them. Then either use 🎯 Auto-track (in Selected drawing) to follow them automatically, or scrub forward and drag the ring by hand. Set a name in Label.',
     arrow: 'Drag from where the action starts to where it should go. Pick what the arrow means below.',
     zone: 'Drag a box over the space to attack, cover, or move into.',
@@ -1556,6 +1745,7 @@ function setTool(tool){
     text: 'Click where the note should sit, then type it.',
   };
   $('#toolHint').textContent = hints[tool] || '';
+  if (tool !== 'select') hintOnce('tool', 'Now tap or drag on the video itself — that is where the drawing goes.');
 }
 
 /* colors */
@@ -1618,7 +1808,7 @@ $('#selKeyHere').onclick = () => {
   if (sel && sel.type === 'spot'){
     const p = spotPos(sel, video.currentTime);
     mutate(() => setSpotKey(sel, video.currentTime, p.x, p.y));
-    toast('Keyframe added — now drag the ring to where he is');
+    toast('Pinned the ring at this moment. Now drag it onto where he is standing.');
   }
 };
 function resizeSpot(f){
@@ -1630,7 +1820,10 @@ $('#selSizeDown').onclick = () => resizeSpot(0.8);
 $('#selDelete').onclick = deleteSelected;
 function deleteSelected(){
   if (!ui.selectedId) return;
-  mutate(() => { project.annotations = project.annotations.filter(a => a.id !== ui.selectedId); ui.selectedId = null; });
+  deleteWithUndo('That drawing', () => {
+    project.annotations = project.annotations.filter(a => a.id !== ui.selectedId);
+    ui.selectedId = null;
+  });
 }
 
 /* ---------------- auto-tracking (v2) ----------------
@@ -1682,7 +1875,7 @@ async function autoTrack(spot){
   const T_END = Math.min(spot.tEnd, video.duration || spot.tEnd);
   const t0 = video.currentTime;
   if (t0 >= T_END - 0.15){
-    return toast('Scrub past the spotlight, set “End = playhead” where the play finishes, come back, then Track.');
+    return toast('First tell it where to stop: move to the end of the play, press “Disappears here”, come back to the start, then press Auto-track.', 6000);
   }
   ui.tracking = true; ui.trackCancel = false;
   video.pause(); hideDecision();
@@ -1829,9 +2022,9 @@ async function autoTrack(spot){
   persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
 
   await seekTo(lost ? lastGoodT : (ui.trackCancel ? video.currentTime : t0));
-  if (ui.trackCancel) toast('Tracking canceled — keyframes so far were kept (⌘Z to undo)');
-  else if (lost) toast('Lost him at ' + fmtT(lastGoodT) + ' — drag the ring onto him and hit Track again from here');
-  else toast('🎯 Tracked to ' + fmtT(T_END) + ' (' + spot.keys.length + ' keyframes) — press play to check it');
+  if (ui.trackCancel) toast('Stopped following him. What it worked out so far was kept — press ⌘Z if you would rather undo it.', 5000);
+  else if (lost) toast('Lost him at ' + fmtT(lastGoodT) + '. Drag the ring back onto him there and press Auto-track again.', 6000);
+  else toast('Followed him to ' + fmtT(T_END) + '. Press play to check it — you can still drag the ring anywhere it is not quite right.', 5500);
 }
 
 $('#selTrack').onclick = () => {
@@ -1849,7 +2042,7 @@ function renderAnnList(){
   for (const a of anns){
     const el = document.createElement('div');
     el.className = 'annItem' + (a.id === ui.selectedId ? ' selected' : '');
-    const label = a.type === 'pause' ? (a.question || 'Decision point')
+    const label = a.type === 'pause' ? (a.question || 'Question for him')
                 : (a.label || a.text || {spot:'Spotlight', arrow:'Arrow', zone:'Zone', pen:'Pen', text:'Text'}[a.type]);
     const time = a.type === 'pause' ? fmtT(a.t) : fmtT(a.tStart) + '–' + fmtT(a.tEnd);
     el.innerHTML = `
@@ -1863,7 +2056,8 @@ function renderAnnList(){
     el.querySelector('[data-act=jump]').onclick = ev => { ev.stopPropagation();
       video.currentTime = a.type === 'pause' ? Math.max(0, a.t - 1) : a.tStart; };
     el.querySelector('[data-act=del]').onclick = ev => { ev.stopPropagation();
-      mutate(() => { project.annotations = project.annotations.filter(x => x.id !== a.id);
+      deleteWithUndo(a.type === 'pause' ? 'That question' : 'That drawing', () => {
+        project.annotations = project.annotations.filter(x => x.id !== a.id);
         if (ui.selectedId === a.id) ui.selectedId = null; }); };
     el.onclick = () => {
       if (a.type !== 'pause'){ ui.selectedId = a.id; updateSelPanel(); renderAnnList(); }
@@ -1874,13 +2068,13 @@ function renderAnnList(){
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ---------------- clips ---------------- */
-$('#btnMarkIn').onclick = () => { ui.tIn = video.currentTime; if (ui.tOut != null && ui.tOut <= ui.tIn) ui.tOut = null; updateInOutUI(); toast('In: ' + fmtT(ui.tIn)); };
-$('#btnMarkOut').onclick = () => { ui.tOut = video.currentTime; if (ui.tIn != null && ui.tIn >= ui.tOut) ui.tIn = null; updateInOutUI(); toast('Out: ' + fmtT(ui.tOut)); };
+$('#btnMarkIn').onclick = () => { if (!needVideo()) return; ui.tIn = video.currentTime; if (ui.tOut != null && ui.tOut <= ui.tIn) ui.tOut = null; updateInOutUI(); toast('Clip starts at ' + fmtT(ui.tIn) + '. Now let it run and press “End clip here”.'); };
+$('#btnMarkOut').onclick = () => { if (!needVideo()) return; ui.tOut = video.currentTime; if (ui.tIn != null && ui.tIn >= ui.tOut) ui.tIn = null; updateInOutUI(); toast('Clip ends at ' + fmtT(ui.tOut) + '. Press “＋ Save clip” to keep it.'); };
 $('#btnSaveClip').onclick = () => openClipModal();
 
 let modalState = { rating:'neutral', tags:new Set() };
 function openClipModal(existing){
-  if (!video.src) return toast('Open a video first');
+  if (!existing && !needVideo()) return;
   ui.editingClipId = existing ? existing.id : null;
   let tIn, tOut;
   if (existing){ tIn = existing.tIn; tOut = existing.tOut; }
@@ -2000,8 +2194,10 @@ $('#clipSave').onclick = () => {
   });
   $('#clipModal').classList.remove('open');
   ui.tIn = null; ui.tOut = null; updateInOutUI();
+  tourEvent('clip');
   switchTab('clips');
-  toast('Clip saved 🎬');
+  if (!hintOnce('clip', 'Saved. It is in the Clips tab — press Play there and it repeats, so you can watch it a few times.', 6000))
+    toast('Clip saved — it is in the Clips tab.');
 };
 
 function playClip(c){
@@ -2048,23 +2244,27 @@ function renderClipList(){
       <div class="tags">${[c.position, c.format, ...c.tags].map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
       ${c.notes ? `<div class="notes">${escapeHtml(c.notes)}</div>` : ''}
       <div class="actions">
-        <button class="miniBtn" data-act="play">▶ Play (loops)</button>
-        <button class="miniBtn" data-act="export">🎬 Export</button>
-        <button class="miniBtn" data-act="reel">${(project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel'}</button>
-        <button class="miniBtn" data-act="board" title="Open this clip's tactics board — teach the scheme behind the moment">🗒${c.boardId ? '✓' : ''}</button>
-        <button class="miniBtn" data-act="compare" title="Play this clip side by side with a model clip or file">⚖</button>
-        <button class="miniBtn" data-act="edit">✏️ Edit</button>
-        <button class="miniBtn danger" data-act="del">🗑</button>
+        <button class="miniBtn" data-act="play" data-tip="Play just this moment, over and over, so you can watch it a few times and talk about it.">▶ Play (loops)</button>
+        <button class="miniBtn" data-act="export" data-tip="Turn this one moment into a video file with the drawings and your note burned in — ready to send to his phone.">🎬 Save video</button>
+        <button class="miniBtn" data-act="reel" data-tip="Add this moment to this week's set, for one video or one guided session.">${(project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel'}</button>
+        <button class="miniBtn" data-act="board" data-tip="Draw the idea behind this moment on a top-down pitch — shape, runs, where everyone should have been.">🗒${c.boardId ? '✓' : ''}</button>
+        <button class="miniBtn" data-act="compare" data-tip="Put this moment next to another clip and play them side by side.">⚖</button>
+        <button class="miniBtn" data-act="edit" data-tip="Change the name, the labels, the note or the question on this clip.">✏️ Edit</button>
+        <button class="miniBtn danger" data-act="del" data-tip="Delete this clip.">🗑</button>
       </div>`;
     el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
     el.querySelector('[data-act=play]').onclick = () => playClip(c);
     el.querySelector('[data-act=export]').onclick = () => doExport(c.tIn, c.tOut, c.title, c);
-    el.querySelector('[data-act=reel]').onclick = () => mutate(() => {
-      project.reel = project.reel || [];
-      const i = project.reel.indexOf(c.id);
-      if (i >= 0) project.reel.splice(i, 1);
-      else project.reel.push(c.id);
-    });
+    el.querySelector('[data-act=reel]').onclick = () => {
+      let added = false;
+      mutate(() => {
+        project.reel = project.reel || [];
+        const i = project.reel.indexOf(c.id);
+        if (i >= 0) project.reel.splice(i, 1);
+        else { project.reel.push(c.id); added = true; }
+      });
+      if (added) hintOnce('reel', 'That is this week\u2019s set. Press 🎬 Save as one video to make one file for the TV, or 🎓 Watch together to go through them right here.', 6500);
+    };
     el.querySelector('[data-act=board]').onclick = () => {
       let board = (project.boards || []).find(b => b.id === c.boardId);
       if (!board){
@@ -2078,11 +2278,10 @@ function renderClipList(){
     el.querySelector('[data-act=compare]').onclick = () => openCompare(c.id);
     el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
     el.querySelector('[data-act=del]').onclick = () => {
-      if (confirm('Delete clip “' + c.title + '”?'))
-        mutate(() => {
-          project.clips = project.clips.filter(x => x.id !== c.id);
-          project.reel = (project.reel || []).filter(id => id !== c.id);
-        });
+      deleteWithUndo('“' + c.title + '”', () => {
+        project.clips = project.clips.filter(x => x.id !== c.id);
+        project.reel = (project.reel || []).filter(id => id !== c.id);
+      });
     };
     list.appendChild(el);
   }
@@ -2107,9 +2306,9 @@ function renderReelList(){
         <span class="timeTag">${i + 1}.</span>
         <span class="lbl">${escapeHtml(c.title)}</span>
         <span class="timeTag">${(c.tOut - c.tIn).toFixed(0)}s</span>
-        <button class="miniBtn" data-act="up" ${i === 0 ? 'disabled' : ''}>↑</button>
-        <button class="miniBtn" data-act="down" ${i === clips.length - 1 ? 'disabled' : ''}>↓</button>
-        <button class="miniBtn danger" data-act="rm">✕</button>
+        <button class="miniBtn" data-act="up" data-tip="Move this clip earlier in the reel." ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button class="miniBtn" data-act="down" data-tip="Move this clip later in the reel." ${i === clips.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="miniBtn danger" data-act="rm" data-tip="Take this clip out of the reel. The clip itself stays in his library.">✕</button>
       </div>`;
     el.querySelector('[data-act=up]').onclick = () => mutate(() => {
       const r = project.reel; [r[i-1], r[i]] = [r[i], r[i-1]];
@@ -2117,8 +2316,9 @@ function renderReelList(){
     el.querySelector('[data-act=down]').onclick = () => mutate(() => {
       const r = project.reel; [r[i+1], r[i]] = [r[i], r[i+1]];
     });
-    el.querySelector('[data-act=rm]').onclick = () => mutate(() =>
-      project.reel = project.reel.filter(id => id !== c.id));
+    el.querySelector('[data-act=rm]').onclick = () =>
+      deleteWithUndo('“' + c.title + '” taken out of this week’s list', () =>
+        project.reel = project.reel.filter(id => id !== c.id));
     host.appendChild(el);
   }
   if (clips.length){
@@ -2133,17 +2333,18 @@ function renderReelList(){
 }
 $('#btnExportReel').onclick = () => {
   const clips = reelClips();
-  if (!clips.length) return toast('Add clips to the reel first (➕ Reel on each clip)');
-  if (!fastSupported) return toast('Reel export needs the ⚡ mp4 exporter — use Chrome or Safari');
+  if (!clips.length) return toast('Nothing in this week’s set yet — press “➕ Reel” on the clips you want in it.', 5000);
+  if (!fastSupported) return toast('Making one video out of several needs Chrome or Safari. In this browser, save the clips one at a time instead.', 6000);
   const title = ($('#reelTitle').value || '').trim();
   exportProgram(clips.map(c => ({ clip: c, tIn: c.tIn, tOut: c.tOut })),
     title || 'highlight reel',
     { reelCard: { title: title || 'Highlight Reel', count: clips.length } });
 };
 $('#btnClearReel').onclick = () => {
-  if ((project.reel || []).length) mutate(() => project.reel = []);
+  if (!(project.reel || []).length) return;
+  deleteWithUndo('This week’s list', () => project.reel = []);
 };
-$('#reelTitle').oninput = () => { project.reelTitle = $('#reelTitle').value; persist(); };
+$('#reelTitle').oninput = () => { project.reelTitle = $('#reelTitle').value; persist(); updateWatchBanner(); };
 
 /* ---------------- guided session ----------------
   Runs the reel list as an in-app Q&A: each clip shows its question FIRST, he
@@ -2156,10 +2357,11 @@ const DEFAULT_ASK = 'What do you see? What would you do here?';
 function startSession(){
   if (ui.exporting || ui.tracking) return;
   const clips = reelClips();
-  if (!clips.length) return toast('Add clips with ➕ Reel first — the session runs that list');
+  if (!clips.length) return toast('Pick the clips first: press “➕ Reel” on the ones you want to watch together.', 5000);
   hideDecision();
   ui.loopClip = null; $('#btnStopLoop').style.display = 'none';
   video.pause();
+  $('#watchBanner').style.display = 'none';
   ui.session = {
     phase: 'intro', idx: 0, clips,
     title: ($('#reelTitle').value || '').trim() || 'Film session',
@@ -2271,12 +2473,14 @@ function endSession(withRecap){
       project.sessions.push({ when: new Date().toISOString().slice(0, 10),
         title: s.title, entries: s.entries, wentWell, workOn });
     });
-    toast('Session saved to the log 📓');
+    toast('Saved. His answers are in the session log at the bottom of the Clips tab.', 5000);
     switchTab('clips');
   }
   ui.session = null;
   video.pause();
   renderSession();
+  watchDismissed = true;                    // already watched — don't offer it again this visit
+  updateWatchBanner();
 }
 $('#btnRunSession').onclick = startSession;
 $('#sessBarEnd').onclick = () => {
@@ -2326,8 +2530,7 @@ function renderSessionLog(){
       downloadBlob(new Blob([sessionNotesText(sess)], { type:'text/plain' }),
         `session_${sess.when}.txt`); };
     el.querySelector('[data-act=del]').onclick = ev => { ev.stopPropagation();
-      if (confirm('Delete this session log entry?'))
-        mutate(() => project.sessions.splice(idx, 1)); };
+      deleteWithUndo('That session', () => project.sessions.splice(idx, 1)); };
     host.appendChild(el);
   });
 }
@@ -2408,8 +2611,7 @@ $('#boardReset').onclick = () => {
 };
 $('#boardDelete').onclick = () => {
   const b = curBoard(); if (!b) return;
-  if (!confirm('Delete board “' + b.name + '”?')) return;
-  mutate(() => {
+  deleteWithUndo('Board “' + b.name + '”', () => {
     project.boards = project.boards.filter(x => x.id !== b.id);
     for (const c of project.clips) if (c.boardId === b.id) delete c.boardId;
   });
@@ -2423,7 +2625,7 @@ $('#boardPng').onclick = () => {
   renderBoardTo(c.getContext('2d'), W, H, b, false);
   c.toBlob(blob => {
     downloadBlob(blob, (b.name || 'board').replace(/[^\w\- ]+/g, '').trim().replace(/ +/g, '_') + '.png');
-    toast('Board saved 📸');
+    toast('Board saved as a picture — check your Downloads folder.');
   }, 'image/png');
 };
 function renderBoardBar(){
@@ -2708,7 +2910,7 @@ function setCompareMode(on){
   else { videoA.pause(); videoB.pause(); $('#cmpPlay').textContent = '▶'; }
 }
 function openCompare(aClipId){
-  if (!project.clips.length) return toast('Save a couple of clips first — Compare plays two of them side by side');
+  if (!project.clips.length) return toast('Save at least two clips first — this plays two of them side by side.', 5000);
   const a = project.clips.find(c => c.id === aClipId) || project.clips[0];
   const bDefault = project.clips.find(c => c.id !== a.id) || a;
   ui.compare = ui.compare || { offset: 0, b: { mode:'clip', clipId: bDefault.id } };
@@ -2848,7 +3050,10 @@ function cmpTick(){
 }
 
 /* ---------------- tabs ---------------- */
-$$('#tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+$$('#tabs button').forEach(b => b.onclick = () => {
+  switchTab(b.dataset.tab);
+  if (b.dataset.tab === 'clips') tourEvent('clips');
+});
 function switchTab(name){
   $$('#tabs button').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
   $$('.tabPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
@@ -2856,12 +3061,12 @@ function switchTab(name){
 
 /* ---------------- project save / load ---------------- */
 $('#btnSaveProj').onclick = () => {
-  if (!video.src) return toast('Open a video first');
+  if (!needVideo()) return;
   project.fps = fps();
   project.taxonomy = TAG_GROUPS;
   const blob = new Blob([JSON.stringify(project, null, 1)], {type:'application/json'});
   downloadBlob(blob, (project.videoName || 'project').replace(/\.[^.]+$/, '') + '.filmroom.json');
-  toast('Project saved 💾');
+  toast('Saved a backup file with all his clips and drawings — check your Downloads folder.', 5000);
 };
 $('#btnLoadProj').onclick = () => $('#fileProj').click();
 $('#fileProj').onchange = e => { if (e.target.files[0]) loadProjectFile(e.target.files[0]); e.target.value=''; };
@@ -2877,10 +3082,10 @@ function loadProjectFile(file){
       if (Array.isArray(p.taxonomy) && p.taxonomy.length){ TAG_GROUPS = p.taxonomy; saveTaxonomy(); }
       $('#fpsInput').value = project.fps || 30;
       persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
-      toast(`Loaded ${p.clips.length} clip(s), ${p.annotations.length} drawing(s)` +
+      toast(`Opened that project: ${p.clips.length} clip${p.clips.length === 1 ? '' : 's'} and ${p.annotations.length} drawing${p.annotations.length === 1 ? '' : 's'}.` +
         (p.videoName && project.videoName && p.videoName !== project.videoName
-          ? ` (saved from “${p.videoName}”)` : ''));
-    } catch(err){ toast('Could not read that project file'); }
+          ? ` It was saved from “${p.videoName}”.` : ''), 5000);
+    } catch(err){ toast('That file could not be read — it needs to be a project file saved by Film Room.', 5000); }
   });
 }
 function downloadBlob(blob, name){
@@ -2893,6 +3098,7 @@ function downloadBlob(blob, name){
 
 /* ---------------- snapshot ---------------- */
 $('#btnSnapshot').onclick = () => {
+  if (!ui.compareMode && !ui.boardMode && !needVideo()) return;
   if (ui.boardMode) return $('#boardPng').click();
   if (ui.compareMode){
     // composite both panes into one image, labels included
@@ -2913,10 +3119,10 @@ $('#btnSnapshot').onclick = () => {
     ctx.fillStyle = '#8b949e'; ctx.font = '600 16px -apple-system,sans-serif';
     ctx.fillText($('#cmpLabelA').textContent, 8, ha + 24);
     ctx.fillText($('#cmpLabelB').textContent, wa + gap + 8, ha + 24);
-    c.toBlob(b => { downloadBlob(b, 'compare.png'); toast('Comparison saved 📸'); }, 'image/png');
+    c.toBlob(b => { downloadBlob(b, 'compare.png'); toast('Both sides saved as one picture — check your Downloads folder.'); }, 'image/png');
     return;
   }
-  if (!video.videoWidth) return toast('Open a video first');
+  if (!video.videoWidth) return toast('Open a video first — press “Open video…” at the top left.');
   const W = video.videoWidth, H = video.videoHeight;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const ctx = c.getContext('2d');
@@ -2924,16 +3130,20 @@ $('#btnSnapshot').onclick = () => {
   drawScene(ctx, W, H, video.currentTime, {editing:false});
   c.toBlob(b => {
     downloadBlob(b, (project.videoName||'frame').replace(/\.[^.]+$/,'') + '_' + fmtT(video.currentTime).replace(':','m') + 's.png');
-    toast('Still saved 📸');
+    toast('Picture saved — check your Downloads folder.');
   }, 'image/png');
 };
 
 /* ---------------- export ---------------- */
 $('#btnExport').onclick = () => {
-  if (!video.videoWidth) return toast('Open a video first');
+  if (!needVideo()) return;
   let tIn = ui.tIn, tOut = ui.tOut;
   if (tIn == null || tOut == null || tOut <= tIn){
-    if (!confirm('No In→Out range set — export the WHOLE video with drawings? (Mark In/Out or use a clip’s Export button for just a section.)')) return;
+    const mins = Math.max(1, Math.round((video.duration || 0) / 60));
+    if (!confirm('You have not marked a moment, so this saves the WHOLE game as one video — about ' +
+      mins + ' minute' + (mins === 1 ? '' : 's') + ' long, which will take a while and make a large file.' +
+      '\n\nTo save just one moment instead: press “Start clip here” and “End clip here” around it, ' +
+      'or use the 🎬 Save video button on a clip you already saved.')) return;
     tIn = 0; tOut = video.duration;
   }
   doExport(tIn, tOut, 'clip', null);
@@ -2976,7 +3186,7 @@ function pickMime(){
 async function exportRange(tIn, tOut, label, clip){
   if (ui.exporting || ui.tracking) return;
   const mime = pickMime();
-  if (!mime) return toast('Sorry — this browser cannot record video. Try Chrome or Safari.');
+  if (!mime) return toast('This browser cannot make video files. Try again in Chrome or Safari.', 5000);
   ui.exporting = true; ui.exportCancel = false;
   hideDecision();
   const wasLoop = ui.loopClip; ui.loopClip = null;
@@ -3060,12 +3270,12 @@ async function exportRange(tIn, tOut, label, clip){
   ui.loopClip = wasLoop;
   ui.exporting = false;
 
-  if (ui.exportCancel){ toast('Export canceled'); return; }
+  if (ui.exportCancel){ toast('Stopped — no video file was made.'); return; }
   const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
   const base = (project.videoName || 'clip').replace(/\.[^.]+$/, '');
   const safe = (label || 'clip').replace(/[^\w\- ]+/g, '').slice(0, 40).trim().replace(/ +/g, '_') || 'clip';
   downloadBlob(new Blob(chunks, {type: mime.split(';')[0]}), `${base}__${safe}.${ext}`);
-  toast('Exported 🎬 — check your Downloads folder');
+  toast('Video saved — check your Downloads folder.');
 }
 $('#busyCancel').onclick = () => { ui.exportCancel = true; };
 
@@ -3215,10 +3425,10 @@ async function exportProgram(items, label, opts = {}){
   if (!codec){
     ui.exporting = false; ui.loopClip = wasLoop;
     if (opts.fallback){
-      toast('Fast mp4 export not available at this size — using the with-audio exporter instead');
+      toast('That size needs the slower way of saving, so this one will keep its sound and take about as long as the clip.', 6000);
       return opts.fallback();
     }
-    return toast('This export needs the ⚡ mp4 exporter — try Chrome or Safari');
+    return toast('Saving this needs Chrome or Safari — this browser cannot make the video file.', 5000);
   }
 
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -3308,14 +3518,14 @@ async function exportProgram(items, label, opts = {}){
   ui.loopClip = wasLoop;
   ui.exporting = false;
 
-  if (ui.exportCancel){ toast('Export canceled'); return; }
+  if (ui.exportCancel){ toast('Stopped — no video file was made.'); return; }
   if (encError || !samples.length || !description){
     console.warn('fast export failed', encError);
     if (opts.fallback){
-      toast('Fast mp4 export hit a snag — using the with-audio exporter instead');
+      toast('The quick way did not work on this video, so it is being saved the slower way instead — it will take about as long as the clip.', 6000);
       return opts.fallback();
     }
-    return toast('Export failed — try again, or export the clips one at a time');
+    return toast('That did not work. Try again, or save the clips one at a time.', 5000);
   }
   $('#busyOverlay').style.display = 'flex';
   $('#busyMsg').textContent = '🔊 Adding audio…';
@@ -3327,12 +3537,12 @@ async function exportProgram(items, label, opts = {}){
   const base = (project.videoName || 'clip').replace(/\.[^.]+$/, '');
   const safe = (label || 'clip').replace(/[^\w\- ]+/g, '').slice(0, 40).trim().replace(/ +/g, '_') || 'clip';
   downloadBlob(new Blob([mp4], {type:'video/mp4'}), `${base}__${safe}.mp4`);
-  if (audio && audio.samples) toast('Exported 🎬🔊 iPhone-ready mp4 with audio — check your Downloads folder');
+  if (audio && audio.samples) toast('Video saved with the game sound — check your Downloads folder. It plays on any iPhone or iPad.', 5000);
   else if (audio && audio.silentReason === 'encoder')
-    toast('Exported 🎬 mp4 (silent — this browser can’t encode AAC; use the 🔊 export mode when the sound matters)');
+    toast('Video saved, but silent — this browser cannot carry sound over. Switch the picker to “Keeps sound, slower” when the sound matters.', 6500);
   else if (audio && audio.silentReason === 'long')
-    toast('Exported 🎬 mp4 (silent — audio for very long exports isn’t supported yet)');
-  else toast('Exported 🎬 iPhone-ready mp4 (no audio track found in this file — exported silent)');
+    toast('Video saved, but silent — sound is not carried over on exports this long yet.', 5500);
+  else toast('Video saved — check your Downloads folder. It is silent because this footage has no sound in it.', 5500);
 }
 
 /* minimal ISO-BMFF writer: ftyp + mdat + moov.
@@ -3791,11 +4001,218 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 window.__filmroom = { getProject: () => project, spotPos, version: 1 };
 
-/* first-run help */
-if (!localStorage.getItem('filmroom:seenHelp')){
-  localStorage.setItem('filmroom:seenHelp', '1');
-  setTimeout(() => $('#helpModal').classList.add('open'), 600);
+/* ---------------- "watch" front door ----------------
+  Most of the family never edits anything — they watch. When the game already
+  has a set of clips lined up, say so at the top of the screen and give them
+  one button that starts the guided session. Dismissed for this visit only, so
+  it is waiting again the next time the game is opened.
+------------------------------------------------- */
+let watchDismissed = false;
+
+function updateWatchBanner(){
+  const clips = reelClips();
+  const show = !watchDismissed && !ui.session && !ui.exporting && clips.length > 0;
+  $('#watchBanner').style.display = show ? 'flex' : 'none';
+  if (!show) return;
+  const title = (project.reelTitle || '').trim();
+  const mins = Math.max(1, Math.round(clips.reduce((a, c) => a + (c.tOut - c.tIn), 0) / 60));
+  $('#watchSub').textContent =
+    (title ? title + ' — ' : '') + clips.length + ' clip' + (clips.length === 1 ? '' : 's') +
+    ', about ' + mins + ' minute' + (mins === 1 ? '' : 's') + ' together.';
 }
+$('#watchStart').onclick = () => { $('#watchBanner').style.display = 'none'; startSession(); };
+$('#watchLater').onclick = () => { watchDismissed = true; updateWatchBanner(); };
+
+/* ---------------- tooltips + one-time hints ----------------
+  Native `title` tooltips never show on an iPad and take ~1.5s on a desktop —
+  useless for someone hunting for what a button does. Every control carries a
+  plain-language `data-tip` instead ("what it does AND when you'd use it"),
+  shown as a real bubble after a short hover or a long press.
+------------------------------------------------- */
+const TIP_HOVER_MS = 400, TIP_HOLD_MS = 500;
+let tipTimer = null, tipTarget = null, tipFromTouch = false;
+
+function tipFor(el){ return el && el.closest ? el.closest('[data-tip]') : null; }
+
+function showTip(el){
+  const text = el.getAttribute('data-tip');
+  if (!text) return;
+  const b = $('#tipBubble');
+  b.textContent = text;
+  b.style.display = 'block';
+  b.style.left = '0px'; b.style.top = '0px';          // measure unclamped
+  const r = el.getBoundingClientRect(), bw = b.offsetWidth, bh = b.offsetHeight;
+  let top = r.bottom + 8;
+  if (top + bh > window.innerHeight - 6) top = r.top - bh - 8;
+  top = clamp(top, 6, Math.max(6, window.innerHeight - bh - 6));
+  const left = clamp(r.left + r.width / 2 - bw / 2, 6, Math.max(6, window.innerWidth - bw - 6));
+  b.style.left = left + 'px'; b.style.top = top + 'px';
+  tipTarget = el;
+}
+function hideTip(){
+  clearTimeout(tipTimer); tipTimer = null; tipTarget = null;
+  $('#tipBubble').style.display = 'none';
+}
+
+document.addEventListener('pointerover', e => {
+  if (e.pointerType === 'touch') return;              // touch uses long-press below
+  const el = tipFor(e.target);
+  if (!el || el === tipTarget) return;
+  hideTip();
+  tipTimer = setTimeout(() => showTip(el), TIP_HOVER_MS);
+});
+document.addEventListener('pointerout', e => {
+  const el = tipFor(e.target);
+  if (el && el === tipFor(e.relatedTarget)) return;
+  hideTip();
+});
+document.addEventListener('pointerdown', e => {
+  const el = tipFor(e.target);
+  hideTip();
+  if (e.pointerType !== 'touch' || !el) return;
+  tipFromTouch = false;
+  tipTimer = setTimeout(() => { tipFromTouch = true; showTip(el); }, TIP_HOLD_MS);
+}, true);
+document.addEventListener('pointerup', () => {
+  clearTimeout(tipTimer); tipTimer = null;
+  if (tipFromTouch) setTimeout(hideTip, 2600);        // let them finish reading
+}, true);
+/* a long press is a question, not a command — don't fire the control it was on */
+document.addEventListener('click', e => {
+  if (!tipFromTouch) return;
+  tipFromTouch = false;
+  e.stopPropagation(); e.preventDefault();
+}, true);
+window.addEventListener('scroll', hideTip, true);
+window.addEventListener('resize', hideTip);
+
+/* ---- one-time contextual hints ----
+   Each fires once ever (remembered in this browser) at the moment it is useful.
+   Held back while the walkthrough is running — that already says what to do. */
+function hintOnce(key, msg, ms = 5200){
+  if (tour) return false;
+  const k = 'filmroom:hint:' + key;
+  try {
+    if (localStorage.getItem(k)) return false;
+    localStorage.setItem(k, '1');
+  } catch(e){ return false; }
+  toast(msg, ms);
+  return true;
+}
+
+/* ---------------- guided first-run tour ----------------
+  Coach marks anchored to the real controls. Each step advances when the user
+  DOES the thing (opens a video, plays, spotlights, saves a clip, opens the
+  library) — never on a "next" button. The ring dims the rest of the screen
+  without blocking it (pointer-events:none), so nothing is ever trapped.
+------------------------------------------------- */
+const TOUR_KEY = 'filmroom:tourDone';
+const TOUR_STEPS = [
+  { id:'open',
+    target: () => video.src ? '#btnOpen' : '#bigOpen',
+    done:   () => !!video.src,
+    msg:    () => 'Tap here to open your game video. It stays on this computer — nothing is ever uploaded.' },
+  { id:'play',
+    target: () => '#transport',
+    msg:    () => 'Press the green <b>▶</b> button to watch — or drag anywhere along this bar to move through the game.' },
+  { id:'spot',
+    target: () => '#toolGrid button[data-tool=spot]',
+    msg:    () => 'Pick <b>Spotlight</b>, then tap your player on the video. A ring appears around him so you both know who you are talking about.' },
+  { id:'clip',
+    target: () => '#clipCtl',
+    msg:    () => ui.tIn == null
+      ? 'Found a moment worth keeping? Press <b>Start clip here</b> when it begins.'
+      : (ui.tOut == null
+        ? 'Now let it run, and press <b>End clip here</b> when the moment is over.'
+        : 'Now press <b>＋ Save clip</b> to name it and keep it.') },
+  { id:'clips',
+    target: () => '#tabs button[data-tab=clips]',
+    msg:    () => 'Last one: your saved moments live in <b>Clips</b> — that is his library. Tap it.' },
+];
+
+let tour = null, tourTimer = null;
+
+function tourStarted(){ return !!tour; }
+
+function startTour(force){
+  if (!force && (localStorage.getItem(TOUR_KEY) || localStorage.getItem('filmroom:seenHelp'))) return;
+  $('#helpModal').classList.remove('open');
+  let i = 0;
+  while (i < TOUR_STEPS.length && TOUR_STEPS[i].done && TOUR_STEPS[i].done()) i++;
+  if (i >= TOUR_STEPS.length) i = TOUR_STEPS.length - 1;
+  tour = { i };
+  tourRender();
+  clearInterval(tourTimer);
+  tourTimer = setInterval(tourPlace, 200);   // follows layout/modal changes cheaply
+}
+
+function endTour(completed){
+  tour = null;
+  clearInterval(tourTimer); tourTimer = null;
+  $('#tourRing').style.display = 'none';
+  $('#tourBubble').style.display = 'none';
+  try { localStorage.setItem(TOUR_KEY, '1'); } catch(e){}
+  toast(completed
+    ? 'That is the whole routine: open a game, spotlight him, save the moments, watch them together. ❓ Help has it all written down.'
+    : 'Walkthrough closed. You can start it again any time from ❓ Help.', 5000);
+}
+
+/* called from the places where the user actually does the thing */
+function tourEvent(id){
+  if (!tour) return;
+  const idx = TOUR_STEPS.findIndex((st, n) => n >= tour.i && st.id === id);
+  if (idx < 0) return;
+  tour.i = idx + 1;
+  if (tour.i >= TOUR_STEPS.length) return endTour(true);
+  tourRender();
+}
+/* the wording inside a step can change as they go (Start clip → End clip → Save) */
+function tourRefresh(){ if (tour) tourRender(); }
+
+function tourRender(){
+  const st = TOUR_STEPS[tour.i];
+  $('#tourStep').textContent = 'Step ' + (tour.i + 1) + ' of ' + TOUR_STEPS.length;
+  $('#tourMsg').innerHTML = st.msg();
+  $('#tourDots').textContent = '●'.repeat(tour.i + 1) + '○'.repeat(TOUR_STEPS.length - tour.i - 1);
+  tourPlace();
+}
+
+function tourPlace(){
+  const ring = $('#tourRing'), bub = $('#tourBubble');
+  if (!tour){ ring.style.display = 'none'; bub.style.display = 'none'; return; }
+  const st = TOUR_STEPS[tour.i];
+  const el = document.querySelector(st.target());
+  // stay out of the way of anything modal — dialogs, exports, sessions
+  const busy = $$('.modal.open').length > 0 || $('#busyOverlay').style.display === 'flex' ||
+               $('#decisionOverlay').style.display === 'flex';
+  if (!el || busy || !el.getClientRects().length){
+    ring.style.display = 'none'; bub.style.display = 'none'; return;
+  }
+  const r = el.getBoundingClientRect(), pad = 6;
+  ring.style.display = 'block';
+  ring.style.left = (r.left - pad) + 'px'; ring.style.top = (r.top - pad) + 'px';
+  ring.style.width = (r.width + pad * 2) + 'px'; ring.style.height = (r.height + pad * 2) + 'px';
+  bub.style.display = 'block';
+  const bw = bub.offsetWidth, bh = bub.offsetHeight;
+  let top = r.bottom + 14;
+  if (top + bh > window.innerHeight - 8) top = r.top - bh - 14;
+  top = clamp(top, 8, Math.max(8, window.innerHeight - bh - 8));
+  const left = clamp(r.left + r.width / 2 - bw / 2, 8, Math.max(8, window.innerWidth - bw - 8));
+  bub.style.left = left + 'px'; bub.style.top = top + 'px';
+}
+window.addEventListener('resize', tourPlace);
+/* get out of the way the instant a dialog / export / decision overlay appears */
+const tourWatch = new MutationObserver(() => tourPlace());
+$$('.modal').forEach(m => tourWatch.observe(m, { attributes:true, attributeFilter:['class'] }));
+[$('#busyOverlay'), $('#decisionOverlay')].forEach(el =>
+  tourWatch.observe(el, { attributes:true, attributeFilter:['style'] }));
+$('#tourSkip').onclick = () => endTour(false);
+$('#helpTour').onclick = () => { $('#helpModal').classList.remove('open'); startTour(true); };
+
+$('#btnTextSize').onclick = () => setTextSize(!bigText);
+setTextSize(localStorage.getItem('filmroom:textSize') === 'large');
+
+startTour(false);
 </script>
 </body>
 </html>
