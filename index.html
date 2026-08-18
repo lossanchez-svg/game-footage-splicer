@@ -55,6 +55,8 @@
   #topbar .logo span{color:var(--accent);}
   #videoName{color:var(--dim); font-size:12px; max-width:220px; overflow:hidden;
     text-overflow:ellipsis; white-space:nowrap;}
+  #continuity{color:var(--pos); font-size:12px; white-space:nowrap;}
+  body.bigText #continuity{font-size:14px;}
   .spacer{flex:1;}
 
   /* ---------- Main layout ---------- */
@@ -351,6 +353,7 @@
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
+  <span id="continuity" style="display:none" data-tip="This game's clips and drawings are being saved into your Games folder as well as this browser, so opening the same game on another computer picks up where you left off."></span>
   <div class="spacer"></div>
   <button id="btnBoard" data-tip="A top-down pitch you can draw on, with players you drag around. Use it when you want to show shape or a run away from the video.">🗒 Board</button>
   <button id="btnCompare" data-tip="Play two clips at once, side by side and in step. Use it to put his moment next to the way it should look.">⚖ Compare</button>
@@ -777,7 +780,7 @@
 <div class="modal" id="libModal">
   <div class="box">
     <h3>📁 Game film</h3>
-    <div class="hint" id="libHint">Pick the folder where you keep game videos — an <b>iCloud Drive</b> folder works great (the same films show up on your Mac, iPhone, and iPad). Film Room remembers it; drag new games into it from Photos or Finder and they appear here.</div>
+    <div class="hint" id="libHint">Pick the folder where you keep game videos — an <b>iCloud Drive</b> folder works great (the same films show up on your Mac, iPhone, and iPad). Film Room remembers it; drag new games into it from Photos or Finder and they appear here. Your clips and drawings get saved into that folder too, so a game you start on one computer carries on where you left off on another.</div>
     <div id="libList" style="margin-top:10px"></div>
     <div class="foot" style="justify-content:space-between">
       <button id="libChoose" data-tip="Pick the folder where you keep game films. Film Room remembers it, so every game is one click away after this.">📂 Choose folder…</button>
@@ -835,6 +838,7 @@
     <p><b>By hand:</b> move forward a second or two and, with the spotlight picked, drag it to where he is now (or press <b>📍 Pin him here</b>). The ring glides between the points you set, so three or four of them usually covers a whole play. Either way, give it his name and a color — and spotlight a defender or teammate in another color to show the relationship.</p>
     <h4>Saving your work</h4>
     <p>Everything autosaves in this browser per video file (matched by file name + size), so reopening the same file restores your clips and drawings. <b>💾 Save project</b> downloads a backup file you can move between machines or keep with the video; <b>📂 Load project</b> brings it back.</p>
+    <p><b>Working on more than one computer?</b> When you open a game from <b>📁 Games</b>, Film Room also saves your work into that folder, right next to the video. Keep the folder in iCloud Drive and the same game opened on another computer picks up your clips and drawings automatically — you'll see <b>☁︎ Saving to your Games folder</b> in the top bar when it's on. If two computers have both been used, whichever was saved most recently wins. Nothing is uploaded anywhere: it is your folder, syncing the way it always did.</p>
     <h4>Exports — made to watch without you</h4>
     <p><b>🎬 Save video</b> turns a saved clip into a video file with every drawing burned in, big enough to look right on a large TV. It opens with a <b>title card</b> — the clip's name, whether it is a strength or a work-on, and your coaching note — and any <b>question</b> you added inside the clip becomes a built-in pause showing that question before the play continues. That is what makes a clip teach on its own when someone else is watching it with him, or when he watches alone. The game sound comes along too. AirDrop the file to a phone or iPad and play it on the TV. <b>📸 Photo</b> saves the frame you are on as a picture — the fastest way to text him one teaching image.</p>
     <h4>Two clips side by side</h4>
@@ -970,8 +974,10 @@ function persist(){
   if (!project.videoKey) return;
   clearTimeout(persistTimer);
   persistTimer = setTimeout(()=>{
+    project.savedAt = new Date().toISOString();
     try { localStorage.setItem(project.videoKey, JSON.stringify(project)); }
     catch(e){ console.warn('autosave failed', e); }
+    scheduleSidecar();          // and, when the Games folder allows it, next to the video
   }, 600);
 }
 /* the debounce above means a tab closed immediately after a change could lose
@@ -979,8 +985,14 @@ function persist(){
 window.addEventListener('beforeunload', () => {
   clearTimeout(persistTimer);
   if (project.videoKey){
+    project.savedAt = new Date().toISOString();
     try { localStorage.setItem(project.videoKey, JSON.stringify(project)); } catch(e){}
   }
+});
+/* a folder write can't finish during beforeunload, but it can here — this fires
+   when a tab is hidden, an app is backgrounded, or a phone is locked */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') writeSidecar();
 });
 
 function pushUndo(){
@@ -1053,23 +1065,38 @@ document.addEventListener('drop', e => {
 });
 
 let currentFile = null;   // kept for the fast exporter's audio demuxer
-function loadVideo(file){
+function loadVideo(file, cont){
   currentFile = file;
   const url = URL.createObjectURL(file);
   const key = 'filmroom:' + file.name + ':' + file.size;
+  /* continuity is per-game: opening anything else drops it until the next
+     game is opened from the Games folder */
+  clearTimeout(sidecarTimer);
+  sidecarDir = (cont && cont.dir) || null;
+  sidecarName = (cont && cont.dir) ? cont.name : null;
   video.src = url;
   video.load();
   video.onloadedmetadata = () => {
     $('#dropHint').style.display = 'none';
     wrap.style.display = '';
     $('#videoName').textContent = file.name;
-    // restore or start fresh
+    // restore or start fresh — from this browser, or from the Games folder if
+    // another device saved something newer there
     let restored = null;
     try { restored = JSON.parse(localStorage.getItem(key) || 'null'); } catch(e){}
-    if (restored && (restored.annotations?.length || restored.clips?.length)) {
-      project = restored;
+    const hasWork = p => !!(p && (p.annotations?.length || p.clips?.length));
+    const folder = cont && hasWork(cont.saved) ? cont.saved : null;
+    const local  = hasWork(restored) ? restored : null;
+    const fromFolder = folder && (!local || savedAtOf(folder) > savedAtOf(local));
+    const pick = fromFolder ? folder : local;
+
+    if (pick) {
+      project = pick;
       project.videoKey = key; project.videoName = file.name;
-      toast(`Picked up where you left off: ${project.clips.length} clip${project.clips.length === 1 ? '' : 's'} and ${project.annotations.length} drawing${project.annotations.length === 1 ? '' : 's'} for this game.`, 5000);
+      const counts = `${project.clips.length} clip${project.clips.length === 1 ? '' : 's'} and ${project.annotations.length} drawing${project.annotations.length === 1 ? '' : 's'}`;
+      toast(fromFolder
+        ? `Picked up newer work from your Games folder: ${counts} for this game.`
+        : `Picked up where you left off: ${counts} for this game.`, 5000);
     } else {
       project = { version:1, videoName:file.name, videoKey:key, fps: project.fps||30, annotations:[], clips:[] };
     }
@@ -1087,6 +1114,11 @@ function loadVideo(file){
     renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); updateInOutUI();
     watchDismissed = false;                 // a newly opened game offers its session again
     updateWatchBanner();
+    updateContinuityUI();
+    if (sidecarDir){
+      hintOnce('continuity', 'This game now saves into your Games folder too, so your work follows you to your other devices.', 6500);
+      if (fromFolder || !pick) writeSidecar();   // make sure the folder has a copy from the off
+    }
     tourEvent('open');
   };
 }
@@ -1131,6 +1163,75 @@ const libIdb = {
 };
 let gameDir = null;
 
+/* ---------------- cross-device continuity ----------------
+  When the Games folder can be written to, this game's work is saved next to
+  its video as "<video>.filmroom.json" as well as in this browser. Put that
+  folder in iCloud Drive and opening the same game on another computer picks
+  up the clips and drawings automatically — no Save/Load project step.
+  Everything here is best-effort: no folder, no permission, or any error at
+  all just means the browser's own autosave carries on alone.
+------------------------------------------------- */
+const SIDECAR_EXT = '.filmroom.json';
+let sidecarDir = null;        // the folder handle to write into, when allowed
+let sidecarName = null;       // "<video>.filmroom.json"
+let sidecarTimer = null, sidecarBusy = false, sidecarAgain = false;
+
+const savedAtOf = p => {
+  const t = p && p.savedAt ? Date.parse(p.savedAt) : NaN;
+  return isNaN(t) ? 0 : t;
+};
+
+/* readwrite has to be asked for from a click; failing is fine and silent */
+async function canWriteFolder(dir){
+  if (!dir || !dir.queryPermission) return false;
+  try {
+    if (await dir.queryPermission({ mode:'readwrite' }) === 'granted') return true;
+    return await dir.requestPermission({ mode:'readwrite' }) === 'granted';
+  } catch(e){ return false; }
+}
+
+async function readSidecar(dir, videoName){
+  try {
+    const h = await dir.getFileHandle(videoName + SIDECAR_EXT);
+    const txt = await (await h.getFile()).text();
+    const p = JSON.parse(txt);
+    if (p && Array.isArray(p.annotations) && Array.isArray(p.clips)) return p;
+  } catch(e){ /* no file next to this video, or it isn't readable */ }
+  return null;
+}
+
+function scheduleSidecar(){
+  if (!sidecarDir || !sidecarName) return;
+  clearTimeout(sidecarTimer);
+  sidecarTimer = setTimeout(writeSidecar, 2500);   // folder writes sync to iCloud; don't thrash
+}
+
+async function writeSidecar(){
+  if (!sidecarDir || !sidecarName || !project.videoKey) return;
+  if (sidecarBusy){ sidecarAgain = true; return; }
+  sidecarBusy = true;
+  clearTimeout(sidecarTimer);
+  try {
+    const h = await sidecarDir.getFileHandle(sidecarName, { create:true });
+    const w = await h.createWritable();
+    await w.write(JSON.stringify(project));
+    await w.close();
+  } catch(e){
+    console.warn('folder autosave failed', e);
+    sidecarDir = null;                 // permission revoked or folder gone; stay on localStorage
+    updateContinuityUI();
+  }
+  sidecarBusy = false;
+  if (sidecarAgain){ sidecarAgain = false; scheduleSidecar(); }
+}
+
+function updateContinuityUI(){
+  const on = !!(sidecarDir && sidecarName);
+  const el = $('#continuity');
+  el.style.display = on ? '' : 'none';
+  if (on) el.textContent = '☁︎ Saving to your Games folder';
+}
+
 async function openLibrary(){
   $('#libModal').classList.add('open');
   if (!gameDir){
@@ -1143,7 +1244,10 @@ $('#bigLibrary').onclick = openLibrary;
 $('#libClose').onclick = () => $('#libModal').classList.remove('open');
 $('#libChoose').onclick = async () => {
   try {
-    gameDir = await showDirectoryPicker({ id: 'filmroom-games', mode: 'read' });
+    /* readwrite so this folder can carry work between devices; a browser that
+       refuses it still gets the read-only library it always had */
+    try { gameDir = await showDirectoryPicker({ id: 'filmroom-games', mode: 'readwrite' }); }
+    catch(e){ gameDir = await showDirectoryPicker({ id: 'filmroom-games', mode: 'read' }); }
     try { await libIdb.set('gameDir', gameDir); } catch(e){}  // test stubs aren't storable
     renderLibrary();
   } catch(e){ /* user cancelled the picker */ }
@@ -1170,10 +1274,12 @@ async function renderLibrary(){
     }
   } catch(e){}
 
-  const files = [];
+  const files = [], sidecars = new Set();
   try {
     for await (const entry of gameDir.values()){
-      if (entry.kind !== 'file' || !/\.(mp4|mov|m4v|webm)$/i.test(entry.name)) continue;
+      if (entry.kind !== 'file') continue;
+      if (entry.name.endsWith(SIDECAR_EXT)){ sidecars.add(entry.name); continue; }
+      if (!/\.(mp4|mov|m4v|webm)$/i.test(entry.name)) continue;
       try { files.push(await entry.getFile()); } catch(e){}
     }
   } catch(e){
@@ -1186,15 +1292,18 @@ async function renderLibrary(){
       '” yet — drag game films into that folder from Photos or Finder, then reopen this list.</div>';
   }
   for (const f of files){
-    const hasWork = !!localStorage.getItem('filmroom:' + f.name + ':' + f.size);
+    const hereWork = !!localStorage.getItem('filmroom:' + f.name + ':' + f.size);
+    const folderWork = sidecars.has(f.name + SIDECAR_EXT);
+    const mark = hereWork ? '📝 has work'
+      : (folderWork ? '☁︎ has work from another device' : '');
     const el = document.createElement('div');
     el.className = 'annItem';
     el.style.cursor = 'pointer';
     el.innerHTML = `<div class="row1"><span class="kind">🎥</span>
       <span class="lbl">${escapeHtml(f.name)}</span>
-      ${hasWork ? '<span class="timeTag">📝 has work</span>' : ''}
+      ${mark ? `<span class="timeTag">${mark}</span>` : ''}
       <span class="timeTag">${new Date(f.lastModified).toLocaleDateString()}</span></div>`;
-    el.onclick = () => { $('#libModal').classList.remove('open'); loadVideo(f); };
+    el.onclick = () => openFromFolder(f);
     host.appendChild(el);
   }
   const r = document.createElement('button');
@@ -1203,6 +1312,19 @@ async function renderLibrary(){
   r.style.marginTop = '6px';
   r.onclick = renderLibrary;
   host.appendChild(r);
+}
+
+/* Opening from the library is a click, which is the only moment a browser will
+   grant write access — so this is where continuity gets set up for this game. */
+async function openFromFolder(file){
+  $('#libModal').classList.remove('open');
+  const dir = gameDir;
+  let saved = null, writable = false;
+  try {
+    writable = await canWriteFolder(dir);
+    saved = await readSidecar(dir, file.name);
+  } catch(e){ /* fall back to the browser's own copy */ }
+  loadVideo(file, { dir: writable ? dir : null, name: file.name + SIDECAR_EXT, saved });
 }
 
 /* ---------------- layout ---------------- */

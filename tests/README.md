@@ -45,6 +45,10 @@ node compare.js        # side-by-side: lockstep sync, pair looping, frame-step b
                        # align nudge, outside file as model side, composite PNG
 node library.js        # game-film folder library: stubbed showDirectoryPicker with real
                        # video bytes — listing, one-click open, has-work marker, fallback
+node continuity.js     # cross-device continuity: the project written next to its video
+                       # in the Games folder, a second device picking it up, newest-wins
+                       # when both have work, and silent fallback when the folder is
+                       # read-only or the video came from somewhere else
 FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264 + AAC:
                           # ffmpeg-encoded samples through buildMp4(), round-tripped
                           # through the app's demuxMp4Audio(), probe + full decode

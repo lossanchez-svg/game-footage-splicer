@@ -56,6 +56,14 @@ The best path depends on the device — each one leads with its strongest option
 - **Trace / Veo camera film:** if whoever shares it has portal access, downloading the
   game video as a file from the Trace/Veo site beats screen-recording YouTube — much
   better quality, especially for zoomed-out footage. Worth asking for.
+- **Working on more than one computer?** Open a game from **📁 Games** and Film Room
+  saves your clips and drawings into that folder too, next to the video
+  (`<video>.filmroom.json`). Keep the folder in iCloud Drive and the same game opened on
+  another Mac picks up your work automatically — no Save/Load step. You'll see
+  **☁︎ Saving to your Games folder** in the top bar when it's on, and the game list marks
+  films that already have work, including work done somewhere else. If both computers
+  have been used, whichever was saved most recently wins and the app tells you which one
+  it opened. Nothing is uploaded: it's your folder, syncing the way it already did.
 - Once a video is open, everything you do (clips, drawings, questions) **autosaves
   in the browser** and comes right back the next time you open the *same file*
   (matched by name + size). Use **💾 Save project** for a portable backup file.

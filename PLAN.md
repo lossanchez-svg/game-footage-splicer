@@ -397,6 +397,29 @@ comfort mode plus a computed-contrast WCAG AA audit and visible focus rings; and
 friction pass where every delete is undoable from its own message and no control ever
 fails silently. Details and rationale in the epic section above.
 
+### ✅ v2.1 — cross-device continuity (shipped)
+Opening a game from **📁 Games** now also saves its clips and drawings into that folder
+as `<video>.filmroom.json`, right next to the video. Keep the folder in iCloud Drive and
+the same game opened on another computer picks the work up on its own — no Save/Load
+project step. Details:
+- The folder is requested with **readwrite** now; the write permission is actually
+  granted at the moment a game is opened from the list, because that click is the only
+  user gesture a browser will accept it from. A refusal is silent and everything falls
+  back to the browser's own autosave.
+- Writes are debounced ~2.5s on top of the existing autosave (folder writes hit iCloud;
+  one per keystroke would thrash), serialised against each other, and flushed on
+  `visibilitychange → hidden` — the one unload-ish hook that can still finish async work.
+- Every project carries `savedAt`. On open, whichever copy is newer wins, and the toast
+  says which one it used ("where you left off" vs "newer work from your Games folder"),
+  so a stale folder copy can never silently eat today's work.
+- The library list marks games as **📝 has work** (this browser) or **☁︎ has work from
+  another device** (a sidecar in the folder), which is what makes the feature legible on
+  a machine that has never opened that game.
+- A **☁︎ Saving to your Games folder** indicator appears in the top bar while it is on.
+Verified by `tests/continuity.js` (22 checks) with a writable stub folder that survives
+across browser contexts, so "another device" is a fresh browser with empty storage
+looking at the same folder.
+
 ## Roadmap
 
 ### Next (in order)
@@ -404,12 +427,9 @@ fails silently. Details and rationale in the epic section above.
       do-based tour, real tooltips + one-time hints, plain-language pass, Watch front
       door, comfort/text-size mode, friction fixes. **All six workstreams shipped**
       with suites `tour.js`, `tips.js`, `plainwords.js`, `watch.js`, `comfort.js`,
-      `friction.js`; 242 checks green across the whole suite.
-- [ ] **Cross-device continuity via the Games folder**: when the 📁 Games folder is
-      connected with readwrite permission, auto-save the project JSON *next to its
-      video* (`<video>.filmroom.json`) and auto-load it when the video opens on another
-      device. Makes an iCloud Drive folder carry clips/drawings across Mac/iPad without
-      manual Save/Load project. Fall back silently to localStorage where unavailable.
+      `friction.js`, plus the `walkthrough.js` screenshot pass; 251 checks green
+      across the whole suite.
+- [x] **Cross-device continuity via the Games folder** — shipped, see v2.1 below.
 - [ ] **Tracker tuning from real footage** (blocked on user feedback — see the standing
       real-footage item in Open questions): adjust ACCEPT/coast thresholds, patch
       sizing, or search radius based on where the lock number drops on real Trace and
@@ -432,8 +452,9 @@ fails silently. Details and rationale in the epic section above.
 - [ ] Whole-video fast export of a long game: progress is fine but there's no
       time-remaining estimate; add one (seek pace is measurable after ~5s).
 - [ ] Board: no undo *within* a chip drag (each drag is one undo step — verify feel).
-- [ ] PWA: verify installed-app behavior on a real iPad (icon, offline, orientation);
-      confirm GitHub Pages deploy after PR #1 merges.
+- [ ] PWA: verify installed-app behavior on a real iPad (icon, offline, orientation).
+      GitHub Pages still needs enabling on the repo (Settings → Pages → main) — that is
+      the iPad "Add to Home Screen" path, and nobody has confirmed it deploys.
 - [ ] Tag editor renames update the current project only — decide whether that's enough
       or renames should also rewrite other stored projects when opened (migration note).
 
@@ -517,6 +538,9 @@ fails silently. Details and rationale in the epic section above.
 | 2026-08-18 | Contrast is enforced by a computed-style audit in the test suite | A one-off manual audit rots on the next feature; the audit walks real rendered text, so new screens are covered automatically |
 | 2026-08-18 | Deletes never ask, they offer Undo — with their own captured snapshot | A confirm dialog taxes every correct deletion to prevent a rare wrong one; an Undo that pops the shared stack would restore the wrong thing once anything else has been edited, so the toast holds the exact snapshot |
 | 2026-08-18 | Every control that needs a video says so and points at Open | "Nothing happened" is the worst possible feedback for a first-time user — it reads as broken software rather than a missing step |
+| 2026-08-18 | Project JSON is mirrored next to the video as `<video>.filmroom.json`, keyed off the Games folder | The folder is already the thing the user syncs (iCloud); writing beside the video means continuity needs no accounts, no server, and no new concept — and a plain JSON file next to the film is self-explanatory if anyone finds it |
+| 2026-08-18 | Newest `savedAt` wins on open, and the toast names the source | Two devices will diverge eventually; silently preferring either one can destroy an evening's work, so the rule is simple, stated, and visible when it fires |
+| 2026-08-18 | Write permission is requested when a game is opened, not when the folder is chosen | Browsers only grant readwrite from a user gesture, and the open click is the one that reliably exists — asking at folder-choose time would strand anyone whose folder was connected before this feature existed |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions
