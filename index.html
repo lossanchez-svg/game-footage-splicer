@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Film Room — Soccer Footage Study</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#161b22; --bg3:#1f2630; --line:#2d333b;
+    --text:#e6edf3; --dim:#8b949e; --accent:#2ea043; --accent2:#58a6ff;
+    --pos:#3fb950; --neg:#f85149; --neu:#8b949e; --warn:#d29922;
+    --radius:8px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  button{font:inherit; color:inherit; background:var(--bg3); border:1px solid var(--line);
+    border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap;}
+  button:hover{background:#2b3340;}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;}
+  button.primary:hover{background:#38b155;}
+  button.active{background:var(--accent2); border-color:var(--accent2); color:#04121f; font-weight:600;}
+  button.danger:hover{background:#5c1f1f; border-color:var(--neg);}
+  button:disabled{opacity:.4; cursor:default;}
+  input,select,textarea{font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line);
+    border-radius:6px; padding:5px 8px;}
+  input:focus,select:focus,textarea:focus{outline:1px solid var(--accent2);}
+  ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-thumb{background:#333c48;border-radius:6px}
+
+  /* ---------- Top bar ---------- */
+  #topbar{display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:var(--bg2); border-bottom:1px solid var(--line); flex-wrap:wrap;}
+  #topbar .logo{font-weight:700; font-size:16px; margin-right:4px; letter-spacing:.3px;}
+  #topbar .logo span{color:var(--accent);}
+  #videoName{color:var(--dim); font-size:12px; max-width:220px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;}
+  .spacer{flex:1;}
+
+  /* ---------- Main layout ---------- */
+  #main{flex:1; display:flex; min-height:0;}
+  #left{flex:1; display:flex; flex-direction:column; min-width:0;}
+  #stage{flex:1; position:relative; display:flex; align-items:center; justify-content:center;
+    background:#000; min-height:0; overflow:hidden;}
+  #videoWrap{position:relative;}
+  #video{display:block; width:100%; height:100%; background:#000;}
+  #overlay{position:absolute; inset:0; touch-action:none;}
+  #overlay.tool-select{cursor:default;}
+  #overlay.tool-crosshair{cursor:crosshair;}
+  #dropHint{position:absolute; inset:0; display:flex; flex-direction:column; gap:12px;
+    align-items:center; justify-content:center; color:var(--dim); text-align:center; padding:24px;}
+  #dropHint .big{font-size:42px;}
+  #dropHint b{color:var(--text);}
+  #dropHint .sub{max-width:520px; font-size:13px;}
+
+  /* pause / decision overlay */
+  #decisionOverlay{position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(4,8,15,.72); z-index:30;}
+  #decisionOverlay .card{background:var(--bg2); border:1px solid var(--accent2); border-radius:12px;
+    padding:26px 30px; max-width:520px; text-align:center; box-shadow:0 12px 48px rgba(0,0,0,.6);}
+  #decisionOverlay .brain{font-size:34px;}
+  #decisionOverlay h3{margin:8px 0 4px; font-size:18px;}
+  #decisionOverlay p{color:var(--dim); margin-bottom:16px; white-space:pre-wrap;}
+
+  /* export overlay */
+  #busyOverlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(4,8,15,.8); z-index:100;}
+  #busyOverlay .card{background:var(--bg2); border:1px solid var(--line); border-radius:12px;
+    padding:24px 32px; text-align:center; min-width:280px;}
+  #busyBar{height:8px; background:var(--bg); border-radius:4px; overflow:hidden; margin:14px 0;}
+  #busyBarFill{height:100%; width:0%; background:var(--accent); transition:width .2s;}
+
+  /* ---------- Transport ---------- */
+  #transport{background:var(--bg2); border-top:1px solid var(--line); padding:8px 12px;
+    display:flex; flex-direction:column; gap:6px;}
+  #timeline{position:relative; height:44px; background:var(--bg); border:1px solid var(--line);
+    border-radius:6px; cursor:pointer; overflow:hidden;}
+  #tlClips,#tlAnns{position:absolute; left:0; right:0;}
+  #tlClips{top:2px; height:20px;}
+  #tlAnns{bottom:2px; height:12px;}
+  .tlClip{position:absolute; height:100%; border-radius:3px; opacity:.85; min-width:3px;}
+  .tlAnn{position:absolute; height:5px; border-radius:2px; opacity:.9; min-width:2px;}
+  .tlPause{position:absolute; bottom:0; width:2px; height:10px; background:var(--warn);}
+  #tlInOut{position:absolute; top:0; bottom:0; background:rgba(88,166,255,.16);
+    border-left:2px solid var(--accent2); border-right:2px solid var(--accent2); display:none;}
+  #playhead{position:absolute; top:0; bottom:0; width:2px; background:#fff; pointer-events:none;}
+  #controls{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  #timecode{font-variant-numeric:tabular-nums; color:var(--dim); font-size:13px; min-width:150px;}
+  .ctlGroup{display:flex; gap:4px; align-items:center;}
+  .divider{width:1px; height:22px; background:var(--line); margin:0 4px;}
+  .speedBtn{padding:5px 7px; font-size:12px;}
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{width:340px; background:var(--bg2); border-left:1px solid var(--line);
+    display:flex; flex-direction:column; min-height:0;}
+  #tabs{display:flex; border-bottom:1px solid var(--line);}
+  #tabs button{flex:1; border:none; border-radius:0; background:none; padding:10px 4px;
+    color:var(--dim); font-weight:600; border-bottom:2px solid transparent;}
+  #tabs button.active{color:var(--text); border-bottom-color:var(--accent); background:none;}
+  .tabPanel{flex:1; overflow-y:auto; padding:12px; display:none; min-height:0;}
+  .tabPanel.active{display:block;}
+  .section{margin-bottom:16px;}
+  .section h4{font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--dim); margin-bottom:6px;}
+  .toolGrid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px;}
+  .toolGrid button{padding:8px 4px; font-size:12px; display:flex; flex-direction:column; gap:2px; align-items:center;}
+  .toolGrid button .ico{font-size:16px;}
+  .chipRow{display:flex; flex-wrap:wrap; gap:5px;}
+  .colorChip{width:24px; height:24px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0;}
+  .colorChip.active{border-color:#fff; box-shadow:0 0 0 2px var(--accent2);}
+  .chip{padding:3px 9px; border-radius:20px; font-size:12px; background:var(--bg3);
+    border:1px solid var(--line); cursor:pointer;}
+  .chip.active{background:var(--accent2); color:#04121f; border-color:var(--accent2); font-weight:600;}
+  .fieldRow{display:flex; gap:6px; align-items:center; margin-bottom:6px;}
+  .fieldRow label{color:var(--dim); font-size:12px; min-width:66px;}
+  .fieldRow input[type=text]{flex:1; min-width:0;}
+  .hint{color:var(--dim); font-size:12px; margin-top:6px;}
+
+  /* annotation list */
+  .annItem,.clipItem{background:var(--bg3); border:1px solid var(--line); border-radius:var(--radius);
+    padding:8px 10px; margin-bottom:6px;}
+  .annItem.selected{border-color:var(--accent2);}
+  .annItem .row1{display:flex; align-items:center; gap:6px;}
+  .annItem .kind{font-size:14px;}
+  .annItem .lbl{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px;}
+  .miniBtn{padding:2px 7px; font-size:11px; border-radius:5px;}
+  .annItem .row2{display:flex; gap:4px; margin-top:6px; flex-wrap:wrap; align-items:center;}
+  .timeTag{color:var(--dim); font-size:11px; font-variant-numeric:tabular-nums;}
+
+  /* clip items */
+  .clipItem .head{display:flex; align-items:center; gap:8px; cursor:pointer;}
+  .clipItem .dot{width:10px; height:10px; border-radius:50%; flex:none;}
+  .clipItem .title{flex:1; font-weight:600; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .clipItem .tags{display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;}
+  .clipItem .tag{font-size:11px; background:var(--bg); border:1px solid var(--line);
+    padding:1px 7px; border-radius:10px; color:var(--dim);}
+  .clipItem .notes{color:var(--dim); font-size:12px; margin-top:6px; white-space:pre-wrap;}
+  .clipItem .actions{display:flex; gap:4px; margin-top:8px; flex-wrap:wrap;}
+
+  /* modal */
+  .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(4,8,15,.7); z-index:60;}
+  .modal.open{display:flex;}
+  .modal .box{background:var(--bg2); border:1px solid var(--line); border-radius:12px;
+    width:min(560px, 94vw); max-height:90vh; overflow-y:auto; padding:20px;}
+  .modal h3{margin-bottom:14px;}
+  .modal .foot{display:flex; justify-content:flex-end; gap:8px; margin-top:16px;}
+  .tagGroup{margin-bottom:12px;}
+  .tagGroup h5{font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); margin-bottom:5px;}
+  #helpBox kbd{background:var(--bg3); border:1px solid var(--line); border-bottom-width:2px;
+    border-radius:4px; padding:1px 6px; font-size:12px; font-family:ui-monospace,monospace;}
+  #helpBox table{border-collapse:collapse; width:100%; margin:8px 0;}
+  #helpBox td{padding:4px 8px 4px 0; vertical-align:top;}
+  #helpBox h4{margin:14px 0 6px;}
+  #helpBox p, #helpBox li{color:var(--dim); font-size:13px;}
+  #helpBox ul,#helpBox ol{padding-left:20px;}
+
+  /* coach tab */
+  #panel-coach details{background:var(--bg3); border:1px solid var(--line); border-radius:var(--radius);
+    margin-bottom:8px; padding:0;}
+  #panel-coach summary{cursor:pointer; font-weight:600; padding:10px 12px; font-size:13px;}
+  #panel-coach .body{padding:0 14px 12px; color:#c9d1d9; font-size:13px;}
+  #panel-coach .body ul{padding-left:18px; margin:6px 0;}
+  #panel-coach .body li{margin-bottom:4px;}
+  #panel-coach .body b{color:var(--text);}
+  #panel-coach .body .dimhead{color:var(--dim); font-size:11px; text-transform:uppercase;
+    letter-spacing:.6px; margin-top:10px;}
+
+  .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+    background:var(--bg3); border:1px solid var(--line); border-radius:8px; padding:9px 16px;
+    z-index:120; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px; transition:opacity .3s; }
+</style>
+</head>
+<body>
+
+<!-- ======================= TOP BAR ======================= -->
+<div id="topbar">
+  <div class="logo">⚽ Film<span>Room</span></div>
+  <button id="btnOpen" class="primary">Open video…</button>
+  <span id="videoName"></span>
+  <div class="spacer"></div>
+  <button id="btnSnapshot" title="Save a still image of this frame with all drawings">📸 Still</button>
+  <button id="btnExport" title="Export the current In→Out range (or the whole video) as an annotated video file">🎬 Export clip</button>
+  <div class="divider"></div>
+  <button id="btnSaveProj" title="Download all clips + drawings as a project file">💾 Save project</button>
+  <button id="btnLoadProj">📂 Load project</button>
+  <div class="divider"></div>
+  <button id="btnHelp">❓ Help</button>
+  <input type="file" id="fileVideo" accept="video/*,.mov,.mp4,.m4v,.webm" hidden>
+  <input type="file" id="fileProj" accept=".json,.filmroom" hidden>
+</div>
+
+<!-- ======================= MAIN ======================= -->
+<div id="main">
+  <div id="left">
+    <div id="stage">
+      <div id="videoWrap" style="display:none">
+        <video id="video" playsinline preload="auto"></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div id="dropHint">
+        <div class="big">⚽🎥</div>
+        <div><b>Open a video</b> or drag one anywhere on this window.</div>
+        <div class="sub">
+          iPhone footage: AirDrop the clip to your Mac (or export from Photos) and open it here.<br>
+          YouTube film someone shared: screen-record the part you need (⌘⇧5 on Mac), then open that recording.
+        </div>
+      </div>
+      <div id="decisionOverlay">
+        <div class="card">
+          <div class="brain">🧠</div>
+          <h3>Decision point</h3>
+          <p id="decisionQ"></p>
+          <button class="primary" id="btnResume">Show what happened ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- transport -->
+    <div id="transport">
+      <div id="timeline">
+        <div id="tlInOut"></div>
+        <div id="tlClips"></div>
+        <div id="tlAnns"></div>
+        <div id="playhead"></div>
+      </div>
+      <div id="controls">
+        <span id="timecode">0:00.00 / 0:00.00</span>
+        <div class="divider"></div>
+        <div class="ctlGroup">
+          <button id="btnBack5" title="Back 5s (J)">⏮ 5s</button>
+          <button id="btnFrameBack" title="Previous frame (←)">◀︎ fr</button>
+          <button id="btnPlay" class="primary" title="Play/Pause (Space)" style="min-width:44px">▶</button>
+          <button id="btnFrameFwd" title="Next frame (→)">fr ▶︎</button>
+          <button id="btnFwd5" title="Forward 5s (L)">5s ⏭</button>
+        </div>
+        <div class="divider"></div>
+        <div class="ctlGroup" id="speeds">
+          <button class="speedBtn" data-speed="0.25">¼×</button>
+          <button class="speedBtn" data-speed="0.5">½×</button>
+          <button class="speedBtn" data-speed="0.75">¾×</button>
+          <button class="speedBtn active" data-speed="1">1×</button>
+        </div>
+        <div class="divider"></div>
+        <div class="ctlGroup">
+          <button id="btnMarkIn" title="Mark clip start (I)">⟦ In</button>
+          <button id="btnMarkOut" title="Mark clip end (O)">Out ⟧</button>
+          <button id="btnSaveClip" class="primary" title="Tag and save the In→Out range as a clip">＋ Save clip</button>
+          <button id="btnStopLoop" style="display:none" title="Stop looping this clip">⏹ Stop loop</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="ctlGroup">
+          <label style="color:var(--dim);font-size:12px">fps</label>
+          <input id="fpsInput" type="number" value="30" min="10" max="120" step="1" style="width:56px" title="Frame rate used for frame-stepping. iPhone video is usually 30 or 60.">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= SIDEBAR ======================= -->
+  <div id="sidebar">
+    <div id="tabs">
+      <button data-tab="draw" class="active">✏️ Draw</button>
+      <button data-tab="clips">🎬 Clips</button>
+      <button data-tab="coach">🧠 Coach</button>
+    </div>
+
+    <!-- ---- DRAW TAB ---- -->
+    <div class="tabPanel active" id="panel-draw">
+      <div class="section">
+        <h4>Tool</h4>
+        <div class="toolGrid" id="toolGrid">
+          <button data-tool="select" class="active"><span class="ico">🖱</span>Select</button>
+          <button data-tool="spot"><span class="ico">🔦</span>Spotlight</button>
+          <button data-tool="arrow"><span class="ico">➡️</span>Arrow</button>
+          <button data-tool="zone"><span class="ico">▨</span>Zone</button>
+          <button data-tool="pen"><span class="ico">✍️</span>Pen</button>
+          <button data-tool="text"><span class="ico">🔤</span>Text</button>
+        </div>
+        <div class="hint" id="toolHint">Click a drawing to select it. Drag to move it. With a spotlight selected, drag on the video to set where the player is <i>at the current time</i> — it will follow between keyframes.</div>
+      </div>
+
+      <div class="section">
+        <h4>Color</h4>
+        <div class="chipRow" id="colorRow"></div>
+      </div>
+
+      <div class="section" id="labelSection">
+        <div class="fieldRow"><label>Label</label><input type="text" id="labelInput" placeholder="e.g. Marco, #10, CB…"></div>
+      </div>
+
+      <div class="section" id="arrowStyleSection" style="display:none">
+        <h4>Arrow means</h4>
+        <div class="chipRow" id="arrowStyleRow">
+          <button class="chip active" data-astyle="pass">Pass ➝</button>
+          <button class="chip" data-astyle="run">Run ⇢</button>
+          <button class="chip" data-astyle="dribble">Dribble ↝</button>
+          <button class="chip" data-astyle="shot">Shot ⤞</button>
+        </div>
+      </div>
+
+      <div class="section" id="zoneShapeSection" style="display:none">
+        <h4>Zone shape</h4>
+        <div class="chipRow" id="zoneShapeRow">
+          <button class="chip active" data-zshape="rect">Rectangle</button>
+          <button class="chip" data-zshape="ellipse">Ellipse</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h4>Decision point</h4>
+        <div class="fieldRow">
+          <input type="text" id="pauseQInput" placeholder="What would you do here?" style="flex:1">
+          <button id="btnAddPause" title="Video will auto-pause here and show this question before playing on">⏸ Add</button>
+        </div>
+        <div class="hint">The video pauses here on playback and asks the question — let him answer out loud, then hit play to see what actually happened.</div>
+      </div>
+
+      <div class="section" id="selSection" style="display:none">
+        <h4>Selected drawing</h4>
+        <div class="fieldRow"><label>Label</label><input type="text" id="selLabel"></div>
+        <div class="fieldRow"><label>Visible</label>
+          <span class="timeTag" id="selTimes"></span>
+        </div>
+        <div class="chipRow" style="margin-bottom:6px">
+          <button class="miniBtn" id="selStartHere">Start = playhead</button>
+          <button class="miniBtn" id="selEndHere">End = playhead</button>
+          <button class="miniBtn" id="selKeyHere" style="display:none">＋ Keyframe here</button>
+        </div>
+        <div class="chipRow">
+          <button class="miniBtn danger" id="selDelete">🗑 Delete</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h4>Drawings <span id="annCount" style="color:var(--dim)"></span></h4>
+        <div id="annList"></div>
+      </div>
+    </div>
+
+    <!-- ---- CLIPS TAB ---- -->
+    <div class="tabPanel" id="panel-clips">
+      <div class="section">
+        <div class="chipRow" id="clipFilterRow">
+          <button class="chip active" data-cfilter="all">All</button>
+          <button class="chip" data-cfilter="positive">👍 Strengths</button>
+          <button class="chip" data-cfilter="negative">🔧 Work-ons</button>
+          <button class="chip" data-cfilter="neutral">💡 Teachable</button>
+        </div>
+        <div class="fieldRow" style="margin-top:8px">
+          <select id="clipTagFilter" style="flex:1"><option value="">Any tag…</option></select>
+        </div>
+      </div>
+      <div class="section">
+        <h4>Clips <span id="clipCount" style="color:var(--dim)"></span></h4>
+        <div id="clipList"></div>
+        <div class="hint" id="clipEmptyHint">Mark <b>In</b> and <b>Out</b> around a moment, then hit <b>＋ Save clip</b> to tag it. Clips loop when you play them — perfect for “watch it again, what do you see?”</div>
+      </div>
+    </div>
+
+    <!-- ---- COACH TAB ---- -->
+    <div class="tabPanel" id="panel-coach">
+      <div class="hint" style="margin-bottom:10px">Quick reference while you break down film. Use it to name <i>why</i> a moment worked or didn’t.</div>
+
+      <details open>
+        <summary>🎯 Attacking Mid (9v9)</summary>
+        <div class="body">
+          <div class="dimhead">Before receiving</div>
+          <ul>
+            <li><b>Scan</b> over both shoulders before the ball arrives — count 2 looks minimum.</li>
+            <li>Receive <b>half-turned</b> (body open to the field), not with back to goal unless pressed.</li>
+            <li>Find pockets <b>between the lines</b> — between their mids and defenders.</li>
+            <li><b>Check to the ball</b> to break pressure, or spin in behind when the CB steps.</li>
+          </ul>
+          <div class="dimhead">On the ball</div>
+          <ul>
+            <li>First touch <b>away from pressure</b>, into the space you scanned.</li>
+            <li>Look <b>forward first</b>: shot ▸ through ball ▸ line-breaking pass ▸ switch ▸ keep it.</li>
+            <li>One or two touches in tight areas; take more only when driving into open grass.</li>
+            <li>Good risk in the final third; safe choices in our half.</li>
+          </ul>
+          <div class="dimhead">Off the ball / defending</div>
+          <ul>
+            <li>Arrive <b>late into the box</b> on crosses and cutbacks (second wave).</li>
+            <li>Make <b>third-man runs</b> when the striker checks in.</li>
+            <li>Defend by <b>screening their playmaker</b> — stay between the ball and him.</li>
+            <li>Press the CB when the trigger comes (bad touch, back pass, sideline trap).</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>⚡ Winger (9v9)</summary>
+        <div class="body">
+          <div class="dimhead">Off the ball</div>
+          <ul>
+            <li><b>Stay wide</b> to stretch the defense — toes near the touchline when we build.</li>
+            <li>Time runs <b>in behind</b> the outside back; start wide, bend inside.</li>
+            <li>When ball is on the far side, <b>pinch in</b> toward the back post.</li>
+            <li>Create space for the fullback/mid by dragging your defender inside or deep.</li>
+          </ul>
+          <div class="dimhead">On the ball</div>
+          <ul>
+            <li>1v1 is a <b>green light</b> in the attacking half — take defenders on.</li>
+            <li>First touch <b>at the defender or past them</b>, not backwards, when there’s space.</li>
+            <li>Attack the front shoulder; use speed change, not just moves.</li>
+            <li>Cut inside to shoot or slide the through ball; go outside to cross early or to the line.</li>
+          </ul>
+          <div class="dimhead">Defending</div>
+          <ul>
+            <li><b>Track the overlapping back</b> — your runner is your responsibility.</li>
+            <li>Recover <b>goal-side</b> first, then press; sprint the first 5 yards of every recovery.</li>
+            <li>Show the attacker <b>down the line</b>, away from the middle.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>🛡 Defensive principles (any position)</summary>
+        <div class="body">
+          <ul>
+            <li><b>Goal-side, ball-side</b>: between your man and our goal, close enough to touch.</li>
+            <li><b>Pressure – cover – balance</b>: 1st defender presses, 2nd covers, 3rd protects the middle.</li>
+            <li>Press with a <b>curved run</b> to take away one side; don’t fly in.</li>
+            <li>When the ball travels, <b>you travel</b> — adjust every pass, don’t ball-watch.</li>
+            <li>Losing the ball = <b>5-second sprint</b> to win it back or recover goal-side.</li>
+            <li>Head on a swivel in the box: <b>ball, man, space</b> — see two things at once.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>🗣 Questions to ask him (instead of telling)</summary>
+        <div class="body">
+          <ul>
+            <li>“Pause — what do you see? Where’s the space?”</li>
+            <li>“What did you look at before the ball came?”</li>
+            <li>“What were your three options here? Which was the bravest one that still made sense?”</li>
+            <li>“Where should your first touch have taken you?”</li>
+            <li>“If you don’t get the ball here, where do you go so the field gets bigger?”</li>
+            <li>“Who was your man? Could you touch him from there?”</li>
+            <li>“What would the best player you know do right here?”</li>
+            <li>End every session: <b>2 things he did well, 1 thing to work on</b> — his words, not yours.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>📐 Format notes (5v5 → 11v11)</summary>
+        <div class="body">
+          <ul>
+            <li><b>5v5</b>: everyone attacks & defends; touches and 1v1s matter most. Tag technique heavily.</li>
+            <li><b>7v7</b>: first real shape (2-3-1 common). Introduce width and support angles.</li>
+            <li><b>9v9</b> (now): lines appear — playing <i>between</i> them is the skill. Scanning, switching play, pressing as a unit.</li>
+            <li><b>11v11</b>: same principles, bigger picture — team schemes, offside timing, longer switches, set-piece roles.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= CLIP MODAL ======================= -->
+<div class="modal" id="clipModal">
+  <div class="box">
+    <h3 id="clipModalTitle">Save clip</h3>
+    <div class="fieldRow"><label>Range</label><span class="timeTag" id="clipModalRange"></span></div>
+    <div class="fieldRow"><label>Title</label><input type="text" id="clipTitle" placeholder="e.g. Great scan → line-breaking pass" style="flex:1"></div>
+    <div class="fieldRow"><label>This is…</label>
+      <div class="chipRow" id="ratingRow">
+        <button class="chip" data-rating="positive">👍 Strength</button>
+        <button class="chip" data-rating="negative">🔧 Work-on</button>
+        <button class="chip" data-rating="neutral">💡 Teachable</button>
+      </div>
+    </div>
+    <div class="fieldRow">
+      <label>Position</label>
+      <select id="clipPosition">
+        <option>Attacking Mid</option><option>Winger</option><option>Striker</option>
+        <option>Center Mid</option><option>Def Mid</option><option>Defender</option>
+        <option>Goalkeeper</option><option>Team</option>
+      </select>
+      <label style="min-width:0">Format</label>
+      <select id="clipFormat"><option>9v9</option><option>7v7</option><option>5v5</option><option>11v11</option></select>
+    </div>
+    <div id="tagGroups" style="margin-top:10px"></div>
+    <div class="fieldRow" style="align-items:flex-start; margin-top:8px">
+      <label>Notes</label>
+      <textarea id="clipNotes" rows="3" style="flex:1" placeholder="What to look for, the coaching point, what he said he saw…"></textarea>
+    </div>
+    <div class="foot">
+      <button id="clipCancel">Cancel</button>
+      <button class="primary" id="clipSave">Save clip</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= HELP MODAL ======================= -->
+<div class="modal" id="helpModal">
+  <div class="box" id="helpBox">
+    <h3>How to use Film Room</h3>
+    <h4>Daily workflow</h4>
+    <ol>
+      <li><b>Get the footage in.</b> iPhone: AirDrop the video to your Mac (or Photos → File → Export). YouTube film someone shared: press <kbd>⌘⇧5</kbd>, screen-record the section, open that file here. Everything stays on your machine — nothing is uploaded.</li>
+      <li><b>Find a moment.</b> Use slow-mo and frame-step to land on the exact touch or decision.</li>
+      <li><b>Draw it.</b> Spotlight him (it follows between keyframes), arrow where the pass/run should go, zone the open space.</li>
+      <li><b>Add a decision point</b> just before the moment — on playback it pauses and asks him the question first.</li>
+      <li><b>Save it as a clip</b> with tags (👍 strength / 🔧 work-on) so it goes in his library.</li>
+      <li><b>Export</b> the annotated clip and AirDrop it to his iPad/phone, or review together in the app.</li>
+    </ol>
+    <h4>Keyboard shortcuts</h4>
+    <table>
+      <tr><td><kbd>Space</kbd> or <kbd>K</kbd></td><td>Play / pause</td></tr>
+      <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Step one frame (set fps to match the video — iPhone is usually 30 or 60)</td></tr>
+      <tr><td><kbd>J</kbd> / <kbd>L</kbd></td><td>Back / forward 5 seconds</td></tr>
+      <tr><td><kbd>I</kbd> / <kbd>O</kbd></td><td>Mark clip In / Out</td></tr>
+      <tr><td><kbd>Enter</kbd></td><td>Save clip from In→Out</td></tr>
+      <tr><td><kbd>1</kbd>–<kbd>6</kbd></td><td>Tools: Select, Spotlight, Arrow, Zone, Pen, Text</td></tr>
+      <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Slower / faster playback</td></tr>
+      <tr><td><kbd>Delete</kbd></td><td>Delete selected drawing</td></tr>
+      <tr><td><kbd>⌘Z</kbd></td><td>Undo</td></tr>
+    </table>
+    <h4>Spotlights that follow a player</h4>
+    <p>Drop a spotlight on him, then scrub forward a second or two and, with the spotlight selected, drag it to where he is now (or press <b>＋ Keyframe here</b>). The ring glides between keyframes, so 3–4 keyframes usually covers a whole play. Give it his name and a color — do the same for a defender or teammate in another color to show the relationship.</p>
+    <h4>Saving your work</h4>
+    <p>Everything autosaves in this browser per video file (matched by file name + size), so reopening the same file restores your clips and drawings. <b>💾 Save project</b> downloads a backup file you can move between machines or keep with the video; <b>📂 Load project</b> brings it back.</p>
+    <h4>Exports</h4>
+    <p><b>🎬 Export clip</b> renders the In→Out range (or a saved clip) with every drawing burned in, at normal speed, as a video file. <b>📸 Still</b> saves the current frame as an image — fastest way to text him one teaching picture.</p>
+    <div class="foot"><button class="primary" id="helpClose">Got it</button></div>
+  </div>
+</div>
+
+<!-- ======================= BUSY OVERLAY ======================= -->
+<div id="busyOverlay">
+  <div class="card">
+    <div id="busyMsg">Exporting…</div>
+    <div id="busyBar"><div id="busyBarFill"></div></div>
+    <button id="busyCancel">Cancel</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Film Room — single-file soccer footage study tool.
+   Everything runs locally in the browser; no uploads, no dependencies.
+   ===================================================================== */
+
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+const video   = $('#video');
+const overlay = $('#overlay');
+const octx    = overlay.getContext('2d');
+const wrap    = $('#videoWrap');
+const stage   = $('#stage');
+
+/* ---------------- state ---------------- */
+const PALETTE = ['#ffd60a','#ff453a','#0a84ff','#30d158','#ff9f0a','#ffffff','#bf5af2','#64d2ff'];
+
+const TAG_GROUPS = [
+  ['On the ball', ['Great touch','Heavy / poor touch','Great move (1v1)','Lost the 1v1','Line-breaking pass',
+                   'Killer pass','Poor pass choice','Good shot decision','Should have shot','Good cross','Ball shielded well']],
+  ['Decisions & risk', ['High-IQ play','Poor decision','Good risk','Bad risk','Too safe — missed chance',
+                        'Quick play / one-two','Switched the field','Forced it into pressure']],
+  ['Off the ball (attack)', ['Found space','Created space for teammate','Run in behind','Checked to feet',
+                             'Should have moved','Poor spacing','Scanned before receiving','No scan','Blind-side run']],
+  ['Defense', ['Good positioning','Out of position','Goal-side','Not goal-side','Great press / effort','Low effort',
+               'Recovery run','Won the ball','Missed tackle','Wrong pressing angle','Ball-watching','Screened the passing lane']],
+  ['Moments', ['Transition: won it → attack','Transition: lost it → react','Set piece','Communication','Composure','Body shape / half-turn']],
+];
+const ALL_TAGS = TAG_GROUPS.flatMap(g => g[1]);
+
+let project = { version:1, videoName:'', videoKey:null, fps:30, annotations:[], clips:[] };
+let ui = {
+  tool:'select', color:PALETTE[0], arrowStyle:'pass', zoneShape:'rect',
+  selectedId:null, tIn:null, tOut:null, loopClip:null,
+  clipFilter:'all', clipTagFilter:'', drag:null, editingClipId:null,
+  exporting:false, exportCancel:false,
+};
+let undoStack = [];
+let lastT = 0;
+let dpr = window.devicePixelRatio || 1;
+
+const uid = () => Math.random().toString(36).slice(2,10);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+function fmtT(t){
+  if (!isFinite(t)) t = 0;
+  const m = Math.floor(t/60), s = t%60;
+  return m + ':' + (s<10?'0':'') + s.toFixed(2);
+}
+function toast(msg, ms=2200){
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(), 350); }, ms);
+}
+
+/* ---------------- persistence ---------------- */
+let persistTimer = null;
+function persist(){
+  if (!project.videoKey) return;
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(()=>{
+    try { localStorage.setItem(project.videoKey, JSON.stringify(project)); }
+    catch(e){ console.warn('autosave failed', e); }
+  }, 600);
+}
+function pushUndo(){
+  undoStack.push(JSON.stringify({annotations:project.annotations, clips:project.clips}));
+  if (undoStack.length > 60) undoStack.shift();
+}
+function undo(){
+  const snap = undoStack.pop();
+  if (!snap) return toast('Nothing to undo');
+  const s = JSON.parse(snap);
+  project.annotations = s.annotations; project.clips = s.clips;
+  ui.selectedId = null;
+  persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+}
+/* every mutation goes through mutate(fn) */
+function mutate(fn){
+  pushUndo();
+  fn();
+  persist();
+  renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+}
+
+/* ---------------- video loading ---------------- */
+$('#btnOpen').onclick = () => $('#fileVideo').click();
+$('#fileVideo').onchange = e => { if (e.target.files[0]) loadVideo(e.target.files[0]); e.target.value=''; };
+
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  const f = [...(e.dataTransfer.files||[])].find(f => /video|quicktime/.test(f.type) || /\.(mp4|mov|m4v|webm)$/i.test(f.name));
+  const j = [...(e.dataTransfer.files||[])].find(f => /\.(json|filmroom)$/i.test(f.name));
+  if (f) loadVideo(f);
+  else if (j) loadProjectFile(j);
+});
+
+function loadVideo(file){
+  const url = URL.createObjectURL(file);
+  const key = 'filmroom:' + file.name + ':' + file.size;
+  video.src = url;
+  video.load();
+  video.onloadedmetadata = () => {
+    $('#dropHint').style.display = 'none';
+    wrap.style.display = '';
+    $('#videoName').textContent = file.name;
+    // restore or start fresh
+    let restored = null;
+    try { restored = JSON.parse(localStorage.getItem(key) || 'null'); } catch(e){}
+    if (restored && (restored.annotations?.length || restored.clips?.length)) {
+      project = restored;
+      project.videoKey = key; project.videoName = file.name;
+      toast(`Restored ${project.clips.length} clip(s) and ${project.annotations.length} drawing(s) for this video`);
+    } else {
+      project = { version:1, videoName:file.name, videoKey:key, fps: project.fps||30, annotations:[], clips:[] };
+    }
+    $('#fpsInput').value = project.fps || 30;
+    ui.selectedId = null; ui.tIn = null; ui.tOut = null; ui.loopClip = null;
+    undoStack = [];
+    layout();
+    renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); updateInOutUI();
+  };
+}
+
+/* ---------------- layout ---------------- */
+function layout(){
+  if (!video.videoWidth) return;
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  const va = video.videoWidth / video.videoHeight;
+  let w = sw, h = w / va;
+  if (h > sh) { h = sh; w = h * va; }
+  w = Math.floor(w); h = Math.floor(h);
+  wrap.style.width = w + 'px'; wrap.style.height = h + 'px';
+  dpr = window.devicePixelRatio || 1;
+  overlay.width = Math.round(w * dpr); overlay.height = Math.round(h * dpr);
+  overlay.style.width = w + 'px'; overlay.style.height = h + 'px';
+}
+new ResizeObserver(layout).observe(stage);
+window.addEventListener('resize', layout);
+
+/* ---------------- transport ---------------- */
+const fps = () => Number($('#fpsInput').value) || 30;
+$('#fpsInput').onchange = () => { project.fps = fps(); persist(); };
+
+function togglePlay(){
+  if (!video.src) return;
+  hideDecision();
+  if (video.paused) video.play(); else video.pause();
+}
+$('#btnPlay').onclick = togglePlay;
+video.addEventListener('play',  () => $('#btnPlay').textContent = '❚❚');
+video.addEventListener('pause', () => $('#btnPlay').textContent = '▶');
+
+function step(frames){
+  video.pause();
+  video.currentTime = clamp(video.currentTime + frames / fps(), 0, video.duration || 0);
+}
+$('#btnFrameBack').onclick = () => step(-1);
+$('#btnFrameFwd').onclick  = () => step(1);
+$('#btnBack5').onclick = () => video.currentTime = clamp(video.currentTime - 5, 0, video.duration||0);
+$('#btnFwd5').onclick  = () => video.currentTime = clamp(video.currentTime + 5, 0, video.duration||0);
+
+$$('#speeds .speedBtn').forEach(b => b.onclick = () => setSpeed(Number(b.dataset.speed)));
+function setSpeed(sp){
+  video.playbackRate = sp;
+  $$('#speeds .speedBtn').forEach(x => x.classList.toggle('active', Number(x.dataset.speed) === sp));
+}
+function bumpSpeed(dir){
+  const speeds = [0.25,0.5,0.75,1];
+  let i = speeds.indexOf(video.playbackRate); if (i<0) i = 3;
+  setSpeed(speeds[clamp(i+dir, 0, speeds.length-1)]);
+}
+
+/* timeline */
+const timeline = $('#timeline');
+function seekFromEvent(e){
+  const r = timeline.getBoundingClientRect();
+  const frac = clamp((e.clientX - r.left) / r.width, 0, 1);
+  video.currentTime = frac * (video.duration || 0);
+}
+timeline.addEventListener('pointerdown', e => {
+  if (!video.duration) return;
+  timeline.setPointerCapture(e.pointerId);
+  seekFromEvent(e);
+  const mv = ev => seekFromEvent(ev);
+  const up = () => { timeline.removeEventListener('pointermove', mv); timeline.removeEventListener('pointerup', up); };
+  timeline.addEventListener('pointermove', mv);
+  timeline.addEventListener('pointerup', up);
+});
+
+function renderTimelineMarks(){
+  const D = video.duration || 1;
+  const clipsEl = $('#tlClips'), annsEl = $('#tlAnns');
+  clipsEl.innerHTML = ''; annsEl.innerHTML = '';
+  const colors = {positive:'var(--pos)', negative:'var(--neg)', neutral:'var(--warn)'};
+  for (const c of project.clips){
+    const d = document.createElement('div');
+    d.className = 'tlClip';
+    d.style.left = (c.tIn/D*100) + '%';
+    d.style.width = ((c.tOut-c.tIn)/D*100) + '%';
+    d.style.background = colors[c.rating] || 'var(--neu)';
+    d.title = c.title;
+    clipsEl.appendChild(d);
+  }
+  for (const a of project.annotations){
+    const d = document.createElement('div');
+    if (a.type === 'pause'){
+      d.className = 'tlPause';
+      d.style.left = (a.t/D*100) + '%';
+    } else {
+      d.className = 'tlAnn';
+      d.style.left = (a.tStart/D*100) + '%';
+      d.style.width = (Math.max(0.2,(a.tEnd-a.tStart)/D*100)) + '%';
+      d.style.background = a.color;
+    }
+    annsEl.appendChild(d);
+  }
+}
+function updateInOutUI(){
+  const el = $('#tlInOut'), D = video.duration || 1;
+  if (ui.tIn != null && ui.tOut != null && ui.tOut > ui.tIn){
+    el.style.display = 'block';
+    el.style.left = (ui.tIn/D*100) + '%';
+    el.style.width = ((ui.tOut-ui.tIn)/D*100) + '%';
+  } else if (ui.tIn != null){
+    el.style.display = 'block';
+    el.style.left = (ui.tIn/D*100) + '%';
+    el.style.width = '2px';
+  } else el.style.display = 'none';
+}
+
+/* ---------------- decision points ---------------- */
+let decisionShowing = null;
+function checkPauses(t){
+  if (ui.exporting || video.paused) { lastT = t; return; }
+  for (const a of project.annotations){
+    if (a.type !== 'pause') continue;
+    if (lastT < a.t && t >= a.t){
+      const now = performance.now();
+      if (a._fired && now - a._fired < 1500) continue;
+      a._fired = now;
+      video.pause();
+      decisionShowing = a;
+      $('#decisionQ').textContent = a.question || 'What are the options here? What would you do?';
+      $('#decisionOverlay').style.display = 'flex';
+      break;
+    }
+  }
+  lastT = t;
+}
+function hideDecision(){ $('#decisionOverlay').style.display = 'none'; decisionShowing = null; }
+$('#btnResume').onclick = () => { hideDecision(); video.play(); };
+
+$('#btnAddPause').onclick = () => {
+  if (!video.src) return toast('Open a video first');
+  const q = $('#pauseQInput').value.trim();
+  mutate(() => {
+    project.annotations.push({ id:uid(), type:'pause', t:video.currentTime,
+      question: q || 'What are the options here? What would you do?' });
+  });
+  $('#pauseQInput').value = '';
+  toast('⏸ Decision point added at ' + fmtT(video.currentTime));
+};
+
+/* ---------------- drawing model ----------------
+  Coordinates are normalized (0..1) against the displayed video so they
+  survive resizes and export at full resolution.
+  Types:
+   spot : {keys:[{t,x,y}], r, color, label, tStart, tEnd}
+   arrow: {x1,y1,x2,y2, style, color, label, tStart, tEnd}
+   zone : {x,y,w,h, shape, color, label, tStart, tEnd}
+   pen  : {points:[{x,y}], color, tStart, tEnd}
+   text : {x,y, text, color, tStart, tEnd}
+   pause: {t, question}
+------------------------------------------------- */
+const ANN_ICON = {spot:'🔦', arrow:'➡️', zone:'▨', pen:'✍️', text:'🔤', pause:'⏸'};
+const DEFAULT_DUR = 4;
+
+function annEnd(t){ return clamp(t + DEFAULT_DUR, 0, video.duration || t + DEFAULT_DUR); }
+
+function spotPos(a, t){
+  const k = a.keys;
+  if (!k.length) return {x:.5,y:.5};
+  if (t <= k[0].t) return k[0];
+  if (t >= k[k.length-1].t) return k[k.length-1];
+  for (let i=0;i<k.length-1;i++){
+    if (t >= k[i].t && t <= k[i+1].t){
+      const f = (t - k[i].t) / Math.max(1e-6, k[i+1].t - k[i].t);
+      return { x: k[i].x + (k[i+1].x-k[i].x)*f, y: k[i].y + (k[i+1].y-k[i].y)*f };
+    }
+  }
+  return k[k.length-1];
+}
+function setSpotKey(a, t, x, y){
+  const i = a.keys.findIndex(k => Math.abs(k.t - t) < 0.12);
+  if (i >= 0){ a.keys[i].x = x; a.keys[i].y = y; }
+  else { a.keys.push({t, x, y}); a.keys.sort((p,q)=>p.t-q.t); }
+}
+
+/* ---------------- rendering ---------------- */
+function drawScene(ctx, W, H, t, opts){
+  const editing = opts && opts.editing;
+  const lw = Math.max(2, W/480);           // base line width scales with size
+  const fontPx = Math.max(11, W/55);
+
+  const active = project.annotations.filter(a =>
+    a.type !== 'pause' && t >= a.tStart - 0.01 && t <= a.tEnd + 0.01);
+
+  for (const a of active){
+    ctx.save();
+    switch (a.type){
+      case 'spot': drawSpot(ctx, a, t, W, H, lw, fontPx); break;
+      case 'arrow': drawArrow(ctx, a, W, H, lw, fontPx); break;
+      case 'zone': drawZone(ctx, a, W, H, lw, fontPx); break;
+      case 'pen': drawPen(ctx, a, W, H, lw); break;
+      case 'text': drawTextAnn(ctx, a, W, H, fontPx); break;
+    }
+    ctx.restore();
+  }
+
+  // in-progress drag shape
+  if (editing && ui.drag && ui.drag.preview){
+    ctx.save(); ui.drag.preview(ctx, W, H, lw, fontPx); ctx.restore();
+  }
+
+  // selection indicator
+  if (editing && ui.selectedId){
+    const a = project.annotations.find(x => x.id === ui.selectedId);
+    if (a && a.type !== 'pause' && t >= a.tStart - 0.01 && t <= a.tEnd + 0.01){
+      const bb = annBBox(a, t);
+      if (bb){
+        ctx.save();
+        ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 1.5; ctx.setLineDash([5,4]);
+        ctx.strokeRect(bb.x*W-8, bb.y*H-8, bb.w*W+16, bb.h*H+16);
+        ctx.restore();
+      }
+    }
+  }
+}
+
+function drawSpot(ctx, a, t, W, H, lw, fontPx){
+  const p = spotPos(a, t);
+  const x = p.x*W, y = p.y*H;
+  const rx = (a.r || 0.035) * W, ry = rx * 0.42;
+  ctx.shadowColor = a.color; ctx.shadowBlur = lw*4;
+  ctx.strokeStyle = a.color; ctx.lineWidth = lw*1.6;
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI*2); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = .22; ctx.fillStyle = a.color;
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 1;
+  if (a.label){
+    ctx.font = `600 ${fontPx}px -apple-system,sans-serif`;
+    const tw = ctx.measureText(a.label).width;
+    const bx = x - tw/2 - 7, by = y - ry - fontPx*1.9;
+    roundRect(ctx, bx, by, tw+14, fontPx*1.5, 5);
+    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fill();
+    ctx.strokeStyle = a.color; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.fillStyle = a.color;
+    ctx.fillText(a.label, bx+7, by + fontPx*1.1);
+  }
+}
+
+function drawArrow(ctx, a, W, H, lw, fontPx){
+  const x1=a.x1*W, y1=a.y1*H, x2=a.x2*W, y2=a.y2*H;
+  const ang = Math.atan2(y2-y1, x2-x1);
+  const len = Math.hypot(x2-x1, y2-y1);
+  const headLen = Math.max(10, lw*5.5);
+  const ex = x2 - Math.cos(ang)*headLen*0.7, ey = y2 - Math.sin(ang)*headLen*0.7;
+  ctx.strokeStyle = a.color; ctx.fillStyle = a.color;
+  ctx.lineWidth = a.style === 'shot' ? lw*2.6 : lw*1.8;
+  ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 3;
+
+  ctx.beginPath();
+  if (a.style === 'run') ctx.setLineDash([lw*4.5, lw*3.5]);
+  if (a.style === 'dribble'){
+    // wavy line
+    const waves = Math.max(3, Math.floor(len / (lw*10)));
+    const amp = lw*3;
+    ctx.moveTo(x1, y1);
+    for (let i=1; i<=waves; i++){
+      const f = i/waves;
+      const px = x1 + (ex-x1)*f, py = y1 + (ey-y1)*f;
+      const off = Math.sin(f*Math.PI*waves) * amp;
+      ctx.lineTo(px + Math.cos(ang+Math.PI/2)*off, py + Math.sin(ang+Math.PI/2)*off);
+    }
+    ctx.lineTo(ex, ey);
+  } else {
+    ctx.moveTo(x1, y1); ctx.lineTo(ex, ey);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // arrowhead
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - Math.cos(ang - 0.42)*headLen, y2 - Math.sin(ang - 0.42)*headLen);
+  ctx.lineTo(x2 - Math.cos(ang + 0.42)*headLen, y2 - Math.sin(ang + 0.42)*headLen);
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  if (a.label){
+    ctx.font = `600 ${fontPx*0.95}px -apple-system,sans-serif`;
+    const mx=(x1+x2)/2, my=(y1+y2)/2;
+    const tw = ctx.measureText(a.label).width;
+    roundRect(ctx, mx-tw/2-6, my-fontPx*1.9, tw+12, fontPx*1.5, 5);
+    ctx.fillStyle='rgba(0,0,0,.65)'; ctx.fill();
+    ctx.fillStyle = a.color;
+    ctx.fillText(a.label, mx-tw/2, my-fontPx*0.8);
+  }
+}
+
+function drawZone(ctx, a, W, H, lw, fontPx){
+  const x=a.x*W, y=a.y*H, w=a.w*W, h=a.h*H;
+  ctx.globalAlpha = .18; ctx.fillStyle = a.color;
+  ctx.strokeStyle = a.color; ctx.lineWidth = lw*1.3; ctx.setLineDash([lw*4, lw*3]);
+  if (a.shape === 'ellipse'){
+    ctx.beginPath(); ctx.ellipse(x+w/2, y+h/2, Math.abs(w/2), Math.abs(h/2), 0, 0, Math.PI*2);
+    ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+  } else {
+    ctx.fillRect(x, y, w, h); ctx.globalAlpha = 1; ctx.strokeRect(x, y, w, h);
+  }
+  ctx.setLineDash([]);
+  if (a.label){
+    ctx.font = `600 ${fontPx*0.95}px -apple-system,sans-serif`;
+    ctx.fillStyle = a.color; ctx.shadowColor='rgba(0,0,0,.8)'; ctx.shadowBlur=3;
+    ctx.fillText(a.label, x+6, y - 6 < fontPx ? y + fontPx : y - 6);
+    ctx.shadowBlur=0;
+  }
+}
+
+function drawPen(ctx, a, W, H, lw){
+  if (a.points.length < 2) return;
+  ctx.strokeStyle = a.color; ctx.lineWidth = lw*1.7; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.shadowColor='rgba(0,0,0,.7)'; ctx.shadowBlur=2;
+  ctx.beginPath();
+  ctx.moveTo(a.points[0].x*W, a.points[0].y*H);
+  for (let i=1;i<a.points.length;i++) ctx.lineTo(a.points[i].x*W, a.points[i].y*H);
+  ctx.stroke(); ctx.shadowBlur=0;
+}
+
+function drawTextAnn(ctx, a, W, H, fontPx){
+  ctx.font = `600 ${fontPx}px -apple-system,sans-serif`;
+  const lines = (a.text||'').split('\n');
+  const tw = Math.max(...lines.map(l => ctx.measureText(l).width));
+  const x = a.x*W, y = a.y*H;
+  roundRect(ctx, x-7, y - fontPx*1.15, tw+14, fontPx*1.45*lines.length + fontPx*0.35, 6);
+  ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fill();
+  ctx.strokeStyle = a.color; ctx.lineWidth = 1.3; ctx.stroke();
+  ctx.fillStyle = a.color;
+  lines.forEach((l,i) => ctx.fillText(l, x, y + i*fontPx*1.45));
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+/* bounding boxes (normalized) for hit-testing / selection */
+function annBBox(a, t){
+  switch (a.type){
+    case 'spot': { const p = spotPos(a,t); const r = a.r||0.035; return {x:p.x-r, y:p.y-r, w:r*2, h:r*2}; }
+    case 'arrow': return {x:Math.min(a.x1,a.x2), y:Math.min(a.y1,a.y2),
+                          w:Math.abs(a.x2-a.x1), h:Math.abs(a.y2-a.y1)};
+    case 'zone': return {x:a.x, y:a.y, w:a.w, h:a.h};
+    case 'pen': {
+      const xs = a.points.map(p=>p.x), ys = a.points.map(p=>p.y);
+      const x = Math.min(...xs), y = Math.min(...ys);
+      return {x, y, w:Math.max(...xs)-x, h:Math.max(...ys)-y};
+    }
+    case 'text': return {x:a.x, y:a.y-0.03, w:0.14, h:0.05};
+  }
+  return null;
+}
+function hitTest(nx, ny, t){
+  const pad = 0.018;
+  const active = project.annotations.filter(a => a.type !== 'pause' && t >= a.tStart-0.01 && t <= a.tEnd+0.01);
+  for (let i = active.length-1; i >= 0; i--){
+    const bb = annBBox(active[i], t);
+    if (bb && nx >= bb.x-pad && nx <= bb.x+bb.w+pad && ny >= bb.y-pad && ny <= bb.y+bb.h+pad)
+      return active[i];
+  }
+  return null;
+}
+
+/* ---------------- canvas interaction ---------------- */
+function evNorm(e){
+  const r = overlay.getBoundingClientRect();
+  return { x: clamp((e.clientX-r.left)/r.width, 0, 1), y: clamp((e.clientY-r.top)/r.height, 0, 1) };
+}
+
+overlay.addEventListener('pointerdown', e => {
+  if (!video.src || ui.exporting) return;
+  overlay.setPointerCapture(e.pointerId);
+  const p = evNorm(e);
+  const t = video.currentTime;
+  const tool = ui.tool;
+
+  if (tool === 'select'){
+    const sel = project.annotations.find(a => a.id === ui.selectedId);
+    // dragging a selected spotlight = position it at this time (keyframe)
+    if (sel && sel.type === 'spot' && t >= sel.tStart-0.01 && t <= sel.tEnd+0.5){
+      const bb = annBBox(sel, t), pad = 0.05;
+      if (p.x >= bb.x-pad && p.x <= bb.x+bb.w+pad && p.y >= bb.y-pad && p.y <= bb.y+bb.h+pad){
+        pushUndo();
+        ui.drag = { mode:'spotkey', ann:sel };
+        setSpotKey(sel, t, p.x, p.y);
+        return;
+      }
+    }
+    const hit = hitTest(p.x, p.y, t);
+    ui.selectedId = hit ? hit.id : null;
+    updateSelPanel(); renderAnnList();
+    if (hit){
+      if (hit.type === 'spot'){
+        pushUndo();
+        ui.drag = { mode:'spotkey', ann:hit };
+        // don't jump the spot on simple click-select; only move on actual drag
+        ui.drag.pendingStart = p;
+      } else {
+        pushUndo();
+        ui.drag = { mode:'move', ann:hit, start:p, orig:JSON.parse(JSON.stringify(hit)) };
+      }
+    }
+    return;
+  }
+
+  if (tool === 'spot'){
+    pushUndo();
+    const a = { id:uid(), type:'spot', keys:[{t, x:p.x, y:p.y}], r:0.035,
+      color:ui.color, label:$('#labelInput').value.trim(), tStart:t, tEnd:annEnd(t) };
+    project.annotations.push(a);
+    ui.selectedId = a.id;
+    ui.drag = { mode:'spotkey', ann:a };
+    afterMutate();
+    return;
+  }
+
+  if (tool === 'arrow'){
+    ui.drag = { mode:'newArrow', start:p, cur:p,
+      preview(ctx,W,H,lw,f){ drawArrow(ctx, {x1:this.start.x,y1:this.start.y,x2:this.cur.x,y2:this.cur.y,
+        style:ui.arrowStyle, color:ui.color, label:''}, W, H, lw, f); } };
+    return;
+  }
+  if (tool === 'zone'){
+    ui.drag = { mode:'newZone', start:p, cur:p,
+      preview(ctx,W,H,lw,f){ const s=this.start,c=this.cur;
+        drawZone(ctx, {x:Math.min(s.x,c.x), y:Math.min(s.y,c.y), w:Math.abs(c.x-s.x), h:Math.abs(c.y-s.y),
+          shape:ui.zoneShape, color:ui.color, label:''}, W, H, lw, f); } };
+    return;
+  }
+  if (tool === 'pen'){
+    ui.drag = { mode:'newPen', points:[p],
+      preview(ctx,W,H,lw){ drawPen(ctx, {points:this.points, color:ui.color}, W, H, lw); } };
+    return;
+  }
+  if (tool === 'text'){
+    const txt = prompt('Text (use \\n for a new line):', '');
+    if (txt && txt.trim()){
+      mutate(() => {
+        const a = { id:uid(), type:'text', x:p.x, y:p.y, text:txt.replace(/\\n/g,'\n'),
+          color:ui.color, tStart:t, tEnd:annEnd(t) };
+        project.annotations.push(a); ui.selectedId = a.id;
+      });
+    }
+    return;
+  }
+});
+
+overlay.addEventListener('pointermove', e => {
+  if (!ui.drag) return;
+  const p = evNorm(e);
+  const d = ui.drag;
+  if (d.mode === 'spotkey'){
+    if (d.pendingStart){
+      if (Math.hypot(p.x-d.pendingStart.x, p.y-d.pendingStart.y) < 0.008) return;
+      d.pendingStart = null;
+    }
+    setSpotKey(d.ann, video.currentTime, p.x, p.y);
+  } else if (d.mode === 'move'){
+    const dx = p.x - d.start.x, dy = p.y - d.start.y;
+    const a = d.ann, o = d.orig;
+    if (a.type === 'arrow'){ a.x1=o.x1+dx; a.y1=o.y1+dy; a.x2=o.x2+dx; a.y2=o.y2+dy; }
+    else if (a.type === 'zone'){ a.x=o.x+dx; a.y=o.y+dy; }
+    else if (a.type === 'text'){ a.x=o.x+dx; a.y=o.y+dy; }
+    else if (a.type === 'pen'){ a.points = o.points.map(pt => ({x:pt.x+dx, y:pt.y+dy})); }
+  } else if (d.mode === 'newArrow' || d.mode === 'newZone'){
+    d.cur = p;
+  } else if (d.mode === 'newPen'){
+    d.points.push(p);
+  }
+});
+
+overlay.addEventListener('pointerup', e => {
+  const d = ui.drag; ui.drag = null;
+  if (!d) return;
+  const t = video.currentTime;
+  if (d.mode === 'newArrow'){
+    if (Math.hypot(d.cur.x-d.start.x, d.cur.y-d.start.y) > 0.015){
+      const a = { id:uid(), type:'arrow', x1:d.start.x, y1:d.start.y, x2:d.cur.x, y2:d.cur.y,
+        style:ui.arrowStyle, color:ui.color, label:$('#labelInput').value.trim(), tStart:t, tEnd:annEnd(t) };
+      pushUndo(); project.annotations.push(a); ui.selectedId = a.id; afterMutate();
+    }
+  } else if (d.mode === 'newZone'){
+    const w = Math.abs(d.cur.x-d.start.x), h = Math.abs(d.cur.y-d.start.y);
+    if (w > 0.01 && h > 0.01){
+      const a = { id:uid(), type:'zone', x:Math.min(d.start.x,d.cur.x), y:Math.min(d.start.y,d.cur.y),
+        w, h, shape:ui.zoneShape, color:ui.color, label:$('#labelInput').value.trim(), tStart:t, tEnd:annEnd(t) };
+      pushUndo(); project.annotations.push(a); ui.selectedId = a.id; afterMutate();
+    }
+  } else if (d.mode === 'newPen'){
+    if (d.points.length > 3){
+      const a = { id:uid(), type:'pen', points:d.points, color:ui.color, tStart:t, tEnd:annEnd(t) };
+      pushUndo(); project.annotations.push(a); ui.selectedId = a.id; afterMutate();
+    }
+  } else {
+    // spotkey / move finished
+    persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
+  }
+});
+function afterMutate(){ persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel(); }
+
+/* ---------------- tools UI ---------------- */
+$$('#toolGrid button').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+function setTool(tool){
+  ui.tool = tool;
+  $$('#toolGrid button').forEach(x => x.classList.toggle('active', x.dataset.tool === tool));
+  $('#arrowStyleSection').style.display = tool === 'arrow' ? '' : 'none';
+  $('#zoneShapeSection').style.display = tool === 'zone' ? '' : 'none';
+  overlay.className = tool === 'select' ? 'tool-select' : 'tool-crosshair';
+  const hints = {
+    select: 'Click a drawing to select it. Drag to move it. With a spotlight selected, drag on the video to set where the player is at the current time — it follows between keyframes.',
+    spot: 'Click on a player to spotlight them. Scrub forward and drag the ring to track them — it glides between keyframes. Set a name in Label.',
+    arrow: 'Drag from where the action starts to where it should go. Pick what the arrow means below.',
+    zone: 'Drag a box over the space to attack, cover, or move into.',
+    pen: 'Draw freehand — circle a shape, trace a pressing angle, sketch anything.',
+    text: 'Click where the note should sit, then type it.',
+  };
+  $('#toolHint').textContent = hints[tool] || '';
+}
+
+/* colors */
+const colorRow = $('#colorRow');
+PALETTE.forEach(c => {
+  const b = document.createElement('button');
+  b.className = 'colorChip' + (c === ui.color ? ' active' : '');
+  b.style.background = c;
+  b.onclick = () => {
+    ui.color = c;
+    $$('#colorRow .colorChip').forEach(x => x.classList.toggle('active', x === b));
+    const sel = project.annotations.find(a => a.id === ui.selectedId);
+    if (sel && sel.type !== 'pause'){ mutate(() => sel.color = c); }
+  };
+  colorRow.appendChild(b);
+});
+
+$$('#arrowStyleRow .chip').forEach(b => b.onclick = () => {
+  ui.arrowStyle = b.dataset.astyle;
+  $$('#arrowStyleRow .chip').forEach(x => x.classList.toggle('active', x === b));
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  if (sel && sel.type === 'arrow'){ mutate(() => sel.style = ui.arrowStyle); }
+});
+$$('#zoneShapeRow .chip').forEach(b => b.onclick = () => {
+  ui.zoneShape = b.dataset.zshape;
+  $$('#zoneShapeRow .chip').forEach(x => x.classList.toggle('active', x === b));
+});
+
+/* ---------------- selection panel ---------------- */
+function updateSelPanel(){
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  const panel = $('#selSection');
+  if (!sel || sel.type === 'pause'){ panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  $('#selLabel').value = sel.label || sel.text || '';
+  $('#selTimes').textContent = fmtT(sel.tStart) + ' → ' + fmtT(sel.tEnd);
+  $('#selKeyHere').style.display = sel.type === 'spot' ? '' : 'none';
+}
+$('#selLabel').oninput = () => {
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  if (!sel) return;
+  if (sel.type === 'text') sel.text = $('#selLabel').value;
+  else sel.label = $('#selLabel').value;
+  persist(); renderAnnList();
+};
+$('#selStartHere').onclick = () => {
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  if (sel) mutate(() => { sel.tStart = video.currentTime; if (sel.tEnd < sel.tStart) sel.tEnd = annEnd(sel.tStart); });
+};
+$('#selEndHere').onclick = () => {
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  if (sel) mutate(() => { sel.tEnd = Math.max(video.currentTime, sel.tStart + 0.2); });
+};
+$('#selKeyHere').onclick = () => {
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  if (sel && sel.type === 'spot'){
+    const p = spotPos(sel, video.currentTime);
+    mutate(() => setSpotKey(sel, video.currentTime, p.x, p.y));
+    toast('Keyframe added — now drag the ring to where he is');
+  }
+};
+$('#selDelete').onclick = deleteSelected;
+function deleteSelected(){
+  if (!ui.selectedId) return;
+  mutate(() => { project.annotations = project.annotations.filter(a => a.id !== ui.selectedId); ui.selectedId = null; });
+}
+
+/* ---------------- annotation list ---------------- */
+function renderAnnList(){
+  const list = $('#annList');
+  list.innerHTML = '';
+  const anns = [...project.annotations].sort((a,b) => (a.tStart ?? a.t) - (b.tStart ?? b.t));
+  $('#annCount').textContent = anns.length ? `(${anns.length})` : '';
+  for (const a of anns){
+    const el = document.createElement('div');
+    el.className = 'annItem' + (a.id === ui.selectedId ? ' selected' : '');
+    const label = a.type === 'pause' ? (a.question || 'Decision point')
+                : (a.label || a.text || {spot:'Spotlight', arrow:'Arrow', zone:'Zone', pen:'Pen', text:'Text'}[a.type]);
+    const time = a.type === 'pause' ? fmtT(a.t) : fmtT(a.tStart) + '–' + fmtT(a.tEnd);
+    el.innerHTML = `
+      <div class="row1">
+        <span class="kind">${ANN_ICON[a.type]}</span>
+        <span class="lbl" style="color:${a.color || 'var(--warn)'}">${escapeHtml(label)}</span>
+        <span class="timeTag">${time}</span>
+        <button class="miniBtn" data-act="jump">⤵</button>
+        <button class="miniBtn danger" data-act="del">🗑</button>
+      </div>`;
+    el.querySelector('[data-act=jump]').onclick = ev => { ev.stopPropagation();
+      video.currentTime = a.type === 'pause' ? Math.max(0, a.t - 1) : a.tStart; };
+    el.querySelector('[data-act=del]').onclick = ev => { ev.stopPropagation();
+      mutate(() => { project.annotations = project.annotations.filter(x => x.id !== a.id);
+        if (ui.selectedId === a.id) ui.selectedId = null; }); };
+    el.onclick = () => {
+      if (a.type !== 'pause'){ ui.selectedId = a.id; updateSelPanel(); renderAnnList(); }
+    };
+    list.appendChild(el);
+  }
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------------- clips ---------------- */
+$('#btnMarkIn').onclick = () => { ui.tIn = video.currentTime; if (ui.tOut != null && ui.tOut <= ui.tIn) ui.tOut = null; updateInOutUI(); toast('In: ' + fmtT(ui.tIn)); };
+$('#btnMarkOut').onclick = () => { ui.tOut = video.currentTime; if (ui.tIn != null && ui.tIn >= ui.tOut) ui.tIn = null; updateInOutUI(); toast('Out: ' + fmtT(ui.tOut)); };
+$('#btnSaveClip').onclick = () => openClipModal();
+
+let modalState = { rating:'neutral', tags:new Set() };
+function openClipModal(existing){
+  if (!video.src) return toast('Open a video first');
+  ui.editingClipId = existing ? existing.id : null;
+  let tIn, tOut;
+  if (existing){ tIn = existing.tIn; tOut = existing.tOut; }
+  else {
+    tIn = ui.tIn != null ? ui.tIn : Math.max(0, video.currentTime - 8);
+    tOut = ui.tOut != null && ui.tOut > tIn ? ui.tOut : Math.min(video.duration || tIn+8, video.currentTime || tIn+8);
+    if (tOut <= tIn) tOut = Math.min(video.duration || tIn+8, tIn + 8);
+  }
+  modalState = { tIn, tOut,
+    rating: existing ? existing.rating : 'neutral',
+    tags: new Set(existing ? existing.tags : []) };
+  $('#clipModalTitle').textContent = existing ? 'Edit clip' : 'Save clip';
+  $('#clipModalRange').textContent = fmtT(tIn) + ' → ' + fmtT(tOut) + '  (' + (tOut-tIn).toFixed(1) + 's)';
+  $('#clipTitle').value = existing ? existing.title : '';
+  $('#clipNotes').value = existing ? existing.notes : '';
+  $('#clipPosition').value = existing ? existing.position : 'Attacking Mid';
+  $('#clipFormat').value = existing ? existing.format : '9v9';
+  renderRating(); renderTagGroups();
+  $('#clipModal').classList.add('open');
+  $('#clipTitle').focus();
+}
+function renderRating(){
+  $$('#ratingRow .chip').forEach(b => {
+    b.classList.toggle('active', b.dataset.rating === modalState.rating);
+    b.onclick = () => { modalState.rating = b.dataset.rating; renderRating(); };
+  });
+}
+function renderTagGroups(){
+  const host = $('#tagGroups');
+  host.innerHTML = '';
+  for (const [name, tags] of TAG_GROUPS){
+    const g = document.createElement('div');
+    g.className = 'tagGroup';
+    g.innerHTML = `<h5>${name}</h5>`;
+    const row = document.createElement('div'); row.className = 'chipRow';
+    for (const tg of tags){
+      const b = document.createElement('button');
+      b.className = 'chip' + (modalState.tags.has(tg) ? ' active' : '');
+      b.textContent = tg;
+      b.onclick = () => { modalState.tags.has(tg) ? modalState.tags.delete(tg) : modalState.tags.add(tg);
+        b.classList.toggle('active'); };
+      row.appendChild(b);
+    }
+    g.appendChild(row);
+    host.appendChild(g);
+  }
+}
+$('#clipCancel').onclick = () => $('#clipModal').classList.remove('open');
+$('#clipSave').onclick = () => {
+  const data = {
+    tIn: modalState.tIn, tOut: modalState.tOut,
+    title: $('#clipTitle').value.trim() || 'Clip at ' + fmtT(modalState.tIn),
+    rating: modalState.rating,
+    tags: [...modalState.tags],
+    notes: $('#clipNotes').value.trim(),
+    position: $('#clipPosition').value,
+    format: $('#clipFormat').value,
+  };
+  mutate(() => {
+    if (ui.editingClipId){
+      const c = project.clips.find(c => c.id === ui.editingClipId);
+      if (c) Object.assign(c, data);
+    } else {
+      project.clips.push({ id:uid(), ...data });
+    }
+    project.clips.sort((a,b) => a.tIn - b.tIn);
+  });
+  $('#clipModal').classList.remove('open');
+  ui.tIn = null; ui.tOut = null; updateInOutUI();
+  switchTab('clips');
+  toast('Clip saved 🎬');
+};
+
+function playClip(c){
+  hideDecision();
+  ui.loopClip = c;
+  $('#btnStopLoop').style.display = '';
+  video.currentTime = c.tIn;
+  video.play();
+}
+$('#btnStopLoop').onclick = () => { ui.loopClip = null; $('#btnStopLoop').style.display = 'none'; };
+
+$$('#clipFilterRow .chip').forEach(b => b.onclick = () => {
+  ui.clipFilter = b.dataset.cfilter;
+  $$('#clipFilterRow .chip').forEach(x => x.classList.toggle('active', x === b));
+  renderClipList();
+});
+$('#clipTagFilter').onchange = () => { ui.clipTagFilter = $('#clipTagFilter').value; renderClipList(); };
+
+function renderClipList(){
+  const list = $('#clipList');
+  list.innerHTML = '';
+  // refresh tag filter options (preserving selection)
+  const usedTags = [...new Set(project.clips.flatMap(c => c.tags))].sort();
+  const selHtml = ['<option value="">Any tag…</option>', ...usedTags.map(t =>
+    `<option ${t === ui.clipTagFilter ? 'selected' : ''}>${escapeHtml(t)}</option>`)].join('');
+  $('#clipTagFilter').innerHTML = selHtml;
+
+  const colors = {positive:'var(--pos)', negative:'var(--neg)', neutral:'var(--warn)'};
+  const shown = project.clips.filter(c =>
+    (ui.clipFilter === 'all' || c.rating === ui.clipFilter) &&
+    (!ui.clipTagFilter || c.tags.includes(ui.clipTagFilter)));
+  $('#clipCount').textContent = project.clips.length ? `(${shown.length}/${project.clips.length})` : '';
+  $('#clipEmptyHint').style.display = project.clips.length ? 'none' : '';
+
+  for (const c of shown){
+    const el = document.createElement('div');
+    el.className = 'clipItem';
+    el.innerHTML = `
+      <div class="head">
+        <span class="dot" style="background:${colors[c.rating]}"></span>
+        <span class="title">${escapeHtml(c.title)}</span>
+        <span class="timeTag">${fmtT(c.tIn)}–${fmtT(c.tOut)}</span>
+      </div>
+      <div class="tags">${[c.position, c.format, ...c.tags].map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+      ${c.notes ? `<div class="notes">${escapeHtml(c.notes)}</div>` : ''}
+      <div class="actions">
+        <button class="miniBtn" data-act="play">▶ Play (loops)</button>
+        <button class="miniBtn" data-act="export">🎬 Export</button>
+        <button class="miniBtn" data-act="edit">✏️ Edit</button>
+        <button class="miniBtn danger" data-act="del">🗑</button>
+      </div>`;
+    el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
+    el.querySelector('[data-act=play]').onclick = () => playClip(c);
+    el.querySelector('[data-act=export]').onclick = () => exportRange(c.tIn, c.tOut, c.title);
+    el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
+    el.querySelector('[data-act=del]').onclick = () => {
+      if (confirm('Delete clip “' + c.title + '”?'))
+        mutate(() => project.clips = project.clips.filter(x => x.id !== c.id));
+    };
+    list.appendChild(el);
+  }
+}
+
+/* ---------------- tabs ---------------- */
+$$('#tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+function switchTab(name){
+  $$('#tabs button').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
+  $$('.tabPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+}
+
+/* ---------------- project save / load ---------------- */
+$('#btnSaveProj').onclick = () => {
+  if (!video.src) return toast('Open a video first');
+  project.fps = fps();
+  const blob = new Blob([JSON.stringify(project, null, 1)], {type:'application/json'});
+  downloadBlob(blob, (project.videoName || 'project').replace(/\.[^.]+$/, '') + '.filmroom.json');
+  toast('Project saved 💾');
+};
+$('#btnLoadProj').onclick = () => $('#fileProj').click();
+$('#fileProj').onchange = e => { if (e.target.files[0]) loadProjectFile(e.target.files[0]); e.target.value=''; };
+function loadProjectFile(file){
+  file.text().then(txt => {
+    try {
+      const p = JSON.parse(txt);
+      if (!p || !Array.isArray(p.annotations) || !Array.isArray(p.clips)) throw new Error('bad file');
+      pushUndo();
+      const key = project.videoKey; // keep the currently open video's key
+      project = p;
+      project.videoKey = key || p.videoKey;
+      $('#fpsInput').value = project.fps || 30;
+      persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+      toast(`Loaded ${p.clips.length} clip(s), ${p.annotations.length} drawing(s)` +
+        (p.videoName && project.videoName && p.videoName !== project.videoName
+          ? ` (saved from “${p.videoName}”)` : ''));
+    } catch(err){ toast('Could not read that project file'); }
+  });
+}
+function downloadBlob(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ---------------- snapshot ---------------- */
+$('#btnSnapshot').onclick = () => {
+  if (!video.videoWidth) return toast('Open a video first');
+  const W = video.videoWidth, H = video.videoHeight;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(video, 0, 0, W, H);
+  drawScene(ctx, W, H, video.currentTime, {editing:false});
+  c.toBlob(b => {
+    downloadBlob(b, (project.videoName||'frame').replace(/\.[^.]+$/,'') + '_' + fmtT(video.currentTime).replace(':','m') + 's.png');
+    toast('Still saved 📸');
+  }, 'image/png');
+};
+
+/* ---------------- export ---------------- */
+$('#btnExport').onclick = () => {
+  if (!video.videoWidth) return toast('Open a video first');
+  let tIn = ui.tIn, tOut = ui.tOut;
+  if (tIn == null || tOut == null || tOut <= tIn){
+    if (!confirm('No In→Out range set — export the WHOLE video with drawings? (Mark In/Out or use a clip’s Export button for just a section.)')) return;
+    tIn = 0; tOut = video.duration;
+  }
+  exportRange(tIn, tOut, 'clip');
+};
+
+function pickMime(){
+  const list = [
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ];
+  return list.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+}
+
+async function exportRange(tIn, tOut, label){
+  if (ui.exporting) return;
+  const mime = pickMime();
+  if (!mime) return toast('Sorry — this browser cannot record video. Try Chrome or Safari.');
+  ui.exporting = true; ui.exportCancel = false;
+  hideDecision();
+  const wasLoop = ui.loopClip; ui.loopClip = null;
+
+  const scale = Math.min(1, 1280 / video.videoWidth);
+  const W = Math.round(video.videoWidth * scale / 2) * 2;
+  const H = Math.round(video.videoHeight * scale / 2) * 2;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  const stream = c.captureStream(30);
+  // try to bring the video's audio along
+  try {
+    const vs = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
+    if (vs) vs.getAudioTracks().forEach(tr => stream.addTrack(tr));
+  } catch(e){}
+
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  const done = new Promise(res => rec.onstop = res);
+
+  $('#busyOverlay').style.display = 'flex';
+  $('#busyMsg').textContent = 'Exporting “' + (label||'clip') + '” — plays through once at 1× while it records…';
+  $('#busyBarFill').style.width = '0%';
+
+  const prevRate = video.playbackRate, prevT = video.currentTime, prevMuted = video.muted;
+  video.pause();
+  video.playbackRate = 1;
+  video.currentTime = tIn;
+  await new Promise(res => { const h = () => { video.removeEventListener('seeked', h); res(); }; video.addEventListener('seeked', h); });
+
+  rec.start(200);
+  await video.play();
+
+  await new Promise(res => {
+    function frame(){
+      if (ui.exportCancel || video.currentTime >= tOut || video.ended){ res(); return; }
+      ctx.drawImage(video, 0, 0, W, H);
+      drawScene(ctx, W, H, video.currentTime, {editing:false});
+      $('#busyBarFill').style.width = clamp((video.currentTime - tIn) / (tOut - tIn) * 100, 0, 100) + '%';
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  });
+
+  video.pause();
+  rec.stop();
+  await done;
+
+  $('#busyOverlay').style.display = 'none';
+  video.playbackRate = prevRate; video.currentTime = prevT; video.muted = prevMuted;
+  ui.loopClip = wasLoop;
+  ui.exporting = false;
+
+  if (ui.exportCancel){ toast('Export canceled'); return; }
+  const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+  const base = (project.videoName || 'clip').replace(/\.[^.]+$/, '');
+  const safe = (label || 'clip').replace(/[^\w\- ]+/g, '').slice(0, 40).trim().replace(/ +/g, '_') || 'clip';
+  downloadBlob(new Blob(chunks, {type: mime.split(';')[0]}), `${base}__${safe}.${ext}`);
+  toast('Exported 🎬 — check your Downloads folder');
+}
+$('#busyCancel').onclick = () => { ui.exportCancel = true; };
+
+/* ---------------- help ---------------- */
+$('#btnHelp').onclick = () => $('#helpModal').classList.add('open');
+$('#helpClose').onclick = () => $('#helpModal').classList.remove('open');
+$$('.modal').forEach(m => m.addEventListener('pointerdown', e => { if (e.target === m) m.classList.remove('open'); }));
+
+/* ---------------- keyboard ---------------- */
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if ($('#clipModal').classList.contains('open')){
+    if (e.key === 'Escape') $('#clipModal').classList.remove('open');
+    return;
+  }
+  if (e.key === 'Escape'){ $$('.modal').forEach(m => m.classList.remove('open')); hideDecision(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); return; }
+  if (e.metaKey || e.ctrlKey) return;
+
+  switch (e.key){
+    case ' ': case 'k': case 'K': e.preventDefault(); togglePlay(); break;
+    case 'ArrowLeft': e.preventDefault(); step(e.shiftKey ? -fps() : -1); break;
+    case 'ArrowRight': e.preventDefault(); step(e.shiftKey ? fps() : 1); break;
+    case 'j': case 'J': video.currentTime = clamp(video.currentTime - 5, 0, video.duration||0); break;
+    case 'l': case 'L': video.currentTime = clamp(video.currentTime + 5, 0, video.duration||0); break;
+    case 'i': case 'I': $('#btnMarkIn').click(); break;
+    case 'o': case 'O': $('#btnMarkOut').click(); break;
+    case 'Enter': if (video.src) openClipModal(); break;
+    case '[': bumpSpeed(-1); break;
+    case ']': bumpSpeed(1); break;
+    case '1': setTool('select'); break;
+    case '2': setTool('spot'); break;
+    case '3': setTool('arrow'); break;
+    case '4': setTool('zone'); break;
+    case '5': setTool('pen'); break;
+    case '6': setTool('text'); break;
+    case 'Backspace': case 'Delete': deleteSelected(); break;
+    case '?': $('#helpModal').classList.add('open'); break;
+  }
+});
+
+/* ---------------- main loop ---------------- */
+function tick(){
+  const t = video.currentTime || 0;
+  if (ui.loopClip && !video.paused && t >= ui.loopClip.tOut){
+    video.currentTime = ui.loopClip.tIn;
+  }
+  if (!ui.exporting){
+    checkPauses(t);
+    if (video.videoWidth && overlay.width){
+      octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const W = overlay.width / dpr, H = overlay.height / dpr;
+      octx.clearRect(0, 0, W, H);
+      drawScene(octx, W, H, t, {editing:true});
+    }
+    const D = video.duration || 0;
+    $('#timecode').textContent = fmtT(t) + ' / ' + fmtT(D);
+    $('#playhead').style.left = (D ? t/D*100 : 0) + '%';
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* first-run help */
+if (!localStorage.getItem('filmroom:seenHelp')){
+  localStorage.setItem('filmroom:seenHelp', '1');
+  setTimeout(() => $('#helpModal').classList.add('open'), 600);
+}
+</script>
+</body>
+</html>
