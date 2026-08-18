@@ -220,6 +220,21 @@
   #panel-coach .body .dimhead{color:var(--dim); font-size:11px; text-transform:uppercase;
     letter-spacing:.6px; margin-top:10px;}
 
+  /* ---------- guided first-run tour ---------- */
+  #tourRing{position:fixed; border-radius:12px; pointer-events:none; z-index:130; display:none;
+    box-shadow:0 0 0 9999px rgba(4,8,15,.62), 0 0 0 3px var(--accent2), 0 0 22px rgba(88,166,255,.55);
+    transition:left .18s ease, top .18s ease, width .18s ease, height .18s ease;}
+  #tourBubble{position:fixed; z-index:131; display:none; width:min(330px, 88vw);
+    background:var(--bg2); border:1px solid var(--accent2); border-radius:12px; padding:14px 16px;
+    box-shadow:0 12px 44px rgba(0,0,0,.65);}
+  #tourBubble .step{color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.8px;}
+  #tourBubble .msg{font-size:15px; line-height:1.45; margin:6px 0 12px;}
+  #tourBubble .msg b{color:var(--accent2);}
+  #tourBubble .row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  #tourSkip{background:none; border:none; color:var(--dim); text-decoration:underline;
+    padding:6px 2px; font-size:13px;}
+  #tourSkip:hover{background:none; color:var(--text);}
+
   .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
     background:var(--bg3); border:1px solid var(--line); border-radius:8px; padding:9px 16px;
     z-index:120; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px; transition:opacity .3s; }
@@ -384,7 +399,7 @@
           <button class="speedBtn active" data-speed="1">1×</button>
         </div>
         <div class="divider"></div>
-        <div class="ctlGroup">
+        <div class="ctlGroup" id="clipCtl">
           <button id="btnMarkIn" title="Mark clip start (I)">⟦ In</button>
           <button id="btnMarkOut" title="Mark clip end (O)">Out ⟧</button>
           <button id="btnSaveClip" class="primary" title="Tag and save the In→Out range as a clip">＋ Save clip</button>
@@ -735,7 +750,21 @@
     <p>The tag list is a starting point. In the Save-clip dialog hit <b>✎ Edit tag list</b> to rename any tag to the words his coach uses, remove ones you don't use, or add your own — renames update clips you've already saved.</p>
     <h4>Zoomed-out footage</h4>
     <p>On far sideline or Trace-camera film, players are small: use <b>Ring −</b> on a selected spotlight to shrink the ring so it fits the player — Auto-track then automatically works at higher resolution to keep the lock. The tracker shrugs off exposure/brightness drift and coasts through another player briefly crossing in front (watch the <b>lock</b> number in the tracking pill — it dips and recovers). Set fps to match the footage (Trace/YouTube is usually 30).</p>
-    <div class="foot"><button class="primary" id="helpClose">Got it</button></div>
+    <div class="foot" style="justify-content:space-between">
+      <button id="helpTour">↻ Restart the walkthrough</button>
+      <button class="primary" id="helpClose">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= GUIDED TOUR ======================= -->
+<div id="tourRing"></div>
+<div id="tourBubble" role="dialog" aria-live="polite">
+  <div class="step" id="tourStep"></div>
+  <div class="msg" id="tourMsg"></div>
+  <div class="row">
+    <button id="tourSkip">Skip the tour</button>
+    <span class="step" id="tourDots"></span>
   </div>
 </div>
 
@@ -918,6 +947,7 @@ function loadVideo(file){
     undoStack = [];
     layout();
     renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); updateInOutUI();
+    tourEvent('open');
   };
 }
 
@@ -1064,7 +1094,7 @@ function togglePlay(){
   if (video.paused) video.play(); else video.pause();
 }
 $('#btnPlay').onclick = togglePlay;
-video.addEventListener('play',  () => $('#btnPlay').textContent = '❚❚');
+video.addEventListener('play',  () => { $('#btnPlay').textContent = '❚❚'; tourEvent('play'); });
 video.addEventListener('pause', () => $('#btnPlay').textContent = '▶');
 
 function step(frames){
@@ -1097,6 +1127,7 @@ function seekFromEvent(e){
 }
 timeline.addEventListener('pointerdown', e => {
   if (!video.duration) return;
+  tourEvent('play');
   timeline.setPointerCapture(e.pointerId);
   seekFromEvent(e);
   const mv = ev => seekFromEvent(ev);
@@ -1144,6 +1175,7 @@ function updateInOutUI(){
     el.style.left = (ui.tIn/D*100) + '%';
     el.style.width = '2px';
   } else el.style.display = 'none';
+  tourRefresh();
 }
 
 /* ---------------- decision points ---------------- */
@@ -1452,6 +1484,7 @@ overlay.addEventListener('pointerdown', e => {
     ui.selectedId = a.id;
     ui.drag = { mode:'spotkey', ann:a };
     afterMutate();
+    tourEvent('spot');
     return;
   }
 
@@ -2000,6 +2033,7 @@ $('#clipSave').onclick = () => {
   });
   $('#clipModal').classList.remove('open');
   ui.tIn = null; ui.tOut = null; updateInOutUI();
+  tourEvent('clip');
   switchTab('clips');
   toast('Clip saved 🎬');
 };
@@ -2848,7 +2882,10 @@ function cmpTick(){
 }
 
 /* ---------------- tabs ---------------- */
-$$('#tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+$$('#tabs button').forEach(b => b.onclick = () => {
+  switchTab(b.dataset.tab);
+  if (b.dataset.tab === 'clips') tourEvent('clips');
+});
 function switchTab(name){
   $$('#tabs button').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
   $$('.tabPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
@@ -3791,11 +3828,116 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 window.__filmroom = { getProject: () => project, spotPos, version: 1 };
 
-/* first-run help */
-if (!localStorage.getItem('filmroom:seenHelp')){
-  localStorage.setItem('filmroom:seenHelp', '1');
-  setTimeout(() => $('#helpModal').classList.add('open'), 600);
+/* ---------------- guided first-run tour ----------------
+  Coach marks anchored to the real controls. Each step advances when the user
+  DOES the thing (opens a video, plays, spotlights, saves a clip, opens the
+  library) — never on a "next" button. The ring dims the rest of the screen
+  without blocking it (pointer-events:none), so nothing is ever trapped.
+------------------------------------------------- */
+const TOUR_KEY = 'filmroom:tourDone';
+const TOUR_STEPS = [
+  { id:'open',
+    target: () => video.src ? '#btnOpen' : '#bigOpen',
+    done:   () => !!video.src,
+    msg:    () => 'Tap here to open your game video. It stays on this computer — nothing is ever uploaded.' },
+  { id:'play',
+    target: () => '#transport',
+    msg:    () => 'Press the green <b>▶</b> button to watch — or drag anywhere along this bar to move through the game.' },
+  { id:'spot',
+    target: () => '#toolGrid button[data-tool=spot]',
+    msg:    () => 'Pick <b>Spotlight</b>, then tap your player on the video. A ring appears around him so you both know who you are talking about.' },
+  { id:'clip',
+    target: () => '#clipCtl',
+    msg:    () => ui.tIn == null
+      ? 'Found a moment worth keeping? Press <b>Start clip here</b> when it begins.'
+      : (ui.tOut == null
+        ? 'Now let it run, and press <b>End clip here</b> when the moment is over.'
+        : 'Now press <b>＋ Save clip</b> to name it and keep it.') },
+  { id:'clips',
+    target: () => '#tabs button[data-tab=clips]',
+    msg:    () => 'Last one: your saved moments live in <b>Clips</b> — that is his library. Tap it.' },
+];
+
+let tour = null, tourTimer = null;
+
+function tourStarted(){ return !!tour; }
+
+function startTour(force){
+  if (!force && (localStorage.getItem(TOUR_KEY) || localStorage.getItem('filmroom:seenHelp'))) return;
+  $('#helpModal').classList.remove('open');
+  let i = 0;
+  while (i < TOUR_STEPS.length && TOUR_STEPS[i].done && TOUR_STEPS[i].done()) i++;
+  if (i >= TOUR_STEPS.length) i = TOUR_STEPS.length - 1;
+  tour = { i };
+  tourRender();
+  clearInterval(tourTimer);
+  tourTimer = setInterval(tourPlace, 200);   // follows layout/modal changes cheaply
 }
+
+function endTour(completed){
+  tour = null;
+  clearInterval(tourTimer); tourTimer = null;
+  $('#tourRing').style.display = 'none';
+  $('#tourBubble').style.display = 'none';
+  try { localStorage.setItem(TOUR_KEY, '1'); } catch(e){}
+  toast(completed
+    ? 'That is the whole routine: open a game, spotlight him, save the moments, watch them together. ❓ Help has it all written down.'
+    : 'Walkthrough closed. You can start it again any time from ❓ Help.', 5000);
+}
+
+/* called from the places where the user actually does the thing */
+function tourEvent(id){
+  if (!tour) return;
+  const idx = TOUR_STEPS.findIndex((st, n) => n >= tour.i && st.id === id);
+  if (idx < 0) return;
+  tour.i = idx + 1;
+  if (tour.i >= TOUR_STEPS.length) return endTour(true);
+  tourRender();
+}
+/* the wording inside a step can change as they go (Start clip → End clip → Save) */
+function tourRefresh(){ if (tour) tourRender(); }
+
+function tourRender(){
+  const st = TOUR_STEPS[tour.i];
+  $('#tourStep').textContent = 'Step ' + (tour.i + 1) + ' of ' + TOUR_STEPS.length;
+  $('#tourMsg').innerHTML = st.msg();
+  $('#tourDots').textContent = '●'.repeat(tour.i + 1) + '○'.repeat(TOUR_STEPS.length - tour.i - 1);
+  tourPlace();
+}
+
+function tourPlace(){
+  const ring = $('#tourRing'), bub = $('#tourBubble');
+  if (!tour){ ring.style.display = 'none'; bub.style.display = 'none'; return; }
+  const st = TOUR_STEPS[tour.i];
+  const el = document.querySelector(st.target());
+  // stay out of the way of anything modal — dialogs, exports, sessions
+  const busy = $$('.modal.open').length > 0 || $('#busyOverlay').style.display === 'flex' ||
+               $('#decisionOverlay').style.display === 'flex';
+  if (!el || busy || !el.getClientRects().length){
+    ring.style.display = 'none'; bub.style.display = 'none'; return;
+  }
+  const r = el.getBoundingClientRect(), pad = 6;
+  ring.style.display = 'block';
+  ring.style.left = (r.left - pad) + 'px'; ring.style.top = (r.top - pad) + 'px';
+  ring.style.width = (r.width + pad * 2) + 'px'; ring.style.height = (r.height + pad * 2) + 'px';
+  bub.style.display = 'block';
+  const bw = bub.offsetWidth, bh = bub.offsetHeight;
+  let top = r.bottom + 14;
+  if (top + bh > window.innerHeight - 8) top = r.top - bh - 14;
+  top = clamp(top, 8, Math.max(8, window.innerHeight - bh - 8));
+  const left = clamp(r.left + r.width / 2 - bw / 2, 8, Math.max(8, window.innerWidth - bw - 8));
+  bub.style.left = left + 'px'; bub.style.top = top + 'px';
+}
+window.addEventListener('resize', tourPlace);
+/* get out of the way the instant a dialog / export / decision overlay appears */
+const tourWatch = new MutationObserver(() => tourPlace());
+$$('.modal').forEach(m => tourWatch.observe(m, { attributes:true, attributeFilter:['class'] }));
+[$('#busyOverlay'), $('#decisionOverlay')].forEach(el =>
+  tourWatch.observe(el, { attributes:true, attributeFilter:['style'] }));
+$('#tourSkip').onclick = () => endTour(false);
+$('#helpTour').onclick = () => { $('#helpModal').classList.remove('open'); startTour(true); };
+
+startTour(false);
 </script>
 </body>
 </html>

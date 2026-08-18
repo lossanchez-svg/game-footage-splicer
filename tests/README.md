@@ -6,6 +6,9 @@ Run them before every push.
 ```sh
 npm install            # installs playwright-core only
 ./make-fixtures.sh     # generates tests/fixtures/*.webm (needs ffmpeg; see script header)
+node tour.js           # guided first-run tour: do-based advancement through all five
+                       # steps, wording that follows the task, skip, restart from Help,
+                       # never-again-after-completion, resize + touch
 node smoke.js          # core suite: loading, drawing tools, decision points, clips,
                        # exports, undo, autosave restore
 node tracking.js       # auto-track suite: tracks a synthetic moving ball and asserts

@@ -34,7 +34,7 @@ discover annotate → clip → export without reading the README. Judge every ch
 - Mistakes are cheap: destructive actions confirm or offer Undo; the app never fails
   silently (the drop-feedback fix is the model — copy that standard everywhere).
 
-### Workstream A — guided first-run tour (do-based coach marks)
+### ✅ Workstream A — guided first-run tour (do-based coach marks) — SHIPPED
 Replace the auto-opening help modal with a step-by-step tour anchored to the real UI.
 Each step is a small bubble pointing at one control, and it advances when the user
 **does the thing**, not when they click "next":
@@ -49,6 +49,14 @@ Requirements: a "Skip tour" link on every bubble; completed/skipped state persis
 reposition on resize and work on touch; non-target UI stays usable (dim, don't block).
 Tests: a suite that walks the tour by doing the actions, verifies advancement, skip, and
 never-again-after-completion.
+**Shipped:** five coach marks (`#tourBubble` + a `pointer-events:none` `#tourRing` that dims
+without blocking), each advancing only when the user does the thing — video loaded, first
+play/scrub, first spotlight, first saved clip, Clips tab opened. Step 4 re-words itself as
+Start → End → Save. Bubbles get out of the way of any dialog/export/decision overlay
+(MutationObserver) and follow their control on resize. "Skip the tour" on every bubble;
+`filmroom:tourDone` (legacy `filmroom:seenHelp` also counts) means it never auto-returns;
+❓ Help has "↻ Restart the walkthrough". The help modal no longer auto-opens.
+Verified by `tests/tour.js` (24 checks) including touch taps and a resize.
 
 ### Workstream B — real tooltips (hover + touch), first-use hints
 Native `title` attributes are invisible on iPad and slow on desktop. Build a lightweight
@@ -428,6 +436,8 @@ device-aware intake flow:
 | 2026-08-18 | Board reuses the video draw functions + tool palette on a separate canvas | One visual language everywhere; board items are the same shapes minus time, plus a `chip` type; undo snapshots widened to boards/reel/sessions |
 | 2026-08-18 | Compare: A is the master clock, B hard-resynced per frame (no free-running B) | Start-sync alone drifts; per-frame correction keeps the pair within one frame indefinitely; B side can be an external file (loaded, never persisted) |
 | 2026-08-18 | Photos intake: native picker on iOS, folder library on Mac — never fight macOS Photos drags | No web API can browse the Mac Photos library; iOS's file input IS the Photos picker; a remembered iCloud Drive folder is the cross-device equivalent of an album |
+| 2026-08-18 | Tour steps advance on the user's action, never a "Next" button | A "Next"-driven tour teaches nothing — the hand has to do it once; the do-based version also can't get ahead of a user who is still figuring the step out |
+| 2026-08-18 | Tour ring dims via a giant `box-shadow` spread with `pointer-events:none` | Keeps the rest of the UI visible AND clickable (no trap), with no overlay maths and no extra elements |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions

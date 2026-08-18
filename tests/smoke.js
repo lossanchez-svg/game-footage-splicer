@@ -11,10 +11,13 @@ const VIDEO = path.join(FIXTURES, 'game.webm');
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 
-  // first-run help modal should appear; close it
-  await page.waitForSelector('#helpModal.open', { timeout: 3000 }).catch(() => {});
-  check('help modal auto-opens on first run', await page.$('#helpModal.open') !== null);
-  await page.click('#helpClose');
+  // first run now opens the guided tour (see tour.js) instead of a wall of help;
+  // skip it so the rest of this suite drives the app unaided
+  await page.waitForSelector('#tourBubble', { state: 'visible', timeout: 3000 }).catch(() => {});
+  check('first run starts the guided tour, not the help modal',
+    await page.$('#helpModal.open') === null &&
+    await page.evaluate(() => document.querySelector('#tourBubble').style.display === 'block'));
+  await page.click('#tourSkip');
 
   // an empty drop (e.g. dragging out of Apple Photos delivers no file) must explain itself
   await page.evaluate(() => {
