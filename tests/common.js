@@ -21,13 +21,13 @@ function chromePath() {
   return undefined; // let playwright-core try its default resolution
 }
 
-async function launch() {
+async function launch(contextOpts = {}) {
   const browser = await chromium.launch({
     executablePath: chromePath(),
     headless: true,
     args: ['--autoplay-policy=no-user-gesture-required'],
   });
-  const ctx = await browser.newContext({ acceptDownloads: true });
+  const ctx = await browser.newContext({ acceptDownloads: true, ...contextOpts });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push('PAGEERROR: ' + e.message));

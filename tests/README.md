@@ -7,9 +7,14 @@ Run them before every push.
 npm install            # installs playwright-core only
 ./make-fixtures.sh     # generates tests/fixtures/*.webm (needs ffmpeg; see script header)
 node smoke.js          # core suite: loading, drawing tools, decision points, clips,
-                       # exports, undo, autosave restore (21 checks)
+                       # exports, undo, autosave restore
 node tracking.js       # auto-track suite: tracks a synthetic moving ball and asserts
                        # the spotlight follows it within tolerance
+node touch.js          # touch/iPad suite: responsive layout + tap interactions
+node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
+                       # stubbed-encoder flow checks (frame counts, cadence) otherwise
+FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264:
+                          # ffmpeg-encoded samples through buildMp4(), probe + full decode
 ```
 
 Notes

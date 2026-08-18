@@ -4,7 +4,7 @@
   "description": "Playwright smoke tests for Film Room (../index.html)",
   "scripts": {
     "fixtures": "./make-fixtures.sh",
-    "test": "node smoke.js && node tracking.js"
+    "test": "node smoke.js && node tracking.js && node touch.js && node fastexport.js && node muxer.js"
   },
   "devDependencies": {
     "playwright-core": "^1.49.0"

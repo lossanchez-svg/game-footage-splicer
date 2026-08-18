@@ -18,6 +18,19 @@ That's it. Bookmark the page and it's a daily tool.
 > Tip: `index.html` is fully self-contained — you can copy it anywhere (Desktop, iCloud
 > Drive, a second Mac) and it just works.
 
+## Using it on an iPad (or phone)
+
+The whole editor works by touch — tap tools, tap to spotlight, drag arrows and zones,
+tap the timeline to scrub. On narrow screens the panel moves below the video.
+
+To make it a real home-screen app on the iPad:
+1. **One-time:** on GitHub, open this repo's *Settings → Pages* and enable Pages from
+   the main branch. That gives the app a private-enough URL (the page is just the app —
+   your footage still never leaves the device; videos load from the iPad's Files/Photos).
+2. On the iPad, open that URL in Safari → Share → **Add to Home Screen**.
+3. It now launches full-screen like an app and works offline. Open game video straight
+   from Files or Photos with the **Open video…** button.
+
 ## Getting your footage in
 
 - **iPhone videos (Apple Photos):** AirDrop the clip to your Mac, or in Photos use
@@ -85,6 +98,11 @@ or he can watch solo on a phone, iPad, or the TV):
   card** (rating, position, your coaching note), and any decision point inside becomes a
   **built-in freeze-frame showing the question** before the play continues — the
   "what should happen here?" moment is part of the video itself.
+- **Two export modes** (picker appears in the top bar where supported):
+  **⚡ mp4 · silent** builds a true H.264 `.mp4` frame-by-frame — plays natively on any
+  iPhone/iPad/TV with no conversion, never drops frames, works from any browser.
+  **🔊 with audio** records in real time and keeps the game sound (file format depends
+  on the browser — Safari gives mp4, Chrome may give webm).
 - AirDrop the file to a phone/iPad, then **AirPlay to the TV** for the big-screen review.
 - **📸 Still** — saves the current annotated frame as an image; the fastest way to send
   one teaching picture.
@@ -121,9 +139,8 @@ recovery…), general defensive principles, format notes from 5v5 to 11v11 — a
 
 ## Notes & limits
 
-- Exports use your browser's recorder: Chrome typically produces `.webm`, Safari `.mp4`.
-  If a `.webm` won't AirDrop-play on an iPhone, run the export in Safari, or drop the
-  file into QuickTime/HandBrake to convert.
-- Export plays the clip through once in real time while recording (a 20s clip takes 20s).
+- **⚡ mp4 exports are silent** (game audio isn't included yet — it's on the roadmap).
+  When the crowd noise matters, use **🔊 with audio**, which records in real time
+  (a 20s clip takes 20s) and whose format depends on the browser.
 - Autosave is per-browser. Moving to another machine? **💾 Save project** and keep the
   `.filmroom.json` next to the video file.

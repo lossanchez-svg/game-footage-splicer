@@ -138,7 +138,11 @@ const VIDEO = path.join(FIXTURES, 'game.webm');
   const [dl1] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.click('#btnSnapshot')]);
   check('snapshot downloads png', dl1.suggestedFilename().endsWith('.png'));
 
-  // export clip (records in real time ~2s)
+  // export clip via the REALTIME path (fast path has its own suite: fastexport.js)
+  await page.evaluate(() => {
+    const s = document.querySelector('#exportMode');
+    if (s) s.value = 'realtime';
+  });
   const [dl2] = await Promise.all([
     page.waitForEvent('download', { timeout: 30000 }),
     page.click('#clipList [data-act=export]'),

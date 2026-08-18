@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Film Room">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Film Room — Soccer Footage Study</title>
 <style>
   :root{
@@ -17,9 +24,12 @@
     background:var(--bg); color:var(--text);
     font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
     display:flex; flex-direction:column; overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
   }
+  button, .chip, #tabs, #topbar .logo, #toolGrid, summary{
+    -webkit-user-select:none; user-select:none;}
   button{font:inherit; color:inherit; background:var(--bg3); border:1px solid var(--line);
-    border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap;}
+    border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap; touch-action:manipulation;}
   button:hover{background:#2b3340;}
   button.primary{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;}
   button.primary:hover{background:#38b155;}
@@ -177,6 +187,29 @@
   .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
     background:var(--bg3); border:1px solid var(--line); border-radius:8px; padding:9px 16px;
     z-index:120; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px; transition:opacity .3s; }
+
+  /* ---------- Touch & small screens (iPad portrait, phones) ---------- */
+  #timeline{touch-action:none;}
+  @media (pointer:coarse){
+    button{padding:9px 14px;}
+    .miniBtn{padding:7px 11px; font-size:12px;}
+    .speedBtn{padding:8px 10px;}
+    .chip{padding:6px 12px;}
+    .colorChip{width:32px; height:32px;}
+    #timeline{height:54px;}
+    #tabs button{padding:13px 4px;}
+    input,select,textarea{padding:8px 10px; font-size:16px;} /* 16px stops iOS zoom-on-focus */
+  }
+  @media (max-width: 980px){
+    #main{flex-direction:column;}
+    #sidebar{width:100%; border-left:none; border-top:1px solid var(--line);
+      max-height:44%; flex:none;}
+    #topbar{padding:6px 8px;}
+    #videoName{display:none;}
+  }
+  @supports (padding: env(safe-area-inset-bottom)){
+    #transport{padding-bottom:calc(8px + env(safe-area-inset-bottom));}
+  }
 </style>
 </head>
 <body>
@@ -189,6 +222,10 @@
   <div class="spacer"></div>
   <button id="btnSnapshot" title="Save a still image of this frame with all drawings">📸 Still</button>
   <button id="btnExport" title="Export the current In→Out range (or the whole video) as an annotated video file">🎬 Export clip</button>
+  <select id="exportMode" style="display:none" title="⚡ mp4: renders frame-by-frame into an H.264 .mp4 that plays natively on iPhone/iPad — no sound. 🔊 with audio: records in real time and keeps the game audio; format depends on the browser.">
+    <option value="fast">⚡ mp4 · silent</option>
+    <option value="realtime">🔊 with audio</option>
+  </select>
   <div class="divider"></div>
   <button id="btnSaveProj" title="Download all clips + drawings as a project file">💾 Save project</button>
   <button id="btnLoadProj">📂 Load project</button>
@@ -1655,7 +1692,7 @@ function renderClipList(){
       </div>`;
     el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
     el.querySelector('[data-act=play]').onclick = () => playClip(c);
-    el.querySelector('[data-act=export]').onclick = () => exportRange(c.tIn, c.tOut, c.title, c);
+    el.querySelector('[data-act=export]').onclick = () => doExport(c.tIn, c.tOut, c.title, c);
     el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
     el.querySelector('[data-act=del]').onclick = () => {
       if (confirm('Delete clip “' + c.title + '”?'))
@@ -1731,8 +1768,31 @@ $('#btnExport').onclick = () => {
     if (!confirm('No In→Out range set — export the WHOLE video with drawings? (Mark In/Out or use a clip’s Export button for just a section.)')) return;
     tIn = 0; tOut = video.duration;
   }
-  exportRange(tIn, tOut, 'clip');
+  doExport(tIn, tOut, 'clip', null);
 };
+
+/* fast path = WebCodecs H.264 .mp4 (plays natively on iPhone/iPad, silent);
+   realtime path = MediaRecorder (keeps audio, format depends on browser) */
+let fastSupported = false;
+(async () => {
+  try {
+    if (window.VideoEncoder && window.VideoFrame){
+      const r = await VideoEncoder.isConfigSupported({ codec:'avc1.420028', width:1280, height:720,
+        bitrate:8_000_000, framerate:30, avc:{format:'avc'} });
+      fastSupported = !!(r && r.supported);
+    }
+  } catch(e){}
+  if (fastSupported){
+    const sel = $('#exportMode');
+    sel.style.display = '';
+    sel.value = localStorage.getItem('filmroom:exportMode') || 'fast';
+    sel.onchange = () => localStorage.setItem('filmroom:exportMode', sel.value);
+  }
+})();
+function doExport(tIn, tOut, label, clip){
+  if (fastSupported && $('#exportMode').value === 'fast') exportFast(tIn, tOut, label, clip);
+  else exportRange(tIn, tOut, label, clip);
+}
 
 function pickMime(){
   const list = [
@@ -1928,6 +1988,181 @@ function drawQuestionBanner(ctx, W, H, question){
   ctx.textAlign = 'start';
 }
 
+/* ---------------- fast export: WebCodecs H.264 → .mp4 ----------------
+  Renders every frame deterministically (seek-stepping, not realtime capture),
+  encodes with VideoEncoder (baseline H.264, no B-frames), and muxes into a
+  minimal hand-rolled ISO-BMFF (.mp4) — single video track, one chunk,
+  fixed 30fps. Silent by design; the realtime path keeps audio.
+--------------------------------------------------------------------- */
+async function pickAvcCodec(W, H, bitrate){
+  for (const codec of ['avc1.420028','avc1.42e01f','avc1.640028']){
+    try {
+      const r = await VideoEncoder.isConfigSupported({ codec, width:W, height:H, bitrate, framerate:30, avc:{format:'avc'} });
+      if (r && r.supported) return codec;
+    } catch(e){}
+  }
+  return null;
+}
+
+async function exportFast(tIn, tOut, label, clip){
+  if (ui.exporting || ui.tracking) return;
+  ui.exporting = true; ui.exportCancel = false;
+  hideDecision();
+  const wasLoop = ui.loopClip; ui.loopClip = null;
+
+  const scale = Math.min(1, 1920 / video.videoWidth);
+  const W = Math.round(video.videoWidth * scale / 2) * 2;
+  const H = Math.round(video.videoHeight * scale / 2) * 2;
+  const bitrate = Math.min(20_000_000, Math.max(6_000_000, Math.round(W * H * 30 * 0.2)));
+  const FPS = 30;
+
+  const codec = await pickAvcCodec(W, H, bitrate);
+  if (!codec){
+    ui.exporting = false; ui.loopClip = wasLoop;
+    toast('Fast mp4 export not available at this size — using the with-audio exporter instead');
+    return exportRange(tIn, tOut, label, clip);
+  }
+
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  const samples = [];
+  let description = null, encError = null;
+  const enc = new VideoEncoder({
+    output: (chunk, meta) => {
+      if (!description && meta && meta.decoderConfig && meta.decoderConfig.description)
+        description = new Uint8Array(meta.decoderConfig.description);
+      const data = new Uint8Array(chunk.byteLength);
+      chunk.copyTo(data);
+      samples.push({ data, isKey: chunk.type === 'key' });
+    },
+    error: e => { encError = e; },
+  });
+  enc.configure({ codec, width:W, height:H, bitrate, framerate:FPS, avc:{format:'avc'}, latencyMode:'realtime' });
+
+  $('#busyOverlay').style.display = 'flex';
+  $('#busyMsg').textContent = '⚡ Exporting “' + (label||'clip') + '” as mp4…';
+  $('#busyBarFill').style.width = '0%';
+
+  const prevRate = video.playbackRate, prevT = video.currentTime;
+  video.pause();
+
+  let n = 0;
+  async function pushFrame(){
+    const f = new VideoFrame(c, { timestamp: Math.round(n * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+    enc.encode(f, { keyFrame: n % (FPS * 2) === 0 });
+    f.close(); n++;
+    if (enc.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 10));
+  }
+
+  const pausePts = project.annotations
+    .filter(a => a.type === 'pause' && a.t > tIn + 0.05 && a.t < tOut - 0.05)
+    .sort((a, b) => a.t - b.t);
+  let pi = 0;
+
+  try {
+    if (clip){
+      drawTitleCard(ctx, W, H, clip);
+      for (let i = 0; i < Math.round(FPS * 2.8) && !ui.exportCancel; i++) await pushFrame();
+    }
+    const dt = 1 / FPS;
+    for (let t = tIn; t < tOut - 1e-4 && !ui.exportCancel && !encError; t += dt){
+      await seekTo(Math.min(t, video.duration || t));
+      ctx.drawImage(video, 0, 0, W, H);
+      drawScene(ctx, W, H, t, {editing:false});
+      await pushFrame();
+      if (pi < pausePts.length && t >= pausePts[pi].t){
+        drawQuestionBanner(ctx, W, H, pausePts[pi].question);
+        for (let i = 0; i < Math.round(FPS * 3.2) && !ui.exportCancel; i++) await pushFrame();
+        pi++;
+      }
+      $('#busyBarFill').style.width = clamp((t - tIn) / (tOut - tIn) * 100, 0, 100) + '%';
+    }
+    if (!ui.exportCancel && !encError) await enc.flush();
+  } catch(e){ encError = e; }
+  try { enc.close(); } catch(e){}
+
+  $('#busyOverlay').style.display = 'none';
+  video.playbackRate = prevRate; video.currentTime = prevT;
+  ui.loopClip = wasLoop;
+  ui.exporting = false;
+
+  if (ui.exportCancel){ toast('Export canceled'); return; }
+  if (encError || !samples.length || !description){
+    console.warn('fast export failed', encError);
+    toast('Fast mp4 export hit a snag — using the with-audio exporter instead');
+    return exportRange(tIn, tOut, label, clip);
+  }
+  const mp4 = buildMp4(samples, description, W, H, FPS);
+  const base = (project.videoName || 'clip').replace(/\.[^.]+$/, '');
+  const safe = (label || 'clip').replace(/[^\w\- ]+/g, '').slice(0, 40).trim().replace(/ +/g, '_') || 'clip';
+  downloadBlob(new Blob([mp4], {type:'video/mp4'}), `${base}__${safe}.mp4`);
+  toast('Exported 🎬 iPhone-ready mp4 — check your Downloads folder');
+}
+
+/* minimal ISO-BMFF writer: ftyp + mdat + moov, one AVC video track, one chunk */
+function buildMp4(samples, avcC, W, H, fps){
+  const TS = 90000, sampleDur = Math.round(TS / fps);
+  const u32 = v => [v>>>24 & 255, v>>>16 & 255, v>>>8 & 255, v & 255];
+  const u16 = v => [v>>>8 & 255, v & 255];
+  const str = s => [...s].map(ch => ch.charCodeAt(0));
+  const flat = parts => {
+    const arrs = parts.map(p => p instanceof Uint8Array ? p : Uint8Array.from(p));
+    const out = new Uint8Array(arrs.reduce((s, a) => s + a.length, 0));
+    let o = 0; for (const a of arrs){ out.set(a, o); o += a.length; }
+    return out;
+  };
+  const box = (type, ...parts) => {
+    const body = flat(parts);
+    return flat([u32(body.length + 8), str(type), body]);
+  };
+  const matrix = [ ...u32(0x10000), ...u32(0), ...u32(0), ...u32(0), ...u32(0x10000), ...u32(0),
+                   ...u32(0), ...u32(0), ...u32(0x40000000) ];
+  const durTS = sampleDur * samples.length;
+  const durMs = Math.round(durTS / TS * 1000);
+
+  const ftyp = box('ftyp', str('isom'), u32(0x200), str('isom'), str('iso2'), str('avc1'), str('mp41'));
+  const mdatPayload = flat(samples.map(s => s.data));
+  const mdat = box('mdat', mdatPayload);
+  const chunkOffset = ftyp.length + 8;                    // mdat payload starts after its header
+
+  const avc1 = box('avc1',
+    [0,0,0,0,0,0], u16(1),                                // reserved, data_ref_index
+    u16(0), u16(0), u32(0), u32(0), u32(0),               // pre_defined / reserved
+    u16(W), u16(H), u32(0x480000), u32(0x480000),         // dimensions, 72dpi
+    u32(0), u16(1),                                       // reserved, frame_count
+    new Uint8Array(32),                                   // compressor name (empty)
+    u16(24), u16(0xFFFF),                                 // depth, pre_defined -1
+    box('avcC', avcC));
+
+  const stbl = box('stbl',
+    box('stsd', u32(0), u32(1), avc1),
+    box('stts', u32(0), u32(1), u32(samples.length), u32(sampleDur)),
+    box('stss', u32(0), u32(samples.filter(s => s.isKey).length),
+      flat(samples.flatMap((s, i) => s.isKey ? [u32(i + 1)] : []))),
+    box('stsc', u32(0), u32(1), u32(1), u32(samples.length), u32(1)),
+    box('stsz', u32(0), u32(0), u32(samples.length), flat(samples.map(s => u32(s.data.length)))),
+    box('stco', u32(0), u32(1), u32(chunkOffset)));
+
+  const moov = box('moov',
+    box('mvhd', u32(0), u32(0), u32(0), u32(1000), u32(durMs),
+      u32(0x10000), u16(0x100), u16(0), u32(0), u32(0), matrix,
+      u32(0), u32(0), u32(0), u32(0), u32(0), u32(0), u32(2)),
+    box('trak',
+      box('tkhd', [0,0,0,3], u32(0), u32(0), u32(1), u32(0), u32(durMs),
+        u32(0), u32(0), u16(0), u16(0), u16(0), u16(0), matrix,
+        u32(W << 16), u32(H << 16)),
+      box('mdia',
+        box('mdhd', u32(0), u32(0), u32(0), u32(TS), u32(durTS), u16(0x55C4), u16(0)),
+        box('hdlr', u32(0), u32(0), str('vide'), u32(0), u32(0), u32(0), str('VideoHandler'), [0]),
+        box('minf',
+          box('vmhd', [0,0,0,1], u16(0), u16(0), u16(0), u16(0)),
+          box('dinf', box('dref', u32(0), u32(1), box('url ', [0,0,0,1]))),
+          stbl))));
+
+  return flat([ftyp, mdat, moov]);
+}
+
 /* ---------------- help ---------------- */
 $('#btnHelp').onclick = () => $('#helpModal').classList.add('open');
 $('#helpClose').onclick = () => $('#helpModal').classList.remove('open');
@@ -1998,6 +2233,12 @@ function tick(){
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
+
+/* offline support when hosted (e.g. GitHub Pages → Add to Home Screen on iPad);
+   no-op when opened as a local file */
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 
 /* debug/test hook (also handy in the console) */
 window.__filmroom = { getProject: () => project, spotPos, version: 1 };

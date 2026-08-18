@@ -1,0 +1,15 @@
+{
+  "name": "Film Room",
+  "short_name": "FilmRoom",
+  "description": "Soccer film-study tool — annotate game footage, build clip libraries, teach game IQ.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": [
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

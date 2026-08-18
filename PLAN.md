@@ -100,17 +100,32 @@ Driven directly by the design inputs above:
 - **Adjustable spotlight ring size** (Ring −/＋): smaller rings for zoomed-out
   iPhone/Trace footage — also right-sizes the auto-tracker's match patch.
 
+### ✅ v1.3 — iPad/touch + iPhone-native mp4 export (shipped)
+- **Touch support**: full editor works by touch — pointer-event tools, bigger targets on
+  coarse pointers, taller timeline, 16px inputs (stops iOS focus-zoom), no tap-highlight/
+  double-tap zoom, safe-area padding. Responsive layout stacks the sidebar under the
+  video below 980px (iPad portrait / phones).
+- **PWA (when hosted)**: manifest + service worker + icons; register only over http(s).
+  One-time setup: enable GitHub Pages on this repo → open on iPad Safari → share →
+  Add to Home Screen. Fully offline afterwards; footage still never leaves the device.
+  Opening index.html locally stays fully supported (SW is a no-op on file://).
+- **⚡ WebCodecs H.264 export**: renders frame-by-frame (seek-stepping, deterministic —
+  no dropped frames) through VideoEncoder into a **hand-rolled zero-dependency ISO-BMFF
+  muxer** (`buildMp4`) → real `.mp4` that plays natively on iPhone/iPad from ANY browser.
+  Baseline profile (no B-frames), keyframe every 2s, same title-card/freeze burn-ins.
+  Silent by design; the MediaRecorder path remains as "🔊 with audio" via a top-bar
+  selector (remembered). Falls back to realtime path automatically if encoding fails.
+
 ## Roadmap
 
 ### Next (reordered per design inputs, highest value first)
-- [ ] **Touch/iPad support + PWA** *(promoted — review happens on phone/iPad/TV, not at
-      the Mac)*: touch-friendly drag/scrub, installable, works from Files/iCloud.
-- [ ] **WebCodecs H.264 mp4 export**: guaranteed native iOS/AirPlay playback from any
-      browser, faster than realtime; removes the Safari-vs-Chrome format footnote.
 - [ ] **Smarter tracking for zoomed-out / fuzzy footage** *(promoted — sideline iPhone +
       old Trace camera)*: multi-scale matching, motion prediction between frames,
       possibly normalized correlation instead of SAD for low-contrast targets. Must stay
       offline/dependency-free.
+- [ ] **Audio in fast exports**: decode source audio (WebCodecs AudioDecoder or
+      decodeAudioData on clip ranges), AAC-encode where supported, extend buildMp4 with
+      an mp4a/esds track. Until then: realtime path keeps audio.
 - [ ] **Highlight reel builder**: select multiple clips → one stitched export, each with
       its title card. The weekly package for the TV.
 - [ ] **Session builder**: ordered clip playlist with per-clip questions, runnable as a
@@ -144,7 +159,9 @@ Driven directly by the design inputs above:
 
 ## Architecture notes (for future sessions)
 
-- **Everything is in `index.html`**: CSS → HTML → one `<script>` (~2000 lines, plain JS).
+- **Everything is in `index.html`**: CSS → HTML → one `<script>` (plain JS). The extra
+  repo files (`manifest.webmanifest`, `sw.js`, `icon-512.png`, `apple-touch-icon.png`)
+  only matter when the app is hosted; the single file stays fully standalone.
 - **Data model** (`project`): `{ version, videoName, videoKey, fps, annotations[], clips[] }`
   - annotation types: `spot {keys:[{t,x,y}], r, color, label, tStart, tEnd}`,
     `arrow {x1,y1,x2,y2, style, color, label, tStart, tEnd}`,
@@ -176,6 +193,9 @@ Driven directly by the design inputs above:
 | 2026-08-18 | Burn context INTO exports (title card, coaching note, decision-question freeze) | Clips must teach on their own when mom runs the session or he watches solo |
 | 2026-08-18 | Export up to 1920px wide, bitrate scaled to resolution | 80″ TV quality bar; 1280 cap was an editor-era default |
 | 2026-08-18 | Tag taxonomy is editable data, not hardcoded | Must be able to match the coach's verbiage; Claude's wording is only the default |
+| 2026-08-18 | PWA files (manifest, sw.js, icons) are optional hosting enhancements | index.html must stay fully functional standalone from file://; hosting (GitHub Pages) is the iPad install path |
+| 2026-08-18 | Hand-rolled mp4 muxer + baseline H.264, keyframes every 2s | Zero dependencies; baseline forbids B-frames so the simple muxer (no ctts) is always correct; validated against real H.264 in tests/muxer.js |
+| 2026-08-18 | Fast exports are silent; audio stays on the realtime path for now | AAC encode/mux is a large addition; game audio rarely carries the teaching; roadmap item tracks adding it |
 
 ## Working agreements for future sessions
 

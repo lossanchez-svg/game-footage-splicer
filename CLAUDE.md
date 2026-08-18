@@ -14,6 +14,9 @@ never leaves the machine.
 ## Layout
 
 - `index.html` — the entire app (CSS + HTML + one plain-JS `<script>`)
+- `manifest.webmanifest`, `sw.js`, `icon-512.png`, `apple-touch-icon.png` — optional PWA
+  files, only active when hosted (e.g. GitHub Pages for iPad home-screen install);
+  `index.html` must always keep working standalone from `file://`
 - `PLAN.md` — product plan / roadmap / architecture / decisions
 - `README.md` — user-facing docs (keep in sync when features change)
 - `tests/` — Playwright smoke tests + fixture generation (see `tests/README.md`)
@@ -24,8 +27,7 @@ never leaves the machine.
 cd tests
 npm install            # playwright-core only
 ./make-fixtures.sh     # needs any ffmpeg on PATH (or pip install imageio-ffmpeg)
-node smoke.js          # 21-check core suite
-node tracking.js       # auto-track accuracy suite
+npm test               # smoke, tracking, touch, fastexport, muxer suites
 ```
 
 Notes:
