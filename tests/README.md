@@ -36,6 +36,9 @@ node comfort.js        # comfort mode + accessibility: the Aa text-size toggle (
 node friction.js       # friction backlog: no control fails silently without a video,
                        # every delete is undoable from its own message (even after later
                        # edits), whole-game export states its length
+node walkthrough.js    # fresh-eyes walkthrough: drives the whole first-time journey and
+                       # screenshots every step into out/walk_*.png (the evidence for
+                       # "could someone who has never seen this work it out alone?")
 node board.js          # tactics board: formation seeding, chip place/drag/rename,
                        # drawing tools, format switch, clip-linked boards, PNG, persistence
 node compare.js        # side-by-side: lockstep sync, pair looping, frame-step both,

@@ -104,6 +104,17 @@ const shot = (page, name) => page.screenshot({ path: path.join(OUT, 'plain_' + n
   check('every toast is a full sentence (' + toastCopy.length + ' checked)' +
     (terse.length ? ' — ' + terse.join(' | ') : ''), terse.length === 0);
 
+  // ---- no message may name a button by a label that no longer exists ----
+  const stale = await page.evaluate(() => {
+    const src = [...document.querySelectorAll('script')].map(s => s.textContent).join('\n') +
+      document.body.innerHTML;
+    const gone = ['Export reel', 'Run session', 'Export clip', '📸 Still', '⟦ In', 'Out ⟧',
+                  'End = playhead', 'Keyframe here'];
+    return gone.filter(g => src.includes(g));
+  });
+  check('nothing still refers to a renamed button' + (stale.length ? ' — ' + stale.join(', ') : ''),
+    stale.length === 0);
+
   // ---- marking a clip talks the user through it ----
   await page.evaluate(() => { document.querySelector('#video').currentTime = 1; });
   await page.waitForTimeout(150);

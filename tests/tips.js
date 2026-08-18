@@ -126,7 +126,7 @@ const tipText = page => page.textContent('#tipBubble');
   await page.click('#clipList [data-act=reel]');
   await page.waitForTimeout(250);
   check('first reel add explains both next steps',
-    /Export reel/.test(await toasts()) && /Run session/.test(await toasts()));
+    /Save as one video/.test(await toasts()) && /Watch together/.test(await toasts()));
 
   // each hint fires once only — repeat the same actions, no repeat toast
   await page.evaluate(() => [...document.querySelectorAll('.toast')].forEach(t => t.remove()));

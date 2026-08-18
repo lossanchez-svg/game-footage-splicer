@@ -155,6 +155,13 @@ landed with the empty-state rewrite in workstream C. Verified by `tests/friction
 **Definition of done for the epic:** all six workstreams merged with their tests, all
 existing suites still green, README/help updated, and a fresh-eyes walkthrough
 (screenshots at each step) attached to the PR description.
+**Status: done.** All six workstreams shipped with their suites; the full suite runs
+**251 checks green**. README and in-app help rewritten to the new words.
+`tests/walkthrough.js` drives the entire first-time journey — cold open → walkthrough →
+video → play → spotlight → mark → save → library → tooltip → this week's set → the
+front door → session question → large text → delete-and-undo — writing
+`tests/out/walk_*.png` at every step; that's the screenshot set for a PR description
+(and it re-runs, so it never goes stale).
 
 ## Vision
 

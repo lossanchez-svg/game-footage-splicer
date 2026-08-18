@@ -2263,7 +2263,7 @@ function renderClipList(){
         if (i >= 0) project.reel.splice(i, 1);
         else { project.reel.push(c.id); added = true; }
       });
-      if (added) hintOnce('reel', 'That is this week\u2019s set. Make it into one video with 🎬 Export reel, or press 🎓 Run session to watch it together right here.', 6500);
+      if (added) hintOnce('reel', 'That is this week\u2019s set. Press 🎬 Save as one video to make one file for the TV, or 🎓 Watch together to go through them right here.', 6500);
     };
     el.querySelector('[data-act=board]').onclick = () => {
       let board = (project.boards || []).find(b => b.id === c.boardId);
