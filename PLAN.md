@@ -8,17 +8,22 @@ This is the source of truth for where the project is and where it's going.
 You are picking up a working, fully-tested product. Before writing any code:
 
 1. Read `CLAUDE.md` (conventions, test workflow) and this file top to bottom.
-2. **Check PR #1** (`claude/soccer-video-analysis-tool-t0tfym` → `main`). If it has been
-   merged, branch off `main`; if it's still open, either wait for the owner to merge it
-   or continue committing to that same branch (its commits flow into the PR).
-3. **The current epic is “v2 — The Grandma Test”** (next section). Implement it
-   workstream by workstream; each has acceptance criteria and test requirements.
+2. **The v2 “Grandma Test” epic is complete** (all six workstreams — see the section
+   below, kept as the record of what was built and why). The next work is the
+   **Roadmap → Next** list: cross-device continuity via the Games folder, then tracker
+   tuning once there is real-footage feedback.
+3. **Before starting anything new, ask the user how the v2 onboarding actually landed.**
+   The epic's whole premise is a person who has never seen the app; only they can say
+   whether the walkthrough, the tooltips and the watch banner survived contact with a
+   real first-time user. Screenshots of the current flow: `cd tests && node walkthrough.js`
+   writes `tests/out/walk_*.png`.
 4. Non-negotiables: single self-contained `index.html`, zero dependencies, works from
    `file://`, footage never leaves the machine. Run the full test suite in `tests/`
    (`npm test`, see `tests/README.md`) before every push; add suites for new behavior.
+   The suite is 251 checks across 15 files and takes a few minutes.
 5. Update this file (checkboxes + decision log) as part of every feature commit.
 
-## Current epic — v2: The Grandma Test (intuitive-first UX + onboarding)
+## ✅ Shipped epic — v2: The Grandma Test (intuitive-first UX + onboarding)
 
 **Goal:** an 88-year-old grandmother who has never seen the app can open it and, with no
 one helping, watch this week's film session with her grandson — and a first-time dad can
@@ -380,6 +385,17 @@ device-aware intake flow:
   restructured per device. Verified by `tests/library.js` (8 checks) with a stubbed
   `showDirectoryPicker` serving real video bytes: listing/filtering/ordering, one-click
   open, has-work marker, hidden-when-unsupported.
+
+### ✅ v2 — The Grandma Test (shipped)
+Six workstreams, each with its own suite (`tour`, `tips`, `plainwords`, `watch`,
+`comfort`, `friction`, plus the `walkthrough` screenshot pass): a do-based first-run
+walkthrough that advances only when the user does the thing; real `data-tip` tooltips on
+hover and long-press with four one-time hints; a plain-language pass that removed
+In/Out, fps, keyframes and playheads from every surface (and a test that keeps them
+out); a "this week's film session is ready" front door with XL session screens; an **Aa**
+comfort mode plus a computed-contrast WCAG AA audit and visible focus rings; and a
+friction pass where every delete is undoable from its own message and no control ever
+fails silently. Details and rationale in the epic section above.
 
 ## Roadmap
 
