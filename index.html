@@ -73,6 +73,12 @@
   #busyBar{height:8px; background:var(--bg); border-radius:4px; overflow:hidden; margin:14px 0;}
   #busyBarFill{height:100%; width:0%; background:var(--accent); transition:width .2s;}
 
+  /* tracking progress pill */
+  #trackPill{position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+    display:none; align-items:center; gap:10px; z-index:40;
+    background:rgba(13,17,23,.92); border:1px solid var(--accent2); border-radius:24px;
+    padding:8px 10px 8px 16px; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px;}
+
   /* ---------- Transport ---------- */
   #transport{background:var(--bg2); border-top:1px solid var(--line); padding:8px 12px;
     display:flex; flex-direction:column; gap:6px;}
@@ -208,6 +214,9 @@
           YouTube film someone shared: screen-record the part you need (⌘⇧5 on Mac), then open that recording.
         </div>
       </div>
+      <div id="trackPill">🎯 Tracking… <span id="trackPct">0%</span>
+        <button class="miniBtn" id="trackCancelBtn">✕ Cancel (Esc)</button>
+      </div>
       <div id="decisionOverlay">
         <div class="card">
           <div class="brain">🧠</div>
@@ -328,6 +337,7 @@
           <button class="miniBtn" id="selStartHere">Start = playhead</button>
           <button class="miniBtn" id="selEndHere">End = playhead</button>
           <button class="miniBtn" id="selKeyHere" style="display:none">＋ Keyframe here</button>
+          <button class="miniBtn" id="selTrack" style="display:none" title="Automatically follow the player from the playhead to this spotlight's End time — no manual keyframes needed">🎯 Auto-track → End</button>
         </div>
         <div class="chipRow">
           <button class="miniBtn danger" id="selDelete">🗑 Delete</button>
@@ -523,7 +533,8 @@
       <tr><td><kbd>⌘Z</kbd></td><td>Undo</td></tr>
     </table>
     <h4>Spotlights that follow a player</h4>
-    <p>Drop a spotlight on him, then scrub forward a second or two and, with the spotlight selected, drag it to where he is now (or press <b>＋ Keyframe here</b>). The ring glides between keyframes, so 3–4 keyframes usually covers a whole play. Give it his name and a color — do the same for a defender or teammate in another color to show the relationship.</p>
+    <p><b>Auto-track:</b> drop a spotlight on him, scrub to where the play ends and press <b>End = playhead</b>, scrub back, then hit <b>🎯 Auto-track → End</b>. It follows him automatically and writes editable keyframes (Esc cancels). If it says it lost him — players crossing, camera whip — drag the ring back onto him at that moment and Track again from there.</p>
+    <p><b>By hand:</b> scrub forward a second or two and, with the spotlight selected, drag it to where he is now (or press <b>＋ Keyframe here</b>). The ring glides between keyframes, so 3–4 keyframes usually covers a whole play. Either way, give it his name and a color — and spotlight a defender or teammate in another color to show the relationship.</p>
     <h4>Saving your work</h4>
     <p>Everything autosaves in this browser per video file (matched by file name + size), so reopening the same file restores your clips and drawings. <b>💾 Save project</b> downloads a backup file you can move between machines or keep with the video; <b>📂 Load project</b> brings it back.</p>
     <h4>Exports</h4>
@@ -578,7 +589,7 @@ let ui = {
   tool:'select', color:PALETTE[0], arrowStyle:'pass', zoneShape:'rect',
   selectedId:null, tIn:null, tOut:null, loopClip:null,
   clipFilter:'all', clipTagFilter:'', drag:null, editingClipId:null,
-  exporting:false, exportCancel:false,
+  exporting:false, exportCancel:false, tracking:false, trackCancel:false,
 };
 let undoStack = [];
 let lastT = 0;
@@ -1039,7 +1050,7 @@ function evNorm(e){
 }
 
 overlay.addEventListener('pointerdown', e => {
-  if (!video.src || ui.exporting) return;
+  if (!video.src || ui.exporting || ui.tracking) return;
   overlay.setPointerCapture(e.pointerId);
   const p = evNorm(e);
   const t = video.currentTime;
@@ -1179,7 +1190,7 @@ function setTool(tool){
   overlay.className = tool === 'select' ? 'tool-select' : 'tool-crosshair';
   const hints = {
     select: 'Click a drawing to select it. Drag to move it. With a spotlight selected, drag on the video to set where the player is at the current time — it follows between keyframes.',
-    spot: 'Click on a player to spotlight them. Scrub forward and drag the ring to track them — it glides between keyframes. Set a name in Label.',
+    spot: 'Click on a player to spotlight them. Then either use 🎯 Auto-track (in Selected drawing) to follow them automatically, or scrub forward and drag the ring by hand. Set a name in Label.',
     arrow: 'Drag from where the action starts to where it should go. Pick what the arrow means below.',
     zone: 'Drag a box over the space to attack, cover, or move into.',
     pen: 'Draw freehand — circle a shape, trace a pressing angle, sketch anything.',
@@ -1223,6 +1234,7 @@ function updateSelPanel(){
   $('#selLabel').value = sel.label || sel.text || '';
   $('#selTimes').textContent = fmtT(sel.tStart) + ' → ' + fmtT(sel.tEnd);
   $('#selKeyHere').style.display = sel.type === 'spot' ? '' : 'none';
+  $('#selTrack').style.display = sel.type === 'spot' ? '' : 'none';
 }
 $('#selLabel').oninput = () => {
   const sel = project.annotations.find(a => a.id === ui.selectedId);
@@ -1252,6 +1264,141 @@ function deleteSelected(){
   if (!ui.selectedId) return;
   mutate(() => { project.annotations = project.annotations.filter(a => a.id !== ui.selectedId); ui.selectedId = null; });
 }
+
+/* ---------------- auto-tracking ----------------
+  Template tracker: RGB SAD matching of a patch around the spotlight, sampled
+  every 2px, coarse-to-fine search around the last position, template slowly
+  adapted to survive pose changes. Samples ~8 positions/sec by seek-stepping,
+  then thins the path (RDP) into ordinary editable keyframes.
+------------------------------------------------- */
+const trackCanvas = document.createElement('canvas');
+const trackCtx = trackCanvas.getContext('2d', { willReadFrequently: true });
+
+function seekTo(t){
+  return new Promise(res => {
+    const to = setTimeout(done, 2000);           // safety: some containers mis-fire seeked
+    function done(){ clearTimeout(to); video.removeEventListener('seeked', done); res(); }
+    video.addEventListener('seeked', done);
+    video.currentTime = t;
+  });
+}
+
+function thinSamples(pts, eps){
+  if (pts.length <= 2) return pts;
+  const first = pts[0], last = pts[pts.length-1];
+  let maxE = 0, idx = 0;
+  for (let i = 1; i < pts.length-1; i++){
+    const f = (pts[i].t - first.t) / Math.max(1e-6, last.t - first.t);
+    const e = Math.hypot(first.x + (last.x-first.x)*f - pts[i].x,
+                         first.y + (last.y-first.y)*f - pts[i].y);
+    if (e > maxE){ maxE = e; idx = i; }
+  }
+  if (maxE < eps) return [first, last];
+  return [...thinSamples(pts.slice(0, idx+1), eps).slice(0, -1),
+          ...thinSamples(pts.slice(idx), eps)];
+}
+
+async function autoTrack(spot){
+  if (ui.tracking || ui.exporting) return;
+  const T_END = Math.min(spot.tEnd, video.duration || spot.tEnd);
+  const t0 = video.currentTime;
+  if (t0 >= T_END - 0.15){
+    return toast('Scrub past the spotlight, set “End = playhead” where the play finishes, come back, then Track.');
+  }
+  ui.tracking = true; ui.trackCancel = false;
+  video.pause(); hideDecision();
+  $('#trackPill').style.display = 'flex';
+
+  // work at reduced resolution for speed
+  const W = Math.min(480, video.videoWidth), H = Math.round(W * video.videoHeight / video.videoWidth);
+  trackCanvas.width = W; trackCanvas.height = H;
+  const grab = () => { trackCtx.drawImage(video, 0, 0, W, H); return trackCtx.getImageData(0, 0, W, H); };
+
+  const patchHalf = Math.max(8, Math.round((spot.r || 0.035) * W * 1.15));
+  const search = Math.round(patchHalf * 1.8);
+  const S = 2;                                   // pixel sampling stride inside the patch
+  const cx0 = v => clamp(Math.round(v), 0, W-1), cy0 = v => clamp(Math.round(v), 0, H-1);
+
+  function extractPatch(img, cx, cy){
+    const out = [];
+    for (let dy = -patchHalf; dy <= patchHalf; dy += S)
+      for (let dx = -patchHalf; dx <= patchHalf; dx += S){
+        const o = (cy0(cy+dy)*W + cx0(cx+dx)) * 4;
+        out.push(img.data[o], img.data[o+1], img.data[o+2]);
+      }
+    return Float32Array.from(out);
+  }
+  function sadAt(img, tpl, cx, cy){
+    let s = 0, i = 0;
+    for (let dy = -patchHalf; dy <= patchHalf; dy += S)
+      for (let dx = -patchHalf; dx <= patchHalf; dx += S){
+        const o = (cy0(cy+dy)*W + cx0(cx+dx)) * 4;
+        s += Math.abs(img.data[o] - tpl[i++]) + Math.abs(img.data[o+1] - tpl[i++]) +
+             Math.abs(img.data[o+2] - tpl[i++]);
+      }
+    return s / i;                                // mean abs diff per channel, 0..255
+  }
+  function bestMatch(img, tpl, cx, cy){
+    let best = Infinity, bx = cx, by = cy, sum = 0, n = 0;
+    for (let y = cy - search; y <= cy + search; y += 3)
+      for (let x = cx - search; x <= cx + search; x += 3){
+        const s = sadAt(img, tpl, x, y);
+        sum += s; n++;
+        if (s < best){ best = s; bx = x; by = y; }
+      }
+    for (let y = by - 2; y <= by + 2; y++)
+      for (let x = bx - 2; x <= bx + 2; x++){
+        const s = sadAt(img, tpl, x, y);
+        if (s < best){ best = s; bx = x; by = y; }
+      }
+    return { x: bx, y: by, score: best, mean: sum / n };
+  }
+
+  pushUndo();
+  const startPos = spotPos(spot, t0);
+  // keep keys outside the tracked range; everything inside is rewritten
+  const beforeKeys = spot.keys.filter(k => k.t < t0 - 0.001);
+  const afterKeys  = spot.keys.filter(k => k.t > T_END + 0.001);
+  const samples = [{ t: t0, x: startPos.x, y: startPos.y }];
+
+  await seekTo(t0);
+  let img = grab();
+  let px = cx0(startPos.x * W), py = cy0(startPos.y * H);
+  let tpl = extractPatch(img, px, py);
+
+  const dt = 1/8;
+  let t = t0, lost = false, lastGoodT = t0;
+  while (t < T_END - 1e-3 && !ui.trackCancel){
+    t = Math.min(t + dt, T_END);
+    await seekTo(t);
+    img = grab();
+    const m = bestMatch(img, tpl, px, py);
+    if (m.score > 55 || (m.mean > 25 && m.score > 0.85 * m.mean)){ lost = true; break; }
+    px = m.x; py = m.y; lastGoodT = t;
+    samples.push({ t, x: px / W, y: py / H });
+    const cur = extractPatch(img, px, py);
+    for (let i = 0; i < tpl.length; i++) tpl[i] = tpl[i]*0.88 + cur[i]*0.12;
+    spot.keys = [...beforeKeys, ...samples, ...afterKeys];   // live feedback while tracking
+    $('#trackPct').textContent = Math.round((t - t0) / (T_END - t0) * 100) + '%';
+    await new Promise(r => requestAnimationFrame(r));
+  }
+
+  spot.keys = [...beforeKeys, ...thinSamples(samples, 0.004), ...afterKeys];
+  ui.tracking = false;
+  $('#trackPill').style.display = 'none';
+  persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
+
+  await seekTo(lost ? lastGoodT : (ui.trackCancel ? video.currentTime : t0));
+  if (ui.trackCancel) toast('Tracking canceled — keyframes so far were kept (⌘Z to undo)');
+  else if (lost) toast('Lost him at ' + fmtT(lastGoodT) + ' — drag the ring onto him and hit Track again from here');
+  else toast('🎯 Tracked to ' + fmtT(T_END) + ' (' + spot.keys.length + ' keyframes) — press play to check it');
+}
+
+$('#selTrack').onclick = () => {
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  if (sel && sel.type === 'spot') autoTrack(sel);
+};
+$('#trackCancelBtn').onclick = () => { ui.trackCancel = true; };
 
 /* ---------------- annotation list ---------------- */
 function renderAnnList(){
@@ -1583,6 +1730,7 @@ $$('.modal').forEach(m => m.addEventListener('pointerdown', e => { if (e.target 
 document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (ui.tracking){ if (e.key === 'Escape') ui.trackCancel = true; return; }
   if ($('#clipModal').classList.contains('open')){
     if (e.key === 'Escape') $('#clipModal').classList.remove('open');
     return;
@@ -1634,6 +1782,9 @@ function tick(){
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
+
+/* debug/test hook (also handy in the console) */
+window.__filmroom = { getProject: () => project, spotPos, version: 1 };
 
 /* first-run help */
 if (!localStorage.getItem('filmroom:seenHelp')){

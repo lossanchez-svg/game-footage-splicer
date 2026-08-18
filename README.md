@@ -37,8 +37,11 @@ That's it. Bookmark the page and it's a daily tool.
 
 ### ✏️ Telestration (drawing on the video)
 - **🔦 Spotlight** — a colored ring + name that **follows a player**. Drop it on your
-  son, scrub ahead, drag it to where he is now; it glides between keyframes. Add a second
-  spotlight in another color for the defender or the open teammate.
+  son, set where the play ends (*End = playhead*), and hit **🎯 Auto-track** — it follows
+  him automatically, no keyframing needed (and tells you where to re-anchor if it loses
+  him in a crowd). You can also track by hand: scrub ahead and drag the ring; it glides
+  between keyframes, and auto-tracked paths stay hand-editable the same way. Add a
+  second spotlight in another color for the defender or the open teammate.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.
