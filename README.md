@@ -25,6 +25,9 @@ That's it. Bookmark the page and it's a daily tool.
 - **YouTube videos shared with you:** press **⌘⇧5** on your Mac, screen-record the
   section you care about, then open that recording in Film Room. You can trim it first in
   QuickTime (*Edit → Trim*) if you want a smaller file.
+- **Trace / Veo camera film:** if whoever shares it has portal access, downloading the
+  game video as a file from the Trace/Veo site beats screen-recording YouTube — much
+  better quality, especially for zoomed-out footage. Worth asking for.
 - Once a video is open, everything you do (clips, drawings, decision points) **autosaves
   in the browser** and comes right back the next time you open the *same file*
   (matched by name + size). Use **💾 Save project** for a portable backup file.
@@ -41,7 +44,9 @@ That's it. Bookmark the page and it's a daily tool.
   him automatically, no keyframing needed (and tells you where to re-anchor if it loses
   him in a crowd). You can also track by hand: scrub ahead and drag the ring; it glides
   between keyframes, and auto-tracked paths stay hand-editable the same way. Add a
-  second spotlight in another color for the defender or the open teammate.
+  second spotlight in another color for the defender or the open teammate. On zoomed-out
+  sideline or Trace-camera footage, use **Ring −/＋** to fit the ring to the player —
+  that also right-sizes what the tracker looks for.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.
@@ -64,15 +69,23 @@ Mark **In/Out** around any moment and save it as a tagged clip:
   positive.
 - Tagged from a soccer-IQ taxonomy: high-IQ play, heavy touch, good/bad risk, missed
   1v1, line-breaking pass, found/created space, should-have-moved, goal-side, pressing
-  angle, low effort, scanning, transition moments, and more.
+  angle, low effort, scanning, transition moments, and more — and the whole tag list is
+  **editable** (✎ Edit tag list in the save dialog) so it can match the exact words his
+  coach uses.
 - Tagged by **position** (attacking mid, winger, …) and **format** (5v5/7v7/9v9/11v11).
 - Clips **loop** when played — perfect for "watch it once more; now what do you see?"
 - Filter the library by rating or tag to build a themed session ("tonight: off-ball
   movement work-ons").
 
-### 📤 Sharing it back to him
-- **🎬 Export clip** — renders any clip (or the In→Out range) **with all drawings burned
-  in** to a video file you can AirDrop to his phone/iPad.
+### 📤 Sharing it back to him — clips that teach on their own
+Exports are built so the clip works **without you in the room** (his mom can play it,
+or he can watch solo on a phone, iPad, or the TV):
+- **🎬 Export clip** — renders a clip with all drawings burned in, at up to 1080p with
+  TV-grade bitrate (holds up on an 80″ screen). Each clip export opens with a **title
+  card** (rating, position, your coaching note), and any decision point inside becomes a
+  **built-in freeze-frame showing the question** before the play continues — the
+  "what should happen here?" moment is part of the video itself.
+- AirDrop the file to a phone/iPad, then **AirPlay to the TV** for the big-screen review.
 - **📸 Still** — saves the current annotated frame as an image; the fastest way to send
   one teaching picture.
 

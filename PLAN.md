@@ -22,6 +22,25 @@ Guardrails that shape every feature:
 - **Dad-usable daily.** If a feature needs a terminal, a build step, or an account, it
   doesn't ship. One HTML file, double-click, done.
 
+## Design inputs from the user (2026-08-18)
+
+Answers to the open design questions — these drive the roadmap ordering:
+
+1. **Where review happens:** phone, iPad, or TV mirroring — *not* at the Mac.
+   → The Mac is the *editing* station; **exports are the product** the family consumes.
+   Touch/iPad support and guaranteed-iOS-playable exports matter more than editor polish.
+2. **Quality bar:** must look good on an **80″ TV**. → Export at high resolution
+   (up to 1080p+) with TV-appropriate bitrate; no low-res shortcuts.
+3. **Footage:** sideline iPhone (zoomed out, sometimes close up) + older **Trace camera**
+   YouTube film (zoomed out, sometimes fuzzy). → Players can be small in frame:
+   spotlight ring size must be adjustable (also tunes the tracker patch), and smarter
+   tracking for far/fuzzy targets is promoted on the roadmap.
+4. **Vocabulary:** Claude's tag language is fine as a default, but it must be
+   **editable** so terms can match what he hears from his coach.
+5. **Viewing mode:** together *and* solo — his mother may run the session, or he may
+   watch alone. → **Exports must carry their own context**: what the moment is, what
+   went wrong / what should happen, and the decision question — with no narrator needed.
+
 ## Product principles (technical)
 
 1. **Single self-contained `index.html`.** No build step, no dependencies, no network.
@@ -67,32 +86,56 @@ Guardrails that shape every feature:
   hand-editable. Detects when it loses the player and tells you where to re-anchor.
   Cancel with Esc. Works on top of, not instead of, manual keyframing.
 
+### ✅ v1.2 — TV-ready, self-explanatory exports (shipped)
+Driven directly by the design inputs above:
+- **TV-quality export**: renders at up to 1920px wide (was 1280) with bitrate scaled to
+  resolution (~12 Mbps at 1080p) — holds up on an 80″ TV.
+- **Exports explain themselves** (solo/mom-run viewing): clip exports open with a burned-in
+  title card (title, 👍/🔧/💡 rating, position/format, the coaching note), and any
+  decision point inside the range becomes a burned-in freeze-frame showing the question
+  before the play continues — the "what should happen here?" moment works without dad.
+- **Editable tag vocabulary**: tag names can be renamed/removed/added (per group) to match
+  the coach's language; renames update existing clips; stored in the browser and embedded
+  in project files; one-click reset to defaults.
+- **Adjustable spotlight ring size** (Ring −/＋): smaller rings for zoomed-out
+  iPhone/Trace footage — also right-sizes the auto-tracker's match patch.
+
 ## Roadmap
 
-### Next (highest value, roughly in order)
-- [ ] **Highlight reel builder**: select multiple clips → export one stitched video
-      (intro title card per clip with its coaching point). Big win for weekly review.
-- [ ] **Field-diagram mode**: a tactics-board panel (top-down pitch, draggable player
-      chips, same arrow/zone tools) for teaching schemes off-video; attachable to a clip.
-- [ ] **Side-by-side compare**: two clips (or clip vs. pro example) playing in sync —
-      "your touch vs. the model touch."
-- [ ] **Better iPhone-friendly export**: WebCodecs-based mp4 (H.264) encode in Chrome so
-      exports always play natively on iOS without Safari or conversion; faster-than-
-      realtime export while at it.
-- [ ] **Session builder**: pick clips into an ordered playlist with a per-clip question,
-      run it as a guided session (auto decision-point flow), log his answers.
+### Next (reordered per design inputs, highest value first)
+- [ ] **Touch/iPad support + PWA** *(promoted — review happens on phone/iPad/TV, not at
+      the Mac)*: touch-friendly drag/scrub, installable, works from Files/iCloud.
+- [ ] **WebCodecs H.264 mp4 export**: guaranteed native iOS/AirPlay playback from any
+      browser, faster than realtime; removes the Safari-vs-Chrome format footnote.
+- [ ] **Smarter tracking for zoomed-out / fuzzy footage** *(promoted — sideline iPhone +
+      old Trace camera)*: multi-scale matching, motion prediction between frames,
+      possibly normalized correlation instead of SAD for low-contrast targets. Must stay
+      offline/dependency-free.
+- [ ] **Highlight reel builder**: select multiple clips → one stitched export, each with
+      its title card. The weekly package for the TV.
+- [ ] **Session builder**: ordered clip playlist with per-clip questions, runnable as a
+      guided session by mom or solo; logs his answers.
+- [ ] **Field-diagram mode**: tactics-board panel for teaching schemes off-video.
+- [ ] **Side-by-side compare**: two clips in sync — "your touch vs. the model touch."
 
 ### Later
 - [ ] Track multiple spotlights in one pass; track backwards from an anchor.
-- [ ] Per-player trend dashboard: tag counts across games/projects (e.g. "scans before
-      receiving" trending up), CSV export.
-- [ ] Touch/iPad support (PWA manifest, touch-friendly drag handles) so review sessions
-      can happen on the couch.
+- [ ] Per-player trend dashboard: tag counts across games/projects, CSV export.
 - [ ] Project bundles: zip of project JSON + exported clips for archiving a season.
-- [ ] Optional smarter tracking (e.g. lightweight on-device model) if the SAD tracker
-      proves insufficient on far camera angles — must stay offline and dependency-free
-      (single-file constraint; could embed as base64 if ever needed).
 - [ ] Voice-over recording on exports (mic + video mux) for narrated teaching clips.
+
+## Open questions (check before building the next feature)
+
+- **Trace footage**: Trace accounts can usually download game video as mp4 files
+  directly from their portal — much better quality than screen-recording YouTube.
+  Can the user (or whoever shares the film) download from Trace? If yes, document that
+  as the preferred path.
+- **TV setup**: AirPlay from an iPhone/iPad, or HDMI from the Mac? Affects whether
+  exports or the app itself is the TV path (currently assuming exported files + AirPlay).
+- **Coach's vocabulary**: is there a specific term list from his club/coach to preload
+  into the tag editor?
+- **Solo sessions**: is exported-video context enough, or should the session builder
+  (guided in-app flow that logs his answers) move up the list?
 
 ### Explicitly not planned
 - YouTube downloading (ToS) — screen recording is the supported path.
@@ -129,6 +172,10 @@ Guardrails that shape every feature:
 | 2026-08-18 | localStorage autosave keyed by file name+size | Reopening the same footage restores work without any save step |
 | 2026-08-18 | No YouTube download; screen-record workflow | YouTube ToS; user already screen-records |
 | 2026-08-18 | Tracker = pure-JS SAD template matching at ~8 samples/sec, RDP-thinned into ordinary keyframes | No dependencies; output stays hand-editable; manual keyframing remains the fallback when tracking loses the player |
+| 2026-08-18 | Exports are the primary family-facing product (Mac = edit station) | User: review happens on phone/iPad/TV mirroring, often without the editor present |
+| 2026-08-18 | Burn context INTO exports (title card, coaching note, decision-question freeze) | Clips must teach on their own when mom runs the session or he watches solo |
+| 2026-08-18 | Export up to 1920px wide, bitrate scaled to resolution | 80″ TV quality bar; 1280 cap was an editor-era default |
+| 2026-08-18 | Tag taxonomy is editable data, not hardcoded | Must be able to match the coach's verbiage; Claude's wording is only the default |
 
 ## Working agreements for future sessions
 

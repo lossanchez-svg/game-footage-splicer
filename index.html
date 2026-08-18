@@ -338,6 +338,8 @@
           <button class="miniBtn" id="selEndHere">End = playhead</button>
           <button class="miniBtn" id="selKeyHere" style="display:none">＋ Keyframe here</button>
           <button class="miniBtn" id="selTrack" style="display:none" title="Automatically follow the player from the playhead to this spotlight's End time — no manual keyframes needed">🎯 Auto-track → End</button>
+          <button class="miniBtn" id="selSizeDown" style="display:none" title="Smaller ring — for zoomed-out footage where players are small">Ring −</button>
+          <button class="miniBtn" id="selSizeUp" style="display:none" title="Bigger ring — for close-up footage">Ring ＋</button>
         </div>
         <div class="chipRow">
           <button class="miniBtn danger" id="selDelete">🗑 Delete</button>
@@ -495,7 +497,10 @@
       <label style="min-width:0">Format</label>
       <select id="clipFormat"><option>9v9</option><option>7v7</option><option>5v5</option><option>11v11</option></select>
     </div>
-    <div id="tagGroups" style="margin-top:10px"></div>
+    <div style="display:flex; justify-content:flex-end; margin-top:10px">
+      <button class="miniBtn" id="btnEditTags" title="Rename, remove, or add tags so they match the words he hears from his coach">✎ Edit tag list</button>
+    </div>
+    <div id="tagGroups" style="margin-top:4px"></div>
     <div class="fieldRow" style="align-items:flex-start; margin-top:8px">
       <label>Notes</label>
       <textarea id="clipNotes" rows="3" style="flex:1" placeholder="What to look for, the coaching point, what he said he saw…"></textarea>
@@ -503,6 +508,19 @@
     <div class="foot">
       <button id="clipCancel">Cancel</button>
       <button class="primary" id="clipSave">Save clip</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= TAG EDITOR MODAL ======================= -->
+<div class="modal" id="tagModal" style="z-index:70">
+  <div class="box">
+    <h3>Edit tag list</h3>
+    <div class="hint" style="margin-bottom:10px">Click a tag to rename it (clear the name to remove it). Renames update this project’s saved clips too — use the words his coach uses.</div>
+    <div id="tagEditor"></div>
+    <div class="foot" style="justify-content:space-between">
+      <button id="tagReset">Reset to defaults</button>
+      <button class="primary" id="tagDone">Done</button>
     </div>
   </div>
 </div>
@@ -537,8 +555,12 @@
     <p><b>By hand:</b> scrub forward a second or two and, with the spotlight selected, drag it to where he is now (or press <b>＋ Keyframe here</b>). The ring glides between keyframes, so 3–4 keyframes usually covers a whole play. Either way, give it his name and a color — and spotlight a defender or teammate in another color to show the relationship.</p>
     <h4>Saving your work</h4>
     <p>Everything autosaves in this browser per video file (matched by file name + size), so reopening the same file restores your clips and drawings. <b>💾 Save project</b> downloads a backup file you can move between machines or keep with the video; <b>📂 Load project</b> brings it back.</p>
-    <h4>Exports</h4>
-    <p><b>🎬 Export clip</b> renders the In→Out range (or a saved clip) with every drawing burned in, at normal speed, as a video file. <b>📸 Still</b> saves the current frame as an image — fastest way to text him one teaching picture.</p>
+    <h4>Exports — made to watch without you</h4>
+    <p><b>🎬 Export clip</b> renders a saved clip with every drawing burned in, at up to 1080p (looks right on a big TV). The export opens with a <b>title card</b> showing the rating, position, and your coaching note, and any <b>decision point</b> in the clip becomes a built-in freeze-frame showing the question before the play continues — so the clip teaches on its own when Mom runs it or he watches solo. AirDrop the file to a phone/iPad and AirPlay it to the TV. <b>📸 Still</b> saves the current frame as an image — fastest way to text him one teaching picture.</p>
+    <h4>Your words, not mine</h4>
+    <p>The tag list is a starting point. In the Save-clip dialog hit <b>✎ Edit tag list</b> to rename any tag to the words his coach uses, remove ones you don't use, or add your own — renames update clips you've already saved.</p>
+    <h4>Zoomed-out footage</h4>
+    <p>On far sideline or Trace-camera film, players are small: use <b>Ring −</b> on a selected spotlight to shrink the ring so it fits the player — that also tightens what Auto-track looks for. Set fps to match the footage (Trace/YouTube is usually 30).</p>
     <div class="foot"><button class="primary" id="helpClose">Got it</button></div>
   </div>
 </div>
@@ -571,7 +593,7 @@ const stage   = $('#stage');
 /* ---------------- state ---------------- */
 const PALETTE = ['#ffd60a','#ff453a','#0a84ff','#30d158','#ff9f0a','#ffffff','#bf5af2','#64d2ff'];
 
-const TAG_GROUPS = [
+const DEFAULT_TAG_GROUPS = [
   ['On the ball', ['Great touch','Heavy / poor touch','Great move (1v1)','Lost the 1v1','Line-breaking pass',
                    'Killer pass','Poor pass choice','Good shot decision','Should have shot','Good cross','Ball shielded well']],
   ['Decisions & risk', ['High-IQ play','Poor decision','Good risk','Bad risk','Too safe — missed chance',
@@ -582,7 +604,18 @@ const TAG_GROUPS = [
                'Recovery run','Won the ball','Missed tackle','Wrong pressing angle','Ball-watching','Screened the passing lane']],
   ['Moments', ['Transition: won it → attack','Transition: lost it → react','Set piece','Communication','Composure','Body shape / half-turn']],
 ];
-const ALL_TAGS = TAG_GROUPS.flatMap(g => g[1]);
+/* the live taxonomy is editable (Edit tags in the clip dialog) and persisted globally */
+let TAG_GROUPS = loadTaxonomy();
+function loadTaxonomy(){
+  try {
+    const t = JSON.parse(localStorage.getItem('filmroom:taxonomy') || 'null');
+    if (Array.isArray(t) && t.every(g => Array.isArray(g) && Array.isArray(g[1]))) return t;
+  } catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_TAG_GROUPS));
+}
+function saveTaxonomy(){
+  try { localStorage.setItem('filmroom:taxonomy', JSON.stringify(TAG_GROUPS)); } catch(e){}
+}
 
 let project = { version:1, videoName:'', videoKey:null, fps:30, annotations:[], clips:[] };
 let ui = {
@@ -1233,8 +1266,11 @@ function updateSelPanel(){
   panel.style.display = '';
   $('#selLabel').value = sel.label || sel.text || '';
   $('#selTimes').textContent = fmtT(sel.tStart) + ' → ' + fmtT(sel.tEnd);
-  $('#selKeyHere').style.display = sel.type === 'spot' ? '' : 'none';
-  $('#selTrack').style.display = sel.type === 'spot' ? '' : 'none';
+  const isSpot = sel.type === 'spot' ? '' : 'none';
+  $('#selKeyHere').style.display = isSpot;
+  $('#selTrack').style.display = isSpot;
+  $('#selSizeDown').style.display = isSpot;
+  $('#selSizeUp').style.display = isSpot;
 }
 $('#selLabel').oninput = () => {
   const sel = project.annotations.find(a => a.id === ui.selectedId);
@@ -1259,6 +1295,12 @@ $('#selKeyHere').onclick = () => {
     toast('Keyframe added — now drag the ring to where he is');
   }
 };
+function resizeSpot(f){
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  if (sel && sel.type === 'spot') mutate(() => sel.r = clamp((sel.r || 0.035) * f, 0.012, 0.1));
+}
+$('#selSizeUp').onclick = () => resizeSpot(1.25);
+$('#selSizeDown').onclick = () => resizeSpot(0.8);
 $('#selDelete').onclick = deleteSelected;
 function deleteSelected(){
   if (!ui.selectedId) return;
@@ -1488,6 +1530,54 @@ function renderTagGroups(){
     host.appendChild(g);
   }
 }
+/* ---------------- tag editor ---------------- */
+$('#btnEditTags').onclick = () => { renderTagEditor(); $('#tagModal').classList.add('open'); };
+$('#tagDone').onclick = () => { $('#tagModal').classList.remove('open'); renderTagGroups(); renderClipList(); };
+$('#tagReset').onclick = () => {
+  if (!confirm('Reset the tag list to the built-in defaults? (Saved clips keep the tags they already have.)')) return;
+  TAG_GROUPS = JSON.parse(JSON.stringify(DEFAULT_TAG_GROUPS));
+  saveTaxonomy(); renderTagEditor();
+};
+function renameTagEverywhere(oldName, newName){
+  let touched = false;
+  for (const c of project.clips){
+    const i = c.tags.indexOf(oldName);
+    if (i >= 0){ c.tags[i] = newName; touched = true; }
+  }
+  if (modalState.tags && modalState.tags.has(oldName)){
+    modalState.tags.delete(oldName); modalState.tags.add(newName);
+  }
+  if (touched) persist();
+}
+function renderTagEditor(){
+  const host = $('#tagEditor'); host.innerHTML = '';
+  TAG_GROUPS.forEach(grp => {
+    const g = document.createElement('div'); g.className = 'tagGroup';
+    g.innerHTML = `<h5>${escapeHtml(grp[0])}</h5>`;
+    const row = document.createElement('div'); row.className = 'chipRow';
+    grp[1].forEach((tag, ti) => {
+      const b = document.createElement('button'); b.className = 'chip'; b.textContent = tag;
+      b.onclick = () => {
+        const nn = prompt('Rename tag (leave empty to remove it from the list):', tag);
+        if (nn === null) return;
+        const name = nn.trim();
+        if (!name) grp[1].splice(ti, 1);
+        else if (name !== tag){ grp[1][ti] = name; renameTagEverywhere(tag, name); }
+        saveTaxonomy(); renderTagEditor();
+      };
+      row.appendChild(b);
+    });
+    const add = document.createElement('button');
+    add.className = 'chip'; add.textContent = '＋ add'; add.style.borderStyle = 'dashed';
+    add.onclick = () => {
+      const nn = prompt('New tag for “' + grp[0] + '”:', '');
+      if (nn && nn.trim()){ grp[1].push(nn.trim()); saveTaxonomy(); renderTagEditor(); }
+    };
+    row.appendChild(add);
+    g.appendChild(row); host.appendChild(g);
+  });
+}
+
 $('#clipCancel').onclick = () => $('#clipModal').classList.remove('open');
 $('#clipSave').onclick = () => {
   const data = {
@@ -1565,7 +1655,7 @@ function renderClipList(){
       </div>`;
     el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
     el.querySelector('[data-act=play]').onclick = () => playClip(c);
-    el.querySelector('[data-act=export]').onclick = () => exportRange(c.tIn, c.tOut, c.title);
+    el.querySelector('[data-act=export]').onclick = () => exportRange(c.tIn, c.tOut, c.title, c);
     el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
     el.querySelector('[data-act=del]').onclick = () => {
       if (confirm('Delete clip “' + c.title + '”?'))
@@ -1586,6 +1676,7 @@ function switchTab(name){
 $('#btnSaveProj').onclick = () => {
   if (!video.src) return toast('Open a video first');
   project.fps = fps();
+  project.taxonomy = TAG_GROUPS;
   const blob = new Blob([JSON.stringify(project, null, 1)], {type:'application/json'});
   downloadBlob(blob, (project.videoName || 'project').replace(/\.[^.]+$/, '') + '.filmroom.json');
   toast('Project saved 💾');
@@ -1601,6 +1692,7 @@ function loadProjectFile(file){
       const key = project.videoKey; // keep the currently open video's key
       project = p;
       project.videoKey = key || p.videoKey;
+      if (Array.isArray(p.taxonomy) && p.taxonomy.length){ TAG_GROUPS = p.taxonomy; saveTaxonomy(); }
       $('#fpsInput').value = project.fps || 30;
       persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
       toast(`Loaded ${p.clips.length} clip(s), ${p.annotations.length} drawing(s)` +
@@ -1653,28 +1745,30 @@ function pickMime(){
   return list.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
 }
 
-async function exportRange(tIn, tOut, label){
-  if (ui.exporting) return;
+async function exportRange(tIn, tOut, label, clip){
+  if (ui.exporting || ui.tracking) return;
   const mime = pickMime();
   if (!mime) return toast('Sorry — this browser cannot record video. Try Chrome or Safari.');
   ui.exporting = true; ui.exportCancel = false;
   hideDecision();
   const wasLoop = ui.loopClip; ui.loopClip = null;
 
-  const scale = Math.min(1, 1280 / video.videoWidth);
+  // TV-quality: render up to 1920 wide, bitrate scaled to resolution (~12 Mbps @1080p)
+  const scale = Math.min(1, 1920 / video.videoWidth);
   const W = Math.round(video.videoWidth * scale / 2) * 2;
   const H = Math.round(video.videoHeight * scale / 2) * 2;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const ctx = c.getContext('2d');
 
   const stream = c.captureStream(30);
-  // try to bring the video's audio along
-  try {
-    const vs = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
-    if (vs) vs.getAudioTracks().forEach(tr => stream.addTrack(tr));
-  } catch(e){}
+  // bring the video's audio along via WebAudio — a MediaStreamDestination keeps the
+  // audio timeline running (silence) during the title card and freeze frames, so the
+  // recorder doesn't collapse the video-only stretches
+  const atrack = getExportAudioTrack();
+  if (atrack) stream.addTrack(atrack);
 
-  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+  const rec = new MediaRecorder(stream, { mimeType: mime,
+    videoBitsPerSecond: Math.min(20_000_000, Math.max(6_000_000, Math.round(W * H * 30 * 0.2))) });
   const chunks = [];
   rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
   const done = new Promise(res => rec.onstop = res);
@@ -1689,15 +1783,40 @@ async function exportRange(tIn, tOut, label){
   video.currentTime = tIn;
   await new Promise(res => { const h = () => { video.removeEventListener('seeked', h); res(); }; video.addEventListener('seeked', h); });
 
+  // decision points inside the range become burned-in freeze frames with the question,
+  // so the clip still teaches when he watches it without you
+  const pausePts = project.annotations
+    .filter(a => a.type === 'pause' && a.t > tIn + 0.05 && a.t < tOut - 0.05)
+    .sort((a, b) => a.t - b.t);
+  let pi = 0;
+  const CARD_MS = 2800, FREEZE_MS = 3200;
+  let mode = clip ? 'card' : 'play';       // clip exports open with a title/coaching card
+  let modeEnd = performance.now() + CARD_MS;
+
   rec.start(200);
-  await video.play();
+  if (mode === 'play') await video.play();
 
   await new Promise(res => {
     function frame(){
-      if (ui.exportCancel || video.currentTime >= tOut || video.ended){ res(); return; }
-      ctx.drawImage(video, 0, 0, W, H);
-      drawScene(ctx, W, H, video.currentTime, {editing:false});
-      $('#busyBarFill').style.width = clamp((video.currentTime - tIn) / (tOut - tIn) * 100, 0, 100) + '%';
+      if (ui.exportCancel){ res(); return; }
+      const now = performance.now();
+      if (mode === 'card'){
+        drawTitleCard(ctx, W, H, clip);
+        if (now >= modeEnd){ mode = 'play'; video.play(); }
+      } else {
+        ctx.drawImage(video, 0, 0, W, H);
+        drawScene(ctx, W, H, video.currentTime, {editing:false});
+        if (mode === 'freeze'){
+          drawQuestionBanner(ctx, W, H, pausePts[pi-1].question);
+          if (now >= modeEnd){ mode = 'play'; video.play(); }
+        } else {
+          if (pi < pausePts.length && video.currentTime >= pausePts[pi].t){
+            pi++; video.pause(); mode = 'freeze'; modeEnd = now + FREEZE_MS;
+            drawQuestionBanner(ctx, W, H, pausePts[pi-1].question);
+          } else if (video.currentTime >= tOut || video.ended){ res(); return; }
+        }
+        $('#busyBarFill').style.width = clamp((video.currentTime - tIn) / (tOut - tIn) * 100, 0, 100) + '%';
+      }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -1706,6 +1825,7 @@ async function exportRange(tIn, tOut, label){
   video.pause();
   rec.stop();
   await done;
+  releaseExportAudio();
 
   $('#busyOverlay').style.display = 'none';
   video.playbackRate = prevRate; video.currentTime = prevT; video.muted = prevMuted;
@@ -1721,16 +1841,112 @@ async function exportRange(tIn, tOut, label){
 }
 $('#busyCancel').onclick = () => { ui.exportCancel = true; };
 
+let audioRoute = null;
+function getExportAudioTrack(){
+  try {
+    if (!audioRoute){
+      const actx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = actx.createMediaElementSource(video);
+      src.connect(actx.destination);      // keep normal playback audible afterwards
+      const dest = actx.createMediaStreamDestination();
+      audioRoute = { actx, src, dest };
+    }
+    audioRoute.src.connect(audioRoute.dest);
+    audioRoute.actx.resume();
+    return audioRoute.dest.stream.getAudioTracks()[0];
+  } catch(e){ return null; }
+}
+function releaseExportAudio(){
+  try { if (audioRoute) audioRoute.src.disconnect(audioRoute.dest); } catch(e){}
+}
+
+function wrapLines(ctx, text, maxW){
+  const words = String(text || '').split(/\s+/).filter(Boolean);
+  const lines = []; let line = '';
+  for (const w of words){
+    const t = line ? line + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && line){ lines.push(line); line = w; }
+    else line = t;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function drawTitleCard(ctx, W, H, clip){
+  ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
+  const info = { positive:['👍','STRENGTH','#3fb950'], negative:['🔧','WORK ON THIS','#f85149'],
+                 neutral:['💡','TEACHABLE MOMENT','#d29922'] }[clip.rating] || ['🎬','CLIP','#8b949e'];
+  const cx = W / 2;
+  ctx.textAlign = 'center';
+  const small = Math.max(16, W / 42);
+  ctx.font = `600 ${small}px -apple-system,sans-serif`;
+  ctx.fillStyle = info[2];
+  ctx.fillText(info[0] + '  ' + info[1] + '   ·   ' + (clip.position || '') + '   ·   ' + (clip.format || ''), cx, H * 0.28);
+  const big = Math.max(24, W / 22);
+  ctx.font = `700 ${big}px -apple-system,sans-serif`;
+  ctx.fillStyle = '#e6edf3';
+  let y = H * 0.28 + big * 1.7;
+  for (const line of wrapLines(ctx, clip.title, W * 0.84)){ ctx.fillText(line, cx, y); y += big * 1.25; }
+  if (clip.notes){
+    const mid = Math.max(15, W / 38);
+    ctx.font = `400 ${mid}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#9aa4b2';
+    y += mid * 0.9;
+    for (const line of wrapLines(ctx, clip.notes, W * 0.74).slice(0, 5)){ ctx.fillText(line, cx, y); y += mid * 1.45; }
+  }
+  ctx.font = `600 ${Math.max(12, W / 64)}px -apple-system,sans-serif`;
+  ctx.fillStyle = '#3d444d';
+  ctx.fillText('⚽ FILM ROOM', cx, H * 0.93);
+  ctx.textAlign = 'start';
+}
+
+function drawQuestionBanner(ctx, W, H, question){
+  const q = question || 'What are the options here? What would you do?';
+  const fs = Math.max(16, W / 34);
+  ctx.font = `700 ${fs}px -apple-system,sans-serif`;
+  const lines = wrapLines(ctx, q, W * 0.68);
+  const subFs = Math.max(12, W / 58);
+  const pad = fs;
+  const bh = fs * 1.7 + lines.length * fs * 1.3 + subFs * 2.4 + pad;
+  const bw = W * 0.78, bx = (W - bw) / 2, by = H - bh - H * 0.06;
+  roundRect(ctx, bx, by, bw, bh, fs * 0.6);
+  ctx.fillStyle = 'rgba(4,9,16,.88)'; ctx.fill();
+  ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = Math.max(2, W / 640); ctx.stroke();
+  ctx.textAlign = 'center';
+  let y = by + pad + fs * 0.35;
+  ctx.fillStyle = '#58a6ff';
+  ctx.font = `700 ${fs * 0.72}px -apple-system,sans-serif`;
+  ctx.fillText('🧠 DECISION POINT', W / 2, y);
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 ${fs}px -apple-system,sans-serif`;
+  y += fs * 1.4;
+  for (const line of lines){ ctx.fillText(line, W / 2, y); y += fs * 1.3; }
+  ctx.fillStyle = '#9aa4b2';
+  ctx.font = `400 ${subFs}px -apple-system,sans-serif`;
+  y += subFs * 0.5;
+  ctx.fillText('Pause it. Say your answer out loud… then watch what happens.', W / 2, y);
+  ctx.textAlign = 'start';
+}
+
 /* ---------------- help ---------------- */
 $('#btnHelp').onclick = () => $('#helpModal').classList.add('open');
 $('#helpClose').onclick = () => $('#helpModal').classList.remove('open');
-$$('.modal').forEach(m => m.addEventListener('pointerdown', e => { if (e.target === m) m.classList.remove('open'); }));
+$$('.modal').forEach(m => m.addEventListener('pointerdown', e => {
+  if (e.target === m){
+    m.classList.remove('open');
+    if (m.id === 'tagModal'){ renderTagGroups(); renderClipList(); }
+  }
+}));
 
 /* ---------------- keyboard ---------------- */
 document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
   if (ui.tracking){ if (e.key === 'Escape') ui.trackCancel = true; return; }
+  if ($('#tagModal').classList.contains('open')){
+    if (e.key === 'Escape'){ $('#tagModal').classList.remove('open'); renderTagGroups(); renderClipList(); }
+    return;
+  }
   if ($('#clipModal').classList.contains('open')){
     if (e.key === 'Escape') $('#clipModal').classList.remove('open');
     return;

@@ -66,6 +66,12 @@ const VIDEO = path.join(FIXTURES, 'game.webm');
   await page.mouse.move(at(0.65, 0.4).x, at(0.65, 0.4).y, { steps: 6 }); await page.mouse.up();
   check('spot keyframe drag no errors', errors.length === 0);
 
+  // ring size (spot still selected)
+  const r1 = await page.evaluate(() => window.__filmroom.getProject().annotations.find(a => a.type === 'spot').r || 0.035);
+  await page.click('#selSizeDown');
+  const r2 = await page.evaluate(() => window.__filmroom.getProject().annotations.find(a => a.type === 'spot').r);
+  check(`ring size shrinks (${r1} -> ${r2})`, r2 < r1);
+
   // decision point at t=4
   await page.evaluate(() => { document.querySelector('#video').currentTime = 4; });
   await page.waitForTimeout(200);
@@ -84,6 +90,21 @@ const VIDEO = path.join(FIXTURES, 'game.webm');
   await page.waitForSelector('#clipModal.open');
   await page.fill('#clipTitle', 'Great scan then pass');
   await page.click('#ratingRow [data-rating=positive]');
+
+  // vocabulary editing: rename a tag, add a custom one
+  await page.click('#btnEditTags');
+  await page.waitForSelector('#tagModal.open');
+  page.once('dialog', d => d.accept('Sombrero'));
+  await page.click('#tagEditor .chip:has-text("Great move (1v1)")');
+  await page.waitForTimeout(150);
+  page.once('dialog', d => d.accept('Coach special'));
+  await page.click('#tagEditor .tagGroup >> nth=0 >> button:has-text("＋ add")');
+  await page.waitForTimeout(150);
+  await page.click('#tagDone');
+  await page.waitForTimeout(150);
+  const pickerHtml = await page.textContent('#tagGroups');
+  check('tag renamed in picker', pickerHtml.includes('Sombrero') && !pickerHtml.includes('Great move (1v1)'));
+  check('custom tag added', pickerHtml.includes('Coach special'));
   await page.click('#tagGroups .chip:has-text("High-IQ play")');
   await page.click('#tagGroups .chip:has-text("Scanned before receiving")');
   await page.click('#clipSave');
