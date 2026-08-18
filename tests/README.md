@@ -27,6 +27,9 @@ node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exi
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise
 node session.js        # guided session: question-first flow, answer capture, recap,
                        # session log + notes file + reload persistence
+node watch.js          # the "this week's session is ready" front door: when it appears,
+                       # what it says, starting the session, XL session type, dismissal
+                       # lasting the visit and the offer returning next time
 node board.js          # tactics board: formation seeding, chip place/drag/rename,
                        # drawing tools, format switch, clip-linked boards, PNG, persistence
 node compare.js        # side-by-side: lockstep sync, pair looping, frame-step both,

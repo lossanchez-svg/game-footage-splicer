@@ -135,6 +135,14 @@ high note), give it a title, and **🎬 Save as one video** produces **one file*
 title card, then every clip with its own coaching card, decision-point freezes, and the
 game audio. AirDrop it once, AirPlay to the TV, and the whole week's review runs itself.
 
+### ▶ The front door — "this week's film session is ready"
+Open a game that already has clips lined up and a banner sits across the top of the
+screen: *"This week's film session is ready"*, with the reel title, how many clips and
+roughly how long it takes, and one button — **Start watching**. That's the whole
+interface for whoever is watching rather than editing. **Not right now** hides it for
+this visit; it's waiting again next time the game is opened. The session screens
+themselves are set in large type with thumb-sized buttons, so they read from the sofa.
+
 ### 🎓 Guided sessions — anyone can run film night
 **🎓 Watch together** plays the same reel list as an interactive Q&A right in the app: each
 clip shows its question **first** ("Where is the space?" — set per clip, or use the

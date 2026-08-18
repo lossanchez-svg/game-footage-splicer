@@ -101,7 +101,7 @@ Games folder). Help and README rewritten to the same words. Verified by
 visible surface, a toast-is-a-sentence check parsed out of the app's own source, and a
 screenshot walk through every tab and mode.
 
-### Workstream D — "Watch" front door for the family
+### ✅ Workstream D — "Watch" front door for the family — SHIPPED
 Grandma's real job is **watching**, not editing. When a project has a reel:
 - On load, show a friendly banner/button: **"▶ This week's film session is ready —
   Start"** → launches the guided session (already mom-proof).
@@ -109,6 +109,12 @@ Grandma's real job is **watching**, not editing. When a project has a reel:
   ensure every button is thumb-big).
 Tests: banner appears only when a reel exists; starts the session; dismissible and stays
 dismissed for that visit.
+**Shipped:** a full-width banner above everything — "▶ This week's film session is ready"
+with the reel title, clip count and rough length — appears the moment a game has clips
+lined up, and its one primary button starts the guided session. "Not right now" hides it
+for the visit; finishing a session hides it too; reopening the game offers it again.
+Session screens got the XL treatment (26px headings, 28px questions, 56px-tall buttons,
+17px inputs) so they read from a sofa. Verified by `tests/watch.js` (15 checks).
 
 ### Workstream E — comfort & accessibility
 - "Aa" text-size toggle (normal / large) persisted; large mode bumps base font and
@@ -460,6 +466,7 @@ device-aware intake flow:
 | 2026-08-18 | One-time hints stay silent while the tour is running | Two voices telling a first-timer what to do at once is worse than either alone; the hints then land later, when the tour is no longer there to say it |
 | 2026-08-18 | Frame rate hides under "Advanced"; everything else is spelled out | It is the only genuinely technical setting left, and it only affects two buttons — burying it costs nothing and removes the one piece of jargon from the main transport bar |
 | 2026-08-18 | The jargon ban is enforced by a test, not by review | Wording drifts back in with every feature; `tests/plainwords.js` sweeps the rendered DOM and the toast literals so a regression fails the suite |
+| 2026-08-18 | The watch banner is dismissed per visit, never permanently | It is an offer, not a notification: someone who came to edit dismisses it once, and the next person to open the game still finds the session waiting |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions
