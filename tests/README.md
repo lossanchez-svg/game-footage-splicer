@@ -33,6 +33,9 @@ node watch.js          # the "this week's session is ready" front door: when it 
 node comfort.js        # comfort mode + accessibility: the Aa text-size toggle (sizes,
                        # persistence, longer toasts), a real WCAG AA contrast audit of
                        # every screen in both sizes, and visible keyboard focus
+node friction.js       # friction backlog: no control fails silently without a video,
+                       # every delete is undoable from its own message (even after later
+                       # edits), whole-game export states its length
 node board.js          # tactics board: formation seeding, chip place/drag/rename,
                        # drawing tools, format switch, clip-linked boards, PNG, persistence
 node compare.js        # side-by-side: lockstep sync, pair looping, frame-step both,

@@ -307,7 +307,17 @@
 
   .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
     background:var(--bg3); border:1px solid var(--line); border-radius:8px; padding:9px 16px;
-    z-index:120; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px; transition:opacity .3s; }
+    z-index:120; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px; transition:opacity .3s;
+    display:flex; align-items:center; gap:14px; max-width:min(560px, 92vw); }
+  .toastBtn{flex:none; padding:5px 12px; font-weight:600;
+    background:var(--bg2); border:1px solid var(--accent2); color:var(--accent2);}
+  .toastBtn:hover{background:#132540;}
+  body.bigText .toastBtn{padding:8px 16px;}
+
+  /* nudge the control someone is looking for */
+  @keyframes pointAt{0%,100%{box-shadow:0 0 0 0 rgba(88,166,255,0);}
+    50%{box-shadow:0 0 0 6px rgba(88,166,255,.5);}}
+  .pointAt{animation:pointAt 1s ease-in-out 2;}
 
   /* ---------- Touch & small screens (iPad portrait, phones) ---------- */
   #timeline{touch-action:none;}
@@ -936,10 +946,20 @@ function setTextSize(big){
   if (typeof tourPlace === 'function') tourPlace();
 }
 
-function toast(msg, ms=2200){
+function toast(msg, ms=2200, action){
   if (bigText) ms = Math.round(ms * 1.6);   // more words on screen, more time to read them
   const el = document.createElement('div');
-  el.className = 'toast'; el.textContent = msg;
+  el.className = 'toast';
+  const span = document.createElement('span');
+  span.textContent = msg;
+  el.appendChild(span);
+  if (action){
+    const b = document.createElement('button');
+    b.className = 'toastBtn';
+    b.textContent = action.label;
+    b.onclick = () => { el.remove(); action.fn(); };
+    el.appendChild(b);
+  }
   document.body.appendChild(el);
   setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(), 350); }, ms);
 }
@@ -968,14 +988,33 @@ function pushUndo(){
     boards: project.boards || [], reel: project.reel || [], sessions: project.sessions || [] }));
   if (undoStack.length > 60) undoStack.shift();
 }
-function undo(){
-  const snap = undoStack.pop();
-  if (!snap) return toast('There is nothing left to undo.');
-  const s = JSON.parse(snap);
+function restoreState(s){
   project.annotations = s.annotations; project.clips = s.clips;
   project.boards = s.boards || []; project.reel = s.reel || []; project.sessions = s.sessions || [];
   ui.selectedId = null; ui.boardSel = null;
-  persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); renderBoardBar();
+  persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+  renderBoardBar(); updateWatchBanner();
+}
+function undo(){
+  const snap = undoStack.pop();
+  if (!snap) return toast('There is nothing left to undo.');
+  restoreState(JSON.parse(snap));
+}
+/* Deleting is cheap to take back, so nothing asks "are you sure?" — it just
+   happens, and the message that says so carries the way back. The snapshot is
+   captured here rather than popped off the undo stack later, so the Undo button
+   still restores exactly this deletion even after other edits. */
+function deleteWithUndo(what, fn){
+  pushUndo();
+  const snap = undoStack[undoStack.length - 1];
+  fn();
+  persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+  renderBoardBar(); updateWatchBanner();
+  toast(what + ' deleted.', 7000, { label: '↩ Undo', fn: () => {
+    pushUndo();
+    restoreState(JSON.parse(snap));
+    toast('Put back.');
+  }});
 }
 /* every mutation goes through mutate(fn) */
 function mutate(fn){
@@ -1188,9 +1227,23 @@ window.addEventListener('resize', layout);
 const fps = () => Number($('#fpsInput').value) || 30;
 $('#fpsInput').onchange = () => { project.fps = fps(); persist(); };
 
+/* Pressing play with nothing open used to do nothing at all, which reads as
+   "this app is broken". Say what is missing and point at the button that fixes it. */
+function needVideo(){
+  if (video.src) return true;
+  const btn = $('#dropHint').style.display === 'none' ? $('#btnOpen') : $('#bigOpen');
+  btn.classList.remove('pointAt');
+  void btn.offsetWidth;                       // restart the animation if it is already running
+  btn.classList.add('pointAt');
+  setTimeout(() => btn.classList.remove('pointAt'), 2200);
+  toast('There is no game open yet — press “' + btn.textContent.trim() + '” to pick one.', 4500);
+  return false;
+}
+
 function togglePlay(){
   if (ui.compareMode) return cmpToggle();
-  if (!video.src || ui.boardMode) return;
+  if (ui.boardMode) return;
+  if (!needVideo()) return;
   hideDecision();
   if (video.paused) video.play(); else video.pause();
 }
@@ -1200,13 +1253,14 @@ video.addEventListener('pause', () => $('#btnPlay').textContent = '▶');
 
 function step(frames){
   if (ui.compareMode) return cmpStep(frames);
+  if (!needVideo()) return;
   video.pause();
   video.currentTime = clamp(video.currentTime + frames / fps(), 0, video.duration || 0);
 }
 $('#btnFrameBack').onclick = () => step(-1);
 $('#btnFrameFwd').onclick  = () => step(1);
-$('#btnBack5').onclick = () => video.currentTime = clamp(video.currentTime - 5, 0, video.duration||0);
-$('#btnFwd5').onclick  = () => video.currentTime = clamp(video.currentTime + 5, 0, video.duration||0);
+$('#btnBack5').onclick = () => { if (needVideo()) video.currentTime = clamp(video.currentTime - 5, 0, video.duration||0); };
+$('#btnFwd5').onclick  = () => { if (needVideo()) video.currentTime = clamp(video.currentTime + 5, 0, video.duration||0); };
 
 $$('#speeds .speedBtn').forEach(b => b.onclick = () => setSpeed(Number(b.dataset.speed)));
 function setSpeed(sp){
@@ -1302,7 +1356,7 @@ function hideDecision(){ $('#decisionOverlay').style.display = 'none'; decisionS
 $('#btnResume').onclick = () => { hideDecision(); video.play(); };
 
 $('#btnAddPause').onclick = () => {
-  if (!video.src) return toast('Open a video first — press “Open video…” at the top left.');
+  if (!needVideo()) return;
   const q = $('#pauseQInput').value.trim();
   mutate(() => {
     project.annotations.push({ id:uid(), type:'pause', t:video.currentTime,
@@ -1766,7 +1820,10 @@ $('#selSizeDown').onclick = () => resizeSpot(0.8);
 $('#selDelete').onclick = deleteSelected;
 function deleteSelected(){
   if (!ui.selectedId) return;
-  mutate(() => { project.annotations = project.annotations.filter(a => a.id !== ui.selectedId); ui.selectedId = null; });
+  deleteWithUndo('That drawing', () => {
+    project.annotations = project.annotations.filter(a => a.id !== ui.selectedId);
+    ui.selectedId = null;
+  });
 }
 
 /* ---------------- auto-tracking (v2) ----------------
@@ -1999,7 +2056,8 @@ function renderAnnList(){
     el.querySelector('[data-act=jump]').onclick = ev => { ev.stopPropagation();
       video.currentTime = a.type === 'pause' ? Math.max(0, a.t - 1) : a.tStart; };
     el.querySelector('[data-act=del]').onclick = ev => { ev.stopPropagation();
-      mutate(() => { project.annotations = project.annotations.filter(x => x.id !== a.id);
+      deleteWithUndo(a.type === 'pause' ? 'That question' : 'That drawing', () => {
+        project.annotations = project.annotations.filter(x => x.id !== a.id);
         if (ui.selectedId === a.id) ui.selectedId = null; }); };
     el.onclick = () => {
       if (a.type !== 'pause'){ ui.selectedId = a.id; updateSelPanel(); renderAnnList(); }
@@ -2010,13 +2068,13 @@ function renderAnnList(){
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 /* ---------------- clips ---------------- */
-$('#btnMarkIn').onclick = () => { ui.tIn = video.currentTime; if (ui.tOut != null && ui.tOut <= ui.tIn) ui.tOut = null; updateInOutUI(); toast('Clip starts at ' + fmtT(ui.tIn) + '. Now let it run and press “End clip here”.'); };
-$('#btnMarkOut').onclick = () => { ui.tOut = video.currentTime; if (ui.tIn != null && ui.tIn >= ui.tOut) ui.tIn = null; updateInOutUI(); toast('Clip ends at ' + fmtT(ui.tOut) + '. Press “＋ Save clip” to keep it.'); };
+$('#btnMarkIn').onclick = () => { if (!needVideo()) return; ui.tIn = video.currentTime; if (ui.tOut != null && ui.tOut <= ui.tIn) ui.tOut = null; updateInOutUI(); toast('Clip starts at ' + fmtT(ui.tIn) + '. Now let it run and press “End clip here”.'); };
+$('#btnMarkOut').onclick = () => { if (!needVideo()) return; ui.tOut = video.currentTime; if (ui.tIn != null && ui.tIn >= ui.tOut) ui.tIn = null; updateInOutUI(); toast('Clip ends at ' + fmtT(ui.tOut) + '. Press “＋ Save clip” to keep it.'); };
 $('#btnSaveClip').onclick = () => openClipModal();
 
 let modalState = { rating:'neutral', tags:new Set() };
 function openClipModal(existing){
-  if (!video.src) return toast('Open a video first — press “Open video…” at the top left.');
+  if (!existing && !needVideo()) return;
   ui.editingClipId = existing ? existing.id : null;
   let tIn, tOut;
   if (existing){ tIn = existing.tIn; tOut = existing.tOut; }
@@ -2220,11 +2278,10 @@ function renderClipList(){
     el.querySelector('[data-act=compare]').onclick = () => openCompare(c.id);
     el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
     el.querySelector('[data-act=del]').onclick = () => {
-      if (confirm('Delete clip “' + c.title + '”?'))
-        mutate(() => {
-          project.clips = project.clips.filter(x => x.id !== c.id);
-          project.reel = (project.reel || []).filter(id => id !== c.id);
-        });
+      deleteWithUndo('“' + c.title + '”', () => {
+        project.clips = project.clips.filter(x => x.id !== c.id);
+        project.reel = (project.reel || []).filter(id => id !== c.id);
+      });
     };
     list.appendChild(el);
   }
@@ -2259,8 +2316,9 @@ function renderReelList(){
     el.querySelector('[data-act=down]').onclick = () => mutate(() => {
       const r = project.reel; [r[i+1], r[i]] = [r[i], r[i+1]];
     });
-    el.querySelector('[data-act=rm]').onclick = () => mutate(() =>
-      project.reel = project.reel.filter(id => id !== c.id));
+    el.querySelector('[data-act=rm]').onclick = () =>
+      deleteWithUndo('“' + c.title + '” taken out of this week’s list', () =>
+        project.reel = project.reel.filter(id => id !== c.id));
     host.appendChild(el);
   }
   if (clips.length){
@@ -2283,7 +2341,8 @@ $('#btnExportReel').onclick = () => {
     { reelCard: { title: title || 'Highlight Reel', count: clips.length } });
 };
 $('#btnClearReel').onclick = () => {
-  if ((project.reel || []).length) mutate(() => project.reel = []);
+  if (!(project.reel || []).length) return;
+  deleteWithUndo('This week’s list', () => project.reel = []);
 };
 $('#reelTitle').oninput = () => { project.reelTitle = $('#reelTitle').value; persist(); updateWatchBanner(); };
 
@@ -2471,8 +2530,7 @@ function renderSessionLog(){
       downloadBlob(new Blob([sessionNotesText(sess)], { type:'text/plain' }),
         `session_${sess.when}.txt`); };
     el.querySelector('[data-act=del]').onclick = ev => { ev.stopPropagation();
-      if (confirm('Delete this session log entry?'))
-        mutate(() => project.sessions.splice(idx, 1)); };
+      deleteWithUndo('That session', () => project.sessions.splice(idx, 1)); };
     host.appendChild(el);
   });
 }
@@ -2553,8 +2611,7 @@ $('#boardReset').onclick = () => {
 };
 $('#boardDelete').onclick = () => {
   const b = curBoard(); if (!b) return;
-  if (!confirm('Delete board “' + b.name + '”?')) return;
-  mutate(() => {
+  deleteWithUndo('Board “' + b.name + '”', () => {
     project.boards = project.boards.filter(x => x.id !== b.id);
     for (const c of project.clips) if (c.boardId === b.id) delete c.boardId;
   });
@@ -3004,7 +3061,7 @@ function switchTab(name){
 
 /* ---------------- project save / load ---------------- */
 $('#btnSaveProj').onclick = () => {
-  if (!video.src) return toast('Open a video first — press “Open video…” at the top left.');
+  if (!needVideo()) return;
   project.fps = fps();
   project.taxonomy = TAG_GROUPS;
   const blob = new Blob([JSON.stringify(project, null, 1)], {type:'application/json'});
@@ -3041,6 +3098,7 @@ function downloadBlob(blob, name){
 
 /* ---------------- snapshot ---------------- */
 $('#btnSnapshot').onclick = () => {
+  if (!ui.compareMode && !ui.boardMode && !needVideo()) return;
   if (ui.boardMode) return $('#boardPng').click();
   if (ui.compareMode){
     // composite both panes into one image, labels included
@@ -3078,10 +3136,14 @@ $('#btnSnapshot').onclick = () => {
 
 /* ---------------- export ---------------- */
 $('#btnExport').onclick = () => {
-  if (!video.videoWidth) return toast('Open a video first — press “Open video…” at the top left.');
+  if (!needVideo()) return;
   let tIn = ui.tIn, tOut = ui.tOut;
   if (tIn == null || tOut == null || tOut <= tIn){
-    if (!confirm('You have not marked a moment, so this will save the WHOLE game as one video with the drawings on it.\n\nTo save just one moment instead: press “Start clip here” and “End clip here” around it, or use the 🎬 Save video button on a clip you already saved.')) return;
+    const mins = Math.max(1, Math.round((video.duration || 0) / 60));
+    if (!confirm('You have not marked a moment, so this saves the WHOLE game as one video — about ' +
+      mins + ' minute' + (mins === 1 ? '' : 's') + ' long, which will take a while and make a large file.' +
+      '\n\nTo save just one moment instead: press “Start clip here” and “End clip here” around it, ' +
+      'or use the 🎬 Save video button on a clip you already saved.')) return;
     tIn = 0; tOut = video.duration;
   }
   doExport(tIn, tOut, 'clip', null);

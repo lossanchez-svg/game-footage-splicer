@@ -134,13 +134,23 @@ every visible text node on every screen (both text sizes, both tabs, Help, the
 save-clip dialog, the watch banner, the walkthrough bubble and tooltips), computing the
 effective background and the correct threshold for large vs normal text.
 
-### Workstream F — friction backlog from real use (fix while in there)
+### ✅ Workstream F — friction backlog from real use — SHIPPED
 - Deleting anything offers **Undo in the toast** (replace `confirm()` dialogs where the
   action is cheap to restore).
 - "Play does nothing" when no video is open → point at Open, don't stay silent.
 - Whole-video export confirm should state the expected duration in minutes.
 - Safari on Mac: 📁 Games hides (correct) — the empty state should mention that the
   library needs Chrome/Edge on Mac so its absence isn't confusing.
+**Shipped:** `toast()` grew an optional action button, and every delete (drawing,
+question, clip, board, session-log entry, this week's list, a clip taken out of it) now
+just happens and offers **↩ Undo** in its own message — no `confirm()` anywhere it is
+cheap to restore. The Undo captures its own snapshot rather than popping the undo stack,
+so it still restores *that* deletion after other edits. `needVideo()` backs every
+transport/clip/export/photo/save control: with nothing open it names the button that
+fixes it and pulses that button, instead of doing nothing. The whole-game export confirm
+now states the length in minutes and points at the cheaper alternative. The Safari note
+landed with the empty-state rewrite in workstream C. Verified by `tests/friction.js`
+(26 checks).
 
 **Definition of done for the epic:** all six workstreams merged with their tests, all
 existing suites still green, README/help updated, and a fresh-eyes walkthrough
@@ -367,9 +377,11 @@ device-aware intake flow:
 ## Roadmap
 
 ### Next (in order)
-- [ ] **v2 epic — The Grandma Test** (full spec in "Current epic" above): guided
+- [x] **v2 epic — The Grandma Test** (full spec in "Current epic" above): guided
       do-based tour, real tooltips + one-time hints, plain-language pass, Watch front
-      door, comfort/text-size mode, friction fixes.
+      door, comfort/text-size mode, friction fixes. **All six workstreams shipped**
+      with suites `tour.js`, `tips.js`, `plainwords.js`, `watch.js`, `comfort.js`,
+      `friction.js`; 242 checks green across the whole suite.
 - [ ] **Cross-device continuity via the Games folder**: when the 📁 Games folder is
       connected with readwrite permission, auto-save the project JSON *next to its
       video* (`<video>.filmroom.json`) and auto-load it when the video opens on another
@@ -480,6 +492,8 @@ device-aware intake flow:
 | 2026-08-18 | The watch banner is dismissed per visit, never permanently | It is an offer, not a notification: someone who came to edit dismisses it once, and the next person to open the game still finds the session waiting |
 | 2026-08-18 | Primary-button green split into `--accent` (marks) and `--accent-btn` (text backgrounds) | White on the brand green measured 3.4:1 — below AA. Darkening only the button background keeps the brand colour everywhere it carries no text |
 | 2026-08-18 | Contrast is enforced by a computed-style audit in the test suite | A one-off manual audit rots on the next feature; the audit walks real rendered text, so new screens are covered automatically |
+| 2026-08-18 | Deletes never ask, they offer Undo — with their own captured snapshot | A confirm dialog taxes every correct deletion to prevent a rare wrong one; an Undo that pops the shared stack would restore the wrong thing once anything else has been edited, so the toast holds the exact snapshot |
+| 2026-08-18 | Every control that needs a video says so and points at Open | "Nothing happened" is the worst possible feedback for a first-time user — it reads as broken software rather than a missing step |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions

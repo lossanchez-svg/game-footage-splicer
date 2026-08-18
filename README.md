@@ -209,6 +209,16 @@ control shows a clear focus ring when you move through the app with the keyboard
 4. Watch together — him talking, you asking the Coach-tab questions.
 5. Export 1–2 clips to his phone as the week's visual reminder.
 
+## Mistakes are cheap
+
+Nothing asks *"are you sure?"* where the answer can simply be taken back. Delete a clip,
+a drawing, a board, a session or this week's list and it just happens — the message that
+says so carries an **↩ Undo** button that restores exactly that deletion, even if you
+changed something else in between. `⌘Z` still walks back through everything.
+
+And nothing fails silently: press play (or any other control) before a game is open and
+the app says what is missing and points at the button that fixes it.
+
 ## Notes & limits
 
 - **⚡ mp4 export audio** comes straight from the source file's AAC track — iPhone
