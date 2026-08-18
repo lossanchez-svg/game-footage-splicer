@@ -74,6 +74,13 @@ To make it a real home-screen app on the iPad:
 - Every drawing has a visible time window, so annotations appear and disappear as the
   play unfolds.
 
+### ⚖ Side-by-side — his touch vs. the model touch
+Hit **⚖** on any clip to play it in lockstep next to a "model" — another clip from the
+library, or an outside video file (a screen-recorded pro example works great). Both
+sides frame-step and slow-mo together, the pair loops automatically, and an **align**
+nudge lines the key moments up. **📸 Still** grabs a labeled two-pane image. Nothing
+teaches "this is what it should look like" faster.
+
 ### 🗒 Tactics board — teach the scheme off-video
 Hit **Board** in the top bar for a top-down pitch with both teams lined up in formation
 (5v5/7v7/9v9/11v11 presets). Drag player chips around, double-click to name them, and

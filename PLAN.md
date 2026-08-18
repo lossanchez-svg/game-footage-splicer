@@ -192,10 +192,21 @@ extended to cover boards — and, fixing a latent gap, reel/session state too.
 Verified by `tests/board.js` (14 checks): seeding counts, chip place/drag/rename,
 drawing, format switching, clip linking, PNG export, reload persistence.
 
+### ✅ v1.9 — side-by-side compare (shipped)
+**⚖ Compare** (top bar, or the ⚖ button on any clip) plays two clips in lockstep:
+side A ("his clip") is the master clock, side B ("the model") — another clip from the
+library or an **outside video file** (e.g. a screen-recorded pro example) — is re-synced
+to A every frame (drift measured at ~0s). The pair **loops over A's range**, both sides
+frame-step and speed-change together, and an **align nudge** (±0.1s) lines the key
+moments up. Annotations render on each side at its own time; **📸 Still** exports a
+labeled composite PNG of both panes. Panes stack vertically on narrow screens.
+Verified by `tests/compare.js` (13 checks): sync drift, pair looping, dual frame-step,
+nudge, file-as-model, composite PNG, mode enter/exit.
+
 ## Roadmap
 
 ### Next (highest value first)
-- [ ] **Side-by-side compare**: two clips in sync — "your touch vs. the model touch."
+*(empty — the design-input roadmap is fully shipped; new items come from real-world use)*
 
 ### Later
 - [ ] Track multiple spotlights in one pass; track backwards from an anchor.
@@ -270,6 +281,7 @@ drawing, format switching, clip linking, PNG export, reload persistence.
 | 2026-08-18 | Sessions run the reel list (one "this week" set), not a separate playlist | One ordering UI; the reel IS the session's content — export it for TV or run it live |
 | 2026-08-18 | Autosave flushes on beforeunload | The 600ms debounce could drop the last write if the tab closed immediately (surfaced by the session suite); flush-on-unload closes the race for all data |
 | 2026-08-18 | Board reuses the video draw functions + tool palette on a separate canvas | One visual language everywhere; board items are the same shapes minus time, plus a `chip` type; undo snapshots widened to boards/reel/sessions |
+| 2026-08-18 | Compare: A is the master clock, B hard-resynced per frame (no free-running B) | Start-sync alone drifts; per-frame correction keeps the pair within one frame indefinitely; B side can be an external file (loaded, never persisted) |
 
 ## Working agreements for future sessions
 

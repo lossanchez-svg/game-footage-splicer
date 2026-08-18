@@ -91,6 +91,21 @@
   #boardWrap{display:none; position:relative; margin-top:48px;}
   #boardCanvas{display:block; border-radius:6px; box-shadow:0 8px 40px rgba(0,0,0,.5); touch-action:none;}
 
+  /* side-by-side compare */
+  #compareBar{position:absolute; top:0; left:0; right:0; height:48px; display:none;
+    align-items:center; gap:6px; padding:0 10px; background:var(--bg2);
+    border-bottom:1px solid var(--line); z-index:25; overflow-x:auto;}
+  #compareBar .spacer{flex:1;}
+  #compareBar select{max-width:170px;}
+  #compareWrap{display:none; margin-top:48px; gap:12px; align-items:flex-start; justify-content:center;}
+  .cmpPane{display:flex; flex-direction:column; align-items:center; gap:4px;}
+  .cmpVid{position:relative; background:#000; border-radius:6px; overflow:hidden;}
+  .cmpVid video{display:block; width:100%; height:100%;}
+  .cmpVid canvas{position:absolute; inset:0; pointer-events:none;}
+  .cmpLabel{font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .cmpLabel b{color:var(--text);}
+
   /* session bar (shown while a session clip plays) */
   #sessionBar{position:absolute; top:12px; left:50%; transform:translateX(-50%);
     display:none; align-items:center; gap:10px; z-index:40;
@@ -242,6 +257,7 @@
   <span id="videoName"></span>
   <div class="spacer"></div>
   <button id="btnBoard" title="Tactics board: a top-down pitch with draggable players — teach shape, runs, and schemes off-video. Works with all the drawing tools.">🗒 Board</button>
+  <button id="btnCompare" title="Side-by-side: play two clips in sync — his moment next to the model version (another clip, or a video file like a pro example)">⚖ Compare</button>
   <button id="btnSnapshot" title="Save a still image of this frame with all drawings">📸 Still</button>
   <button id="btnExport" title="Export the current In→Out range (or the whole video) as an annotated video file">🎬 Export clip</button>
   <select id="exportMode" style="display:none" title="⚡ mp4: renders frame-by-frame into an H.264 .mp4 that plays natively on iPhone/iPad, carrying the game audio over from iPhone/.mov footage (silent under title cards and decision freezes). 🔊 real-time: records the screen pass in real time instead; format depends on the browser.">
@@ -279,6 +295,40 @@
         <button class="miniBtn primary" id="boardClose">✕ Close board</button>
       </div>
       <div id="boardWrap"><canvas id="boardCanvas"></canvas></div>
+      <div id="compareBar">
+        <span style="color:var(--dim);font-size:12px">HIS</span>
+        <select id="cmpA"></select>
+        <span style="color:var(--dim);font-size:12px">MODEL</span>
+        <select id="cmpB"></select>
+        <button class="miniBtn" id="cmpFileBtn" title="Use an outside video as the model side — e.g. a screen-recorded pro example">📂 File…</button>
+        <div class="divider"></div>
+        <button class="miniBtn" id="cmpPlay" style="min-width:36px">▶</button>
+        <button class="miniBtn" id="cmpRestart" title="Back to the start of both">⟲</button>
+        <button class="miniBtn" id="cmpStepBack" title="One frame back (both)">◀︎</button>
+        <button class="miniBtn" id="cmpStepFwd" title="One frame forward (both)">▶︎</button>
+        <select id="cmpSpeed" title="Playback speed for both sides">
+          <option value="0.25">¼×</option><option value="0.5">½×</option>
+          <option value="0.75">¾×</option><option value="1" selected>1×</option>
+        </select>
+        <div class="divider"></div>
+        <span style="color:var(--dim);font-size:12px" title="Nudge the model side so the key moments line up">align</span>
+        <button class="miniBtn" id="cmpOffMinus">−0.1</button>
+        <span id="cmpOff" class="timeTag" style="min-width:44px;text-align:center">+0.0s</span>
+        <button class="miniBtn" id="cmpOffPlus">+0.1</button>
+        <div class="spacer"></div>
+        <button class="miniBtn primary" id="cmpClose">✕ Close</button>
+        <input type="file" id="cmpFile" accept="video/*,.mov,.mp4,.m4v,.webm" hidden>
+      </div>
+      <div id="compareWrap">
+        <div class="cmpPane">
+          <div class="cmpVid" id="cmpWrapA"><video id="videoA" playsinline muted></video><canvas id="cmpCanvasA"></canvas></div>
+          <div class="cmpLabel" id="cmpLabelA"></div>
+        </div>
+        <div class="cmpPane">
+          <div class="cmpVid" id="cmpWrapB"><video id="videoB" playsinline muted></video><canvas id="cmpCanvasB"></canvas></div>
+          <div class="cmpLabel" id="cmpLabelB"></div>
+        </div>
+      </div>
       <div id="dropHint">
         <div class="big">⚽🎥</div>
         <div><b>Open a video</b> or drag one anywhere on this window.</div>
@@ -659,6 +709,8 @@
     <p>Everything autosaves in this browser per video file (matched by file name + size), so reopening the same file restores your clips and drawings. <b>💾 Save project</b> downloads a backup file you can move between machines or keep with the video; <b>📂 Load project</b> brings it back.</p>
     <h4>Exports — made to watch without you</h4>
     <p><b>🎬 Export clip</b> renders a saved clip with every drawing burned in, at up to 1080p (looks right on a big TV). The export opens with a <b>title card</b> showing the rating, position, and your coaching note, and any <b>decision point</b> in the clip becomes a built-in freeze-frame showing the question before the play continues — so the clip teaches on its own when Mom runs it or he watches solo. The fast ⚡ mp4 mode carries the <b>game audio</b> over from iPhone/.mov footage, muted under the card and freezes. AirDrop the file to a phone/iPad and AirPlay it to the TV. <b>📸 Still</b> saves the current frame as an image — fastest way to text him one teaching picture.</p>
+    <h4>Side-by-side compare</h4>
+    <p><b>⚖</b> on any clip plays it in sync next to a “model” — another clip, or an outside file (📂 in the compare bar). Both sides slow-mo and frame-step together, the pair loops, and the <b>align</b> nudge lines the moments up. <b>📸</b> saves a labeled two-pane image.</p>
     <h4>Tactics board</h4>
     <p><b>🗒 Board</b> swaps to a top-down pitch with both teams in formation — drag the chips, double-click to name them, and draw with the same tools to teach shape and runs off-video. Each clip's <b>🗒</b> button opens a board linked to that moment. <b>📸</b> exports the board as an image.</p>
     <h4>Your words, not mine</h4>
@@ -827,6 +879,9 @@ function loadVideo(file){
     ui.selectedId = null; ui.tIn = null; ui.tOut = null; ui.loopClip = null;
     ui.session = null; renderSession();
     if (ui.boardMode) setBoardMode(false);
+    if (ui.compareMode) setCompareMode(false);
+    if (ui.compare && ui.compare.bUrl) URL.revokeObjectURL(ui.compare.bUrl);
+    ui.compare = null;
     ui.boardId = (project.boards && project.boards[0]) ? project.boards[0].id : null;
     undoStack = [];
     layout();
@@ -837,6 +892,7 @@ function loadVideo(file){
 /* ---------------- layout ---------------- */
 function layout(){
   if (ui.boardMode) layoutBoard();
+  if (ui.compareMode) layoutCompare();
   if (!video.videoWidth) return;
   const sw = stage.clientWidth, sh = stage.clientHeight;
   const va = video.videoWidth / video.videoHeight;
@@ -856,6 +912,7 @@ const fps = () => Number($('#fpsInput').value) || 30;
 $('#fpsInput').onchange = () => { project.fps = fps(); persist(); };
 
 function togglePlay(){
+  if (ui.compareMode) return cmpToggle();
   if (!video.src || ui.boardMode) return;
   hideDecision();
   if (video.paused) video.play(); else video.pause();
@@ -865,6 +922,7 @@ video.addEventListener('play',  () => $('#btnPlay').textContent = '❚❚');
 video.addEventListener('pause', () => $('#btnPlay').textContent = '▶');
 
 function step(frames){
+  if (ui.compareMode) return cmpStep(frames);
   video.pause();
   video.currentTime = clamp(video.currentTime + frames / fps(), 0, video.duration || 0);
 }
@@ -1848,6 +1906,7 @@ function renderClipList(){
         <button class="miniBtn" data-act="export">🎬 Export</button>
         <button class="miniBtn" data-act="reel">${(project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel'}</button>
         <button class="miniBtn" data-act="board" title="Open this clip's tactics board — teach the scheme behind the moment">🗒${c.boardId ? '✓' : ''}</button>
+        <button class="miniBtn" data-act="compare" title="Play this clip side by side with a model clip or file">⚖</button>
         <button class="miniBtn" data-act="edit">✏️ Edit</button>
         <button class="miniBtn danger" data-act="del">🗑</button>
       </div>`;
@@ -1870,6 +1929,7 @@ function renderClipList(){
       }
       openBoard(board.id);
     };
+    el.querySelector('[data-act=compare]').onclick = () => openCompare(c.id);
     el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
     el.querySelector('[data-act=del]').onclick = () => {
       if (confirm('Delete clip “' + c.title + '”?'))
@@ -2163,6 +2223,7 @@ function newBoard(name, format){
 }
 
 function setBoardMode(on){
+  if (on && ui.compareMode) setCompareMode(false);
   ui.boardMode = on;
   ui.boardSel = null; ui.boardDrag = null;
   $('#boardBar').style.display = on ? 'flex' : 'none';
@@ -2466,6 +2527,180 @@ function deleteBoardSel(){
   mutate(() => { b.items = b.items.filter(i => i.id !== ui.boardSel); ui.boardSel = null; });
 }
 
+/* ---------------- side-by-side compare ----------------
+  Two videos in lockstep: side A is one of his clips; side B ("the model") is
+  another clip from the library or an outside file (e.g. a screen-recorded pro
+  example). A is the master clock — B is re-synced to it every frame, the pair
+  loops over A's range, and an align nudge lines the key moments up.
+------------------------------------------------------- */
+const videoA = $('#videoA'), videoB = $('#videoB');
+const cmpCtxA = $('#cmpCanvasA').getContext('2d');
+const cmpCtxB = $('#cmpCanvasB').getContext('2d');
+
+function cmpAClip(){ return ui.compare && project.clips.find(c => c.id === ui.compare.aClipId); }
+function cmpBClip(){
+  return ui.compare && ui.compare.b.mode === 'clip' &&
+    project.clips.find(c => c.id === ui.compare.b.clipId);
+}
+function cmpRanges(){
+  const a = cmpAClip();
+  const bc = cmpBClip();
+  return {
+    aIn: a ? a.tIn : 0, aOut: a ? a.tOut : 0,
+    bIn: Math.max(0, (bc ? bc.tIn : 0) + ui.compare.offset),
+  };
+}
+
+function setCompareMode(on){
+  if (on && ui.boardMode) setBoardMode(false);
+  ui.compareMode = on;
+  $('#compareBar').style.display = on ? 'flex' : 'none';
+  $('#compareWrap').style.display = on ? 'flex' : 'none';
+  wrap.style.display = (!on && video.src) ? '' : 'none';
+  $('#dropHint').style.display = (on || video.src) ? 'none' : 'flex';
+  if (on){ video.pause(); hideDecision(); layout(); }
+  else { videoA.pause(); videoB.pause(); $('#cmpPlay').textContent = '▶'; }
+}
+function openCompare(aClipId){
+  if (!project.clips.length) return toast('Save a couple of clips first — Compare plays two of them side by side');
+  const a = project.clips.find(c => c.id === aClipId) || project.clips[0];
+  const bDefault = project.clips.find(c => c.id !== a.id) || a;
+  ui.compare = ui.compare || { offset: 0, b: { mode:'clip', clipId: bDefault.id } };
+  ui.compare.aClipId = a.id;
+  if (ui.compare.b.mode === 'clip' && !project.clips.some(c => c.id === ui.compare.b.clipId))
+    ui.compare.b = { mode:'clip', clipId: bDefault.id };
+  if (videoA.src !== video.src) videoA.src = video.src;
+  if (ui.compare.b.mode === 'clip' && videoB.src !== video.src) videoB.src = video.src;
+  setCompareMode(true);
+  renderCompareBar();
+  cmpRestart();
+}
+$('#btnCompare').onclick = () => ui.compareMode ? setCompareMode(false)
+  : openCompare(ui.compare && ui.compare.aClipId);
+$('#cmpClose').onclick = () => setCompareMode(false);
+
+function renderCompareBar(){
+  const opts = project.clips.map(c =>
+    `<option value="${c.id}">${escapeHtml(c.title)}</option>`).join('');
+  $('#cmpA').innerHTML = opts;
+  $('#cmpA').value = ui.compare.aClipId;
+  $('#cmpB').innerHTML = opts +
+    (ui.compare.b.mode === 'file' ? `<option value="__file">📂 ${escapeHtml(ui.compare.b.name)}</option>` : '');
+  $('#cmpB').value = ui.compare.b.mode === 'file' ? '__file' : ui.compare.b.clipId;
+  $('#cmpOff').textContent = (ui.compare.offset >= 0 ? '+' : '') + ui.compare.offset.toFixed(1) + 's';
+  const a = cmpAClip(), bc = cmpBClip();
+  $('#cmpLabelA').innerHTML = 'His clip — <b>' + escapeHtml(a ? a.title : '') + '</b>';
+  $('#cmpLabelB').innerHTML = 'Model — <b>' +
+    escapeHtml(ui.compare.b.mode === 'file' ? ui.compare.b.name : (bc ? bc.title : '')) + '</b>';
+}
+$('#cmpA').onchange = () => { ui.compare.aClipId = $('#cmpA').value; renderCompareBar(); cmpRestart(); };
+$('#cmpB').onchange = () => {
+  if ($('#cmpB').value === '__file') return;   // already on the loaded file
+  ui.compare.b = { mode:'clip', clipId: $('#cmpB').value };
+  ui.compare.offset = 0;
+  if (videoB.src !== video.src) videoB.src = video.src;
+  renderCompareBar(); cmpRestart();
+};
+$('#cmpFileBtn').onclick = () => $('#cmpFile').click();
+$('#cmpFile').onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (ui.compare.bUrl) URL.revokeObjectURL(ui.compare.bUrl);
+  ui.compare.bUrl = URL.createObjectURL(f);
+  ui.compare.b = { mode:'file', name: f.name };
+  ui.compare.offset = 0;
+  videoB.src = ui.compare.bUrl;
+  renderCompareBar(); cmpRestart();
+  e.target.value = '';
+};
+
+function cmpToggle(){
+  if (videoA.paused){
+    const r = cmpRanges();
+    if (videoA.currentTime >= r.aOut - 0.05) cmpRestart();
+    videoA.play(); videoB.play();
+    $('#cmpPlay').textContent = '❚❚';
+  } else {
+    videoA.pause(); videoB.pause();
+    $('#cmpPlay').textContent = '▶';
+  }
+}
+function cmpRestart(){
+  const r = cmpRanges();
+  videoA.pause(); videoB.pause();
+  $('#cmpPlay').textContent = '▶';
+  videoA.currentTime = r.aIn;
+  videoB.currentTime = r.bIn;
+}
+function cmpStep(frames){
+  const r = cmpRanges();
+  videoA.pause(); videoB.pause();
+  $('#cmpPlay').textContent = '▶';
+  videoA.currentTime = clamp(videoA.currentTime + frames / fps(), r.aIn, r.aOut);
+  videoB.currentTime = Math.max(0, r.bIn + (videoA.currentTime + frames / fps() - r.aIn));
+}
+$('#cmpPlay').onclick = cmpToggle;
+$('#cmpRestart').onclick = cmpRestart;
+$('#cmpStepBack').onclick = () => cmpStep(-1);
+$('#cmpStepFwd').onclick = () => cmpStep(1);
+$('#cmpSpeed').onchange = () => {
+  const sp = Number($('#cmpSpeed').value);
+  videoA.playbackRate = sp; videoB.playbackRate = sp;
+};
+function cmpNudge(d){
+  ui.compare.offset = Math.round((ui.compare.offset + d) * 10) / 10;
+  renderCompareBar();
+  const r = cmpRanges();
+  videoB.currentTime = Math.max(0, r.bIn + (videoA.currentTime - r.aIn));
+}
+$('#cmpOffMinus').onclick = () => cmpNudge(-0.1);
+$('#cmpOffPlus').onclick = () => cmpNudge(0.1);
+
+function layoutCompare(){
+  const stacked = stage.clientWidth < 980;
+  $('#compareWrap').style.flexDirection = stacked ? 'column' : 'row';
+  $('#compareWrap').style.alignItems = 'center';
+  const availW = stacked ? stage.clientWidth * 0.94 : (stage.clientWidth - 40) / 2;
+  const availH = stacked ? (stage.clientHeight - 48 - 60) / 2 : stage.clientHeight - 48 - 40;
+  for (const [vid, wrapId, canvas] of [[videoA, 'cmpWrapA', $('#cmpCanvasA')], [videoB, 'cmpWrapB', $('#cmpCanvasB')]]){
+    const va = (vid.videoWidth && vid.videoHeight) ? vid.videoWidth / vid.videoHeight : 16 / 9;
+    let w = availW, h = w / va;
+    if (h > availH){ h = availH; w = h * va; }
+    w = Math.floor(w); h = Math.floor(h);
+    const el = $('#' + wrapId);
+    el.style.width = w + 'px'; el.style.height = h + 'px';
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  }
+}
+videoA.addEventListener('loadedmetadata', () => { if (ui.compareMode) layout(); });
+videoB.addEventListener('loadedmetadata', () => { if (ui.compareMode) layout(); });
+
+function cmpTick(){
+  const a = cmpAClip();
+  if (!a){ setCompareMode(false); return; }
+  const r = cmpRanges();
+  if (!videoA.paused){
+    if (videoA.currentTime >= r.aOut - 0.02){
+      videoA.currentTime = r.aIn;                 // loop the pair over A's range
+      videoB.currentTime = r.bIn;
+    } else {
+      const expected = r.bIn + (videoA.currentTime - r.aIn);
+      if (expected < (videoB.duration || 1e9)){
+        if (Math.abs(videoB.currentTime - expected) > 0.08) videoB.currentTime = expected;
+        if (videoB.paused) videoB.play();
+      } else if (!videoB.paused) videoB.pause();  // model side ran out — hold last frame
+    }
+  }
+  // overlays: A always shows his annotations; B only when it's a clip of this project
+  for (const [ctx, vid, show] of [[cmpCtxA, videoA, true], [cmpCtxB, videoB, ui.compare.b.mode === 'clip']]){
+    const W = ctx.canvas.width / dpr, H = ctx.canvas.height / dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    if (show) drawScene(ctx, W, H, vid.currentTime, { editing: false });
+  }
+}
+
 /* ---------------- tabs ---------------- */
 $$('#tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 function switchTab(name){
@@ -2513,6 +2748,28 @@ function downloadBlob(blob, name){
 /* ---------------- snapshot ---------------- */
 $('#btnSnapshot').onclick = () => {
   if (ui.boardMode) return $('#boardPng').click();
+  if (ui.compareMode){
+    // composite both panes into one image, labels included
+    const ha = 720;
+    const wa = Math.round(ha * ((videoA.videoWidth / videoA.videoHeight) || 16/9) / 2) * 2;
+    const wb = Math.round(ha * ((videoB.videoWidth / videoB.videoHeight) || 16/9) / 2) * 2;
+    const gap = 12, labelH = 36;
+    const c = document.createElement('canvas');
+    c.width = wa + gap + wb; c.height = ha + labelH;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(videoA, 0, 0, wa, ha);
+    drawScene(ctx, wa, ha, videoA.currentTime, { editing: false });
+    ctx.save(); ctx.translate(wa + gap, 0);
+    ctx.drawImage(videoB, 0, 0, wb, ha);
+    if (ui.compare.b.mode === 'clip') drawScene(ctx, wb, ha, videoB.currentTime, { editing: false });
+    ctx.restore();
+    ctx.fillStyle = '#8b949e'; ctx.font = '600 16px -apple-system,sans-serif';
+    ctx.fillText($('#cmpLabelA').textContent, 8, ha + 24);
+    ctx.fillText($('#cmpLabelB').textContent, wa + gap + 8, ha + 24);
+    c.toBlob(b => { downloadBlob(b, 'compare.png'); toast('Comparison saved 📸'); }, 'image/png');
+    return;
+  }
   if (!video.videoWidth) return toast('Open a video first');
   const W = video.videoWidth, H = video.videoHeight;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -3320,6 +3577,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === 'Escape'){
+    if ($$('.modal.open').length === 0 && ui.compareMode){ setCompareMode(false); return; }
     if ($$('.modal.open').length === 0 && ui.boardMode){ setBoardMode(false); return; }
     $$('.modal').forEach(m => m.classList.remove('open')); hideDecision(); return;
   }
@@ -3358,7 +3616,9 @@ function tick(){
     const sc = ui.session.clips[ui.session.idx];
     if (t >= sc.tOut - 0.02){ video.pause(); ui.session.phase = 'answer'; renderSession(); }
   }
-  if (ui.boardMode){
+  if (ui.compareMode){
+    cmpTick();
+  } else if (ui.boardMode){
     renderBoard();
   } else if (!ui.exporting){
     checkPauses(t);

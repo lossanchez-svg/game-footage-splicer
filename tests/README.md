@@ -20,6 +20,8 @@ node session.js        # guided session: question-first flow, answer capture, re
                        # session log + notes file + reload persistence
 node board.js          # tactics board: formation seeding, chip place/drag/rename,
                        # drawing tools, format switch, clip-linked boards, PNG, persistence
+node compare.js        # side-by-side: lockstep sync, pair looping, frame-step both,
+                       # align nudge, outside file as model side, composite PNG
 FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264 + AAC:
                           # ffmpeg-encoded samples through buildMp4(), round-tripped
                           # through the app's demuxMp4Audio(), probe + full decode
