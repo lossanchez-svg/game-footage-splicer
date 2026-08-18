@@ -10,6 +10,9 @@ node smoke.js          # core suite: loading, drawing tools, decision points, cl
                        # exports, undo, autosave restore
 node tracking.js       # auto-track suite: tracks a synthetic moving ball and asserts
                        # the spotlight follows it within tolerance
+node hardtrack.js      # hard-mode tracking: small target on a noisy field with
+                       # breathing exposure and an occluder crossing straight over it
+                       # (coast-through-occlusion + reacquire)
 node touch.js          # touch/iPad suite: responsive layout + tap interactions
 node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise

@@ -57,9 +57,13 @@ To make it a real home-screen app on the iPad:
   him automatically, no keyframing needed (and tells you where to re-anchor if it loses
   him in a crowd). You can also track by hand: scrub ahead and drag the ring; it glides
   between keyframes, and auto-tracked paths stay hand-editable the same way. Add a
-  second spotlight in another color for the defender or the open teammate. On zoomed-out
-  sideline or Trace-camera footage, use **Ring −/＋** to fit the ring to the player —
-  that also right-sizes what the tracker looks for.
+  second spotlight in another color for the defender or the open teammate. The tracker
+  is built for **zoomed-out and fuzzy footage** (far sideline iPhone, Trace cameras,
+  screen-recorded YouTube): it's immune to auto-exposure/brightness drift, predicts
+  where the player is heading through camera pans, and **coasts through brief
+  crossings** — when another player runs across him, it keeps moving on his predicted
+  path and re-locks on the other side. On far footage, use **Ring −/＋** to fit the ring
+  to the player — the tracker automatically works at higher resolution for small rings.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.

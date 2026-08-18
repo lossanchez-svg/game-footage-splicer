@@ -597,7 +597,7 @@
     <h4>Your words, not mine</h4>
     <p>The tag list is a starting point. In the Save-clip dialog hit <b>✎ Edit tag list</b> to rename any tag to the words his coach uses, remove ones you don't use, or add your own — renames update clips you've already saved.</p>
     <h4>Zoomed-out footage</h4>
-    <p>On far sideline or Trace-camera film, players are small: use <b>Ring −</b> on a selected spotlight to shrink the ring so it fits the player — that also tightens what Auto-track looks for. Set fps to match the footage (Trace/YouTube is usually 30).</p>
+    <p>On far sideline or Trace-camera film, players are small: use <b>Ring −</b> on a selected spotlight to shrink the ring so it fits the player — Auto-track then automatically works at higher resolution to keep the lock. The tracker shrugs off exposure/brightness drift and coasts through another player briefly crossing in front (watch the <b>lock</b> number in the tracking pill — it dips and recovers). Set fps to match the footage (Trace/YouTube is usually 30).</p>
     <div class="foot"><button class="primary" id="helpClose">Got it</button></div>
   </div>
 </div>
@@ -1344,11 +1344,22 @@ function deleteSelected(){
   mutate(() => { project.annotations = project.annotations.filter(a => a.id !== ui.selectedId); ui.selectedId = null; });
 }
 
-/* ---------------- auto-tracking ----------------
-  Template tracker: RGB SAD matching of a patch around the spotlight, sampled
-  every 2px, coarse-to-fine search around the last position, template slowly
-  adapted to survive pose changes. Samples ~8 positions/sec by seek-stepping,
-  then thins the path (RDP) into ordinary editable keyframes.
+/* ---------------- auto-tracking (v2) ----------------
+  Template tracker built for zoomed-out / fuzzy footage (far sideline iPhone,
+  Trace cameras, screen-recorded YouTube):
+  - ZNCC (zero-normalized cross-correlation) on the RGB patch instead of SAD —
+    immune to auto-exposure/brightness drift and much better on low contrast
+  - working resolution adapts to the ring size, so a small ring on a far player
+    still gets enough pixels to match
+  - velocity prediction centers each search on where the player is heading —
+    survives camera pans and fast runs without a huge search window
+  - coasts through brief occlusions (players crossing) on predicted motion and
+    reacquires on the other side; provisional coast keys are rolled back if the
+    player never reappears
+  - a frozen "anchor" template guards against the adaptive template drifting
+    onto the background; mild multi-scale matching follows slow zoom changes
+  Samples ~8 positions/sec by seek-stepping, then thins the path (RDP) into
+  ordinary editable keyframes.
 ------------------------------------------------- */
 const trackCanvas = document.createElement('canvas');
 const trackCtx = trackCanvas.getContext('2d', { willReadFrequently: true });
@@ -1388,49 +1399,71 @@ async function autoTrack(spot){
   video.pause(); hideDecision();
   $('#trackPill').style.display = 'flex';
 
-  // work at reduced resolution for speed
-  const W = Math.min(480, video.videoWidth), H = Math.round(W * video.videoHeight / video.videoWidth);
+  // working resolution adapts to ring size: a small ring (far player) gets a
+  // higher-resolution frame so the patch still has enough pixels to match
+  const r = spot.r || 0.035;
+  const W = Math.round(clamp(16 / r, 480, Math.min(960, video.videoWidth)));
+  const H = Math.round(W * video.videoHeight / video.videoWidth);
   trackCanvas.width = W; trackCanvas.height = H;
   const grab = () => { trackCtx.drawImage(video, 0, 0, W, H); return trackCtx.getImageData(0, 0, W, H); };
 
-  const patchHalf = Math.max(8, Math.round((spot.r || 0.035) * W * 1.15));
-  const search = Math.round(patchHalf * 1.8);
+  const patchHalf = clamp(Math.round(r * W * 1.15), 8, 28);
+  const baseSearch = Math.max(12, Math.round(patchHalf * 1.6));
   const S = 2;                                   // pixel sampling stride inside the patch
   const cx0 = v => clamp(Math.round(v), 0, W-1), cy0 = v => clamp(Math.round(v), 0, H-1);
 
-  function extractPatch(img, cx, cy){
+  function extractPatch(img, cx, cy, spread){
     const out = [];
     for (let dy = -patchHalf; dy <= patchHalf; dy += S)
       for (let dx = -patchHalf; dx <= patchHalf; dx += S){
-        const o = (cy0(cy+dy)*W + cx0(cx+dx)) * 4;
+        const o = (cy0(cy + dy*spread)*W + cx0(cx + dx*spread)) * 4;
         out.push(img.data[o], img.data[o+1], img.data[o+2]);
       }
     return Float32Array.from(out);
   }
-  function sadAt(img, tpl, cx, cy){
-    let s = 0, i = 0;
+  function prepTemplate(raw){
+    // PER-CHANNEL zero-mean, then one norm. Centering each channel separately
+    // matters: with a single global mean, the R/G/B offsets of a grass-colored
+    // patch survive centering, and every patch of grass correlates strongly
+    // with the template's dominant green — the tracker then "matches" anywhere.
+    const mean = [0, 0, 0];
+    for (let i = 0; i < raw.length; i++) mean[i % 3] += raw[i];
+    const nc = raw.length / 3;
+    mean[0] /= nc; mean[1] /= nc; mean[2] /= nc;
+    const z = new Float32Array(raw.length);
+    let ss = 0;
+    for (let i = 0; i < raw.length; i++){ z[i] = raw[i] - mean[i % 3]; ss += z[i]*z[i]; }
+    return { z, norm: Math.sqrt(Math.max(ss, 1e-6)) };
+  }
+  function nccAt(img, T, cx, cy, spread){        // per-channel-centered ZNCC, -1..1
+    let s0 = 0, s1 = 0, s2 = 0, q0 = 0, q1 = 0, q2 = 0, sxy = 0, i = 0, n = 0;
     for (let dy = -patchHalf; dy <= patchHalf; dy += S)
       for (let dx = -patchHalf; dx <= patchHalf; dx += S){
-        const o = (cy0(cy+dy)*W + cx0(cx+dx)) * 4;
-        s += Math.abs(img.data[o] - tpl[i++]) + Math.abs(img.data[o+1] - tpl[i++]) +
-             Math.abs(img.data[o+2] - tpl[i++]);
+        const o = (cy0(cy + dy*spread)*W + cx0(cx + dx*spread)) * 4;
+        let v = img.data[o];   s0 += v; q0 += v*v; sxy += T.z[i++]*v;
+        v = img.data[o+1];     s1 += v; q1 += v*v; sxy += T.z[i++]*v;
+        v = img.data[o+2];     s2 += v; q2 += v*v; sxy += T.z[i++]*v;
+        n++;
       }
-    return s / i;                                // mean abs diff per channel, 0..255
+    // T.z sums to zero within each channel, so sxy already equals the
+    // per-channel-centered covariance; varY likewise sums per-channel variances
+    const varY = (q0 - s0*s0/n) + (q1 - s1*s1/n) + (q2 - s2*s2/n);
+    if (varY < 1) return -1;                     // flat region — can't be the player
+    return sxy / (T.norm * Math.sqrt(varY));
   }
-  function bestMatch(img, tpl, cx, cy){
-    let best = Infinity, bx = cx, by = cy, sum = 0, n = 0;
-    for (let y = cy - search; y <= cy + search; y += 3)
-      for (let x = cx - search; x <= cx + search; x += 3){
-        const s = sadAt(img, tpl, x, y);
-        sum += s; n++;
-        if (s < best){ best = s; bx = x; by = y; }
+  function bestMatch(img, T, cx, cy, radius, spread){
+    let best = -2, bx = cx, by = cy;
+    for (let y = cy - radius; y <= cy + radius; y += 3)
+      for (let x = cx - radius; x <= cx + radius; x += 3){
+        const s = nccAt(img, T, x, y, spread);
+        if (s > best){ best = s; bx = x; by = y; }
       }
     for (let y = by - 2; y <= by + 2; y++)
       for (let x = bx - 2; x <= bx + 2; x++){
-        const s = sadAt(img, tpl, x, y);
-        if (s < best){ best = s; bx = x; by = y; }
+        const s = nccAt(img, T, x, y, spread);
+        if (s > best){ best = s; bx = x; by = y; }
       }
-    return { x: bx, y: by, score: best, mean: sum / n };
+    return { x: bx, y: by, ncc: best };
   }
 
   pushUndo();
@@ -1443,25 +1476,64 @@ async function autoTrack(spot){
   await seekTo(t0);
   let img = grab();
   let px = cx0(startPos.x * W), py = cy0(startPos.y * H);
-  let tpl = extractPatch(img, px, py);
+  let spread = 1;
+  const tplRaw = extractPatch(img, px, py, 1);
+  const anchor = prepTemplate(tplRaw);           // frozen — guards against drift
+  let T = prepTemplate(tplRaw);
 
+  const ACCEPT = 0.45, ADAPT = 0.65, MAX_COAST = 5;
   const dt = 1/8;
-  let t = t0, lost = false, lastGoodT = t0;
+  let vx = 0, vy = 0, coast = 0, drift = 0;
+  let t = t0, lost = false, lastGoodT = t0, lastGoodIdx = 0;
+  const trace = [];                              // per-sample diagnostics (console/tests)
+  window.__trackTrace = trace;
+
   while (t < T_END - 1e-3 && !ui.trackCancel){
     t = Math.min(t + dt, T_END);
     await seekTo(t);
     img = grab();
-    const m = bestMatch(img, tpl, px, py);
-    if (m.score > 55 || (m.mean > 25 && m.score > 0.85 * m.mean)){ lost = true; break; }
-    px = m.x; py = m.y; lastGoodT = t;
-    samples.push({ t, x: px / W, y: py / H });
-    const cur = extractPatch(img, px, py);
-    for (let i = 0; i < tpl.length; i++) tpl[i] = tpl[i]*0.88 + cur[i]*0.12;
+    const predX = clamp(px + vx, 0, W-1), predY = clamp(py + vy, 0, H-1);
+    const radius = coast ? baseSearch * 2 : baseSearch;
+    const m = bestMatch(img, T, Math.round(predX), Math.round(predY), radius, spread);
+
+    if (m.ncc >= ACCEPT){
+      // mild multi-scale: follow slow zoom changes
+      let bestSpread = spread, bestScore = m.ncc;
+      for (const f of [0.94, 1.06]){
+        const s2 = nccAt(img, T, m.x, m.y, spread * f);
+        if (s2 > bestScore + 0.02){ bestScore = s2; bestSpread = spread * f; }
+      }
+      spread = clamp(spread*0.9 + bestSpread*0.1, 0.5, 2.2);
+      // anchor check: adaptive template must not have wandered off the player
+      const aScore = nccAt(img, anchor, m.x, m.y, spread);
+      if (aScore < 0.1){ if (++drift >= 5){ lost = true; break; } }
+      else if (aScore > 0.25) drift = 0;
+      vx = clamp(vx*0.5 + (m.x - px)*0.5, -baseSearch, baseSearch);   // velocity for prediction
+      vy = clamp(vy*0.5 + (m.y - py)*0.5, -baseSearch, baseSearch);
+      px = m.x; py = m.y; coast = 0; lastGoodT = t;
+      samples.push({ t, x: px / W, y: py / H });
+      lastGoodIdx = samples.length - 1;
+      if (m.ncc > ADAPT){
+        const cur = extractPatch(img, px, py, spread);
+        for (let i = 0; i < tplRaw.length; i++) tplRaw[i] = tplRaw[i]*0.9 + cur[i]*0.1;
+        T = prepTemplate(tplRaw);
+      }
+    } else {
+      // occluded / momentarily unmatchable: coast on predicted motion
+      if (++coast > MAX_COAST){ lost = true; break; }
+      px = predX; py = predY;
+      samples.push({ t, x: px / W, y: py / H }); // provisional — trimmed if never reacquired
+    }
+
+    trace.push({ t: +t.toFixed(3), ncc: +m.ncc.toFixed(3), coast, drift,
+      x: +(px / W).toFixed(3), y: +(py / H).toFixed(3), vx: +vx.toFixed(1), vy: +vy.toFixed(1) });
     spot.keys = [...beforeKeys, ...samples, ...afterKeys];   // live feedback while tracking
-    $('#trackPct').textContent = Math.round((t - t0) / (T_END - t0) * 100) + '%';
+    $('#trackPct').textContent = Math.round((t - t0) / (T_END - t0) * 100) + '%' +
+      ' · lock ' + Math.max(0, m.ncc).toFixed(2);
     await new Promise(r => requestAnimationFrame(r));
   }
 
+  samples.length = lastGoodIdx + 1;              // drop provisional coast tail
   spot.keys = [...beforeKeys, ...thinSamples(samples, 0.004), ...afterKeys];
   ui.tracking = false;
   $('#trackPill').style.display = 'none';

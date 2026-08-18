@@ -116,13 +116,23 @@ Driven directly by the design inputs above:
   Silent by design; the MediaRecorder path remains as "🔊 with audio" via a top-bar
   selector (remembered). Falls back to realtime path automatically if encoding fails.
 
+### ✅ v1.4 — tracker v2 for zoomed-out / fuzzy footage (shipped)
+Rebuilt `autoTrack` matching around per-channel-centered **ZNCC** (immune to the
+auto-exposure/brightness drift and low contrast that broke SAD on Trace-style film),
+with: **adaptive working resolution** driven by ring size (small ring on a far player →
+higher-res frame, so the patch keeps enough pixels), **velocity prediction** centering
+each search on where the player is heading (survives camera pans/fast runs),
+**coast-through-occlusion** (up to 5 samples on predicted motion when players cross,
+provisional keys rolled back if never reacquired), a frozen **anchor template** guarding
+against adaptive-template drift, and mild **multi-scale** matching for slow zoom changes.
+The tracking pill now shows live lock quality, and `window.__trackTrace` records
+per-sample diagnostics. Verified by `tests/hardtrack.js`: an 18px target on a noisy
+field with breathing exposure and an occluder crossing straight over it — tracked
+through the crossing with ≤0.004 normalized error; clean-footage regression unchanged.
+
 ## Roadmap
 
 ### Next (reordered per design inputs, highest value first)
-- [ ] **Smarter tracking for zoomed-out / fuzzy footage** *(promoted — sideline iPhone +
-      old Trace camera)*: multi-scale matching, motion prediction between frames,
-      possibly normalized correlation instead of SAD for low-contrast targets. Must stay
-      offline/dependency-free.
 - [ ] **Audio in fast exports**: decode source audio (WebCodecs AudioDecoder or
       decodeAudioData on clip ranges), AAC-encode where supported, extend buildMp4 with
       an mp4a/esds track. Until then: realtime path keeps audio.
@@ -196,6 +206,7 @@ Driven directly by the design inputs above:
 | 2026-08-18 | PWA files (manifest, sw.js, icons) are optional hosting enhancements | index.html must stay fully functional standalone from file://; hosting (GitHub Pages) is the iPad install path |
 | 2026-08-18 | Hand-rolled mp4 muxer + baseline H.264, keyframes every 2s | Zero dependencies; baseline forbids B-frames so the simple muxer (no ctts) is always correct; validated against real H.264 in tests/muxer.js |
 | 2026-08-18 | Fast exports are silent; audio stays on the realtime path for now | AAC encode/mux is a large addition; game audio rarely carries the teaching; roadmap item tracks adding it |
+| 2026-08-18 | Tracker ZNCC centers each RGB channel separately | With one global mean, every grass patch correlates ~0.6 with the template's green component and the tracker "matches" anywhere; per-channel centering makes uniform background score ~0 (found via trace on the hard fixture) |
 
 ## Working agreements for future sessions
 
