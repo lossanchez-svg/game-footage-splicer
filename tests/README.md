@@ -12,6 +12,9 @@ node tour.js           # guided first-run tour: do-based advancement through all
 node tips.js           # tooltips + one-time hints: hover delay, long-press on touch
                        # (without pressing the control), a tip on every control, and
                        # each contextual hint firing exactly once, ever
+node plainwords.js     # plain-language pass: renamed controls, the Advanced disclosure,
+                       # jargon sweep over every visible surface, toasts that are full
+                       # sentences, plus a screenshot walk through every tab and mode
 node smoke.js          # core suite: loading, drawing tools, decision points, clips,
                        # exports, undo, autosave restore
 node tracking.js       # auto-track suite: tracks a synthetic moving ball and asserts

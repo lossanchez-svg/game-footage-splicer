@@ -80,7 +80,7 @@ tool pick, first spotlight, first saved clip, first reel add — held back while
 walkthrough is running, since that already says what to do. Verified by `tests/tips.js`
 (19 checks), which also audits *every* reachable control for a full-sentence, jargon-free tip.
 
-### Workstream C — plain-language pass over every surface
+### ✅ Workstream C — plain-language pass over every surface — SHIPPED
 - Copy audit of all buttons/labels/toasts/modals. Keep layouts compact, but prefer words
   where they fit: e.g. "⟦ In / Out ⟧" → "Start clip / End clip"; "📸 Still" → "📸 Photo";
   "🎬 Export clip" → "🎬 Save video"; "fps" moves out of the transport bar into a small
@@ -89,6 +89,17 @@ walkthrough is running, since that already says what to do. Verified by `tests/t
 - Every empty state states the single next action in one sentence (most exist — audit).
 - Every toast is a full sentence a non-technical person understands.
 Tests: screenshot pass over each tab/mode; smoke assertions updated for renamed labels.
+**Shipped:** "Start clip here / End clip here", "📸 Photo", "🎬 Save video",
+"🎬 Save as one video", "🎓 Watch together"; frame rate folded into an **Advanced**
+disclosure as "pictures per second"; export modes renamed "Best for iPhone" /
+"Keeps sound, slower". "Keyframe" and "playhead" are gone ("📍 Pin him here",
+"Appears/Disappears here"), and a decision point is now simply a question you ask him.
+Every toast rewritten as a full sentence that also says what to do next where there is
+one; empty states name their single next action (including the Safari note about the
+Games folder). Help and README rewritten to the same words. Verified by
+`tests/plainwords.js` (20 checks): renames, the disclosure, a jargon sweep over every
+visible surface, a toast-is-a-sentence check parsed out of the app's own source, and a
+screenshot walk through every tab and mode.
 
 ### Workstream D — "Watch" front door for the family
 Grandma's real job is **watching**, not editing. When a project has a reel:
@@ -447,6 +458,8 @@ device-aware intake flow:
 | 2026-08-18 | Tour ring dims via a giant `box-shadow` spread with `pointer-events:none` | Keeps the rest of the UI visible AND clickable (no trap), with no overlay maths and no extra elements |
 | 2026-08-18 | Custom `data-tip` bubbles replace native `title` everywhere | `title` never renders on iPad and takes ~1.5s on desktop — useless for someone hunting for what a button does; a long-press tip also has to swallow its click so exploring can't trigger anything |
 | 2026-08-18 | One-time hints stay silent while the tour is running | Two voices telling a first-timer what to do at once is worse than either alone; the hints then land later, when the tour is no longer there to say it |
+| 2026-08-18 | Frame rate hides under "Advanced"; everything else is spelled out | It is the only genuinely technical setting left, and it only affects two buttons — burying it costs nothing and removes the one piece of jargon from the main transport bar |
+| 2026-08-18 | The jargon ban is enforced by a test, not by review | Wording drifts back in with every feature; `tests/plainwords.js` sweeps the rendered DOM and the toast literals so a regression fails the suite |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions
