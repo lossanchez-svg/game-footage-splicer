@@ -83,6 +83,14 @@
   #busyBar{height:8px; background:var(--bg); border-radius:4px; overflow:hidden; margin:14px 0;}
   #busyBarFill{height:100%; width:0%; background:var(--accent); transition:width .2s;}
 
+  /* tactics board */
+  #boardBar{position:absolute; top:0; left:0; right:0; height:48px; display:none;
+    align-items:center; gap:6px; padding:0 10px; background:var(--bg2);
+    border-bottom:1px solid var(--line); z-index:25; overflow-x:auto;}
+  #boardBar .spacer{flex:1;}
+  #boardWrap{display:none; position:relative; margin-top:48px;}
+  #boardCanvas{display:block; border-radius:6px; box-shadow:0 8px 40px rgba(0,0,0,.5); touch-action:none;}
+
   /* session bar (shown while a session clip plays) */
   #sessionBar{position:absolute; top:12px; left:50%; transform:translateX(-50%);
     display:none; align-items:center; gap:10px; z-index:40;
@@ -233,6 +241,7 @@
   <button id="btnOpen" class="primary">Open video…</button>
   <span id="videoName"></span>
   <div class="spacer"></div>
+  <button id="btnBoard" title="Tactics board: a top-down pitch with draggable players — teach shape, runs, and schemes off-video. Works with all the drawing tools.">🗒 Board</button>
   <button id="btnSnapshot" title="Save a still image of this frame with all drawings">📸 Still</button>
   <button id="btnExport" title="Export the current In→Out range (or the whole video) as an annotated video file">🎬 Export clip</button>
   <select id="exportMode" style="display:none" title="⚡ mp4: renders frame-by-frame into an H.264 .mp4 that plays natively on iPhone/iPad, carrying the game audio over from iPhone/.mov footage (silent under title cards and decision freezes). 🔊 real-time: records the screen pass in real time instead; format depends on the browser.">
@@ -256,6 +265,20 @@
         <video id="video" playsinline preload="auto"></video>
         <canvas id="overlay"></canvas>
       </div>
+      <div id="boardBar">
+        <select id="boardSelect" style="max-width:180px"></select>
+        <button class="miniBtn" id="boardNew">＋ New</button>
+        <button class="miniBtn" id="boardRename">✎ Rename</button>
+        <div class="divider"></div>
+        <select id="boardFormat"><option>9v9</option><option>7v7</option><option>5v5</option><option>11v11</option></select>
+        <button class="miniBtn" id="boardReset" title="Line the players back up in formation (keeps your drawings)">⟲ Line up</button>
+        <div class="divider"></div>
+        <button class="miniBtn" id="boardPng" title="Save this board as an image">📸 PNG</button>
+        <button class="miniBtn danger" id="boardDelete">🗑</button>
+        <div class="spacer"></div>
+        <button class="miniBtn primary" id="boardClose">✕ Close board</button>
+      </div>
+      <div id="boardWrap"><canvas id="boardCanvas"></canvas></div>
       <div id="dropHint">
         <div class="big">⚽🎥</div>
         <div><b>Open a video</b> or drag one anywhere on this window.</div>
@@ -636,6 +659,8 @@
     <p>Everything autosaves in this browser per video file (matched by file name + size), so reopening the same file restores your clips and drawings. <b>💾 Save project</b> downloads a backup file you can move between machines or keep with the video; <b>📂 Load project</b> brings it back.</p>
     <h4>Exports — made to watch without you</h4>
     <p><b>🎬 Export clip</b> renders a saved clip with every drawing burned in, at up to 1080p (looks right on a big TV). The export opens with a <b>title card</b> showing the rating, position, and your coaching note, and any <b>decision point</b> in the clip becomes a built-in freeze-frame showing the question before the play continues — so the clip teaches on its own when Mom runs it or he watches solo. The fast ⚡ mp4 mode carries the <b>game audio</b> over from iPhone/.mov footage, muted under the card and freezes. AirDrop the file to a phone/iPad and AirPlay it to the TV. <b>📸 Still</b> saves the current frame as an image — fastest way to text him one teaching picture.</p>
+    <h4>Tactics board</h4>
+    <p><b>🗒 Board</b> swaps to a top-down pitch with both teams in formation — drag the chips, double-click to name them, and draw with the same tools to teach shape and runs off-video. Each clip's <b>🗒</b> button opens a board linked to that moment. <b>📸</b> exports the board as an image.</p>
     <h4>Your words, not mine</h4>
     <p>The tag list is a starting point. In the Save-clip dialog hit <b>✎ Edit tag list</b> to rename any tag to the words his coach uses, remove ones you don't use, or add your own — renames update clips you've already saved.</p>
     <h4>Zoomed-out footage</h4>
@@ -742,7 +767,8 @@ window.addEventListener('beforeunload', () => {
 });
 
 function pushUndo(){
-  undoStack.push(JSON.stringify({annotations:project.annotations, clips:project.clips}));
+  undoStack.push(JSON.stringify({ annotations: project.annotations, clips: project.clips,
+    boards: project.boards || [], reel: project.reel || [], sessions: project.sessions || [] }));
   if (undoStack.length > 60) undoStack.shift();
 }
 function undo(){
@@ -750,15 +776,16 @@ function undo(){
   if (!snap) return toast('Nothing to undo');
   const s = JSON.parse(snap);
   project.annotations = s.annotations; project.clips = s.clips;
-  ui.selectedId = null;
-  persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+  project.boards = s.boards || []; project.reel = s.reel || []; project.sessions = s.sessions || [];
+  ui.selectedId = null; ui.boardSel = null;
+  persist(); renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); renderBoardBar();
 }
 /* every mutation goes through mutate(fn) */
 function mutate(fn){
   pushUndo();
   fn();
   persist();
-  renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+  renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); renderBoardBar();
 }
 
 /* ---------------- video loading ---------------- */
@@ -799,6 +826,8 @@ function loadVideo(file){
     $('#reelTitle').value = project.reelTitle || '';
     ui.selectedId = null; ui.tIn = null; ui.tOut = null; ui.loopClip = null;
     ui.session = null; renderSession();
+    if (ui.boardMode) setBoardMode(false);
+    ui.boardId = (project.boards && project.boards[0]) ? project.boards[0].id : null;
     undoStack = [];
     layout();
     renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); updateInOutUI();
@@ -807,6 +836,7 @@ function loadVideo(file){
 
 /* ---------------- layout ---------------- */
 function layout(){
+  if (ui.boardMode) layoutBoard();
   if (!video.videoWidth) return;
   const sw = stage.clientWidth, sh = stage.clientHeight;
   const va = video.videoWidth / video.videoHeight;
@@ -826,7 +856,7 @@ const fps = () => Number($('#fpsInput').value) || 30;
 $('#fpsInput').onchange = () => { project.fps = fps(); persist(); };
 
 function togglePlay(){
-  if (!video.src) return;
+  if (!video.src || ui.boardMode) return;
   hideDecision();
   if (video.paused) video.play(); else video.pause();
 }
@@ -1817,6 +1847,7 @@ function renderClipList(){
         <button class="miniBtn" data-act="play">▶ Play (loops)</button>
         <button class="miniBtn" data-act="export">🎬 Export</button>
         <button class="miniBtn" data-act="reel">${(project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel'}</button>
+        <button class="miniBtn" data-act="board" title="Open this clip's tactics board — teach the scheme behind the moment">🗒${c.boardId ? '✓' : ''}</button>
         <button class="miniBtn" data-act="edit">✏️ Edit</button>
         <button class="miniBtn danger" data-act="del">🗑</button>
       </div>`;
@@ -1829,6 +1860,16 @@ function renderClipList(){
       if (i >= 0) project.reel.splice(i, 1);
       else project.reel.push(c.id);
     });
+    el.querySelector('[data-act=board]').onclick = () => {
+      let board = (project.boards || []).find(b => b.id === c.boardId);
+      if (!board){
+        mutate(() => {
+          board = newBoard(c.title.slice(0, 30), c.format || '9v9');
+          c.boardId = board.id;
+        });
+      }
+      openBoard(board.id);
+    };
     el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
     el.querySelector('[data-act=del]').onclick = () => {
       if (confirm('Delete clip “' + c.title + '”?'))
@@ -2085,6 +2126,346 @@ function renderSessionLog(){
   });
 }
 
+/* ---------------- tactics board ----------------
+  Top-down pitch with draggable player chips; the regular tools (spotlight →
+  place chip, arrow, zone, pen, text) all work here, drawing into the current
+  board's items instead of the video's annotations. Boards live in the project
+  (project.boards), can be linked to a clip, and export as PNG.
+------------------------------------------------- */
+const boardWrap = $('#boardWrap');
+const boardCanvas = $('#boardCanvas');
+const bctx = boardCanvas.getContext('2d');
+
+const FORMATIONS = {
+  '5v5':  [[0.06,0.5],[0.17,0.3],[0.17,0.7],[0.29,0.5],[0.40,0.5]],
+  '7v7':  [[0.05,0.5],[0.15,0.32],[0.15,0.68],[0.27,0.25],[0.27,0.5],[0.27,0.75],[0.39,0.5]],
+  '9v9':  [[0.05,0.5],[0.14,0.25],[0.14,0.5],[0.14,0.75],[0.26,0.25],[0.26,0.5],[0.26,0.75],[0.38,0.35],[0.38,0.65]],
+  '11v11':[[0.04,0.5],[0.13,0.18],[0.13,0.4],[0.13,0.6],[0.13,0.82],[0.25,0.3],[0.25,0.5],[0.25,0.7],[0.38,0.25],[0.38,0.5],[0.38,0.75]],
+};
+const TEAM_A = '#0a84ff', TEAM_B = '#ff453a';
+
+function curBoard(){ return (project.boards || []).find(b => b.id === ui.boardId); }
+
+function seedPlayers(b){
+  b.items = b.items.filter(i => i.type !== 'chip');
+  const spots = FORMATIONS[b.format] || FORMATIONS['9v9'];
+  spots.forEach((p, i) => {
+    b.items.push({ id: uid(), type:'chip', x: p[0], y: p[1], color: TEAM_A, label: String(i + 1) });
+    b.items.push({ id: uid(), type:'chip', x: 1 - p[0], y: p[1], color: TEAM_B, label: String(i + 1) });
+  });
+}
+function newBoard(name, format){
+  project.boards = project.boards || [];
+  const b = { id: uid(), name, format: format || '9v9', items: [] };
+  seedPlayers(b);
+  project.boards.push(b);
+  return b;
+}
+
+function setBoardMode(on){
+  ui.boardMode = on;
+  ui.boardSel = null; ui.boardDrag = null;
+  $('#boardBar').style.display = on ? 'flex' : 'none';
+  boardWrap.style.display = on ? 'block' : 'none';
+  wrap.style.display = (!on && video.src) ? '' : 'none';
+  $('#dropHint').style.display = (on || video.src) ? 'none' : 'flex';
+  if (on){ video.pause(); hideDecision(); renderBoardBar(); layout(); }
+}
+function openBoard(id){
+  project.boards = project.boards || [];
+  if (!project.boards.length) mutate(() => newBoard('Board 1', '9v9'));
+  ui.boardId = id && project.boards.some(b => b.id === id) ? id
+             : (curBoard() ? ui.boardId : project.boards[0].id);
+  setBoardMode(true);
+}
+$('#btnBoard').onclick = () => ui.boardMode ? setBoardMode(false) : openBoard(ui.boardId);
+$('#boardClose').onclick = () => setBoardMode(false);
+$('#boardSelect').onchange = () => { ui.boardId = $('#boardSelect').value; ui.boardSel = null; renderBoardBar(); };
+$('#boardNew').onclick = () => {
+  const name = prompt('Board name:', 'Board ' + ((project.boards || []).length + 1));
+  if (name === null) return;
+  mutate(() => { const b = newBoard(name.trim() || 'Board', $('#boardFormat').value); ui.boardId = b.id; });
+};
+$('#boardRename').onclick = () => {
+  const b = curBoard(); if (!b) return;
+  const name = prompt('Board name:', b.name);
+  if (name && name.trim()) mutate(() => b.name = name.trim());
+};
+$('#boardFormat').onchange = () => {
+  const b = curBoard(); if (!b) return;
+  mutate(() => b.format = $('#boardFormat').value);
+};
+$('#boardReset').onclick = () => {
+  const b = curBoard(); if (!b) return;
+  mutate(() => seedPlayers(b));
+};
+$('#boardDelete').onclick = () => {
+  const b = curBoard(); if (!b) return;
+  if (!confirm('Delete board “' + b.name + '”?')) return;
+  mutate(() => {
+    project.boards = project.boards.filter(x => x.id !== b.id);
+    for (const c of project.clips) if (c.boardId === b.id) delete c.boardId;
+  });
+  if (!project.boards.length) setBoardMode(false);
+  else { ui.boardId = project.boards[0].id; renderBoardBar(); }
+};
+$('#boardPng').onclick = () => {
+  const b = curBoard(); if (!b) return;
+  const W = 1600, H = Math.round(W * 68 / 105);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  renderBoardTo(c.getContext('2d'), W, H, b, false);
+  c.toBlob(blob => {
+    downloadBlob(blob, (b.name || 'board').replace(/[^\w\- ]+/g, '').trim().replace(/ +/g, '_') + '.png');
+    toast('Board saved 📸');
+  }, 'image/png');
+};
+function renderBoardBar(){
+  const sel = $('#boardSelect');
+  sel.innerHTML = (project.boards || []).map(b =>
+    `<option value="${b.id}" ${b.id === ui.boardId ? 'selected' : ''}>${escapeHtml(b.name)}</option>`).join('');
+  const b = curBoard();
+  if (b) $('#boardFormat').value = b.format;
+}
+
+function layoutBoard(){
+  const sw = stage.clientWidth, sh = stage.clientHeight - 48;
+  const aspect = 105 / 68;
+  let w = sw * 0.96, h = w / aspect;
+  if (h > sh * 0.94){ h = sh * 0.94; w = h * aspect; }
+  w = Math.floor(w); h = Math.floor(h);
+  dpr = window.devicePixelRatio || 1;
+  boardCanvas.style.width = w + 'px'; boardCanvas.style.height = h + 'px';
+  boardCanvas.width = Math.round(w * dpr); boardCanvas.height = Math.round(h * dpr);
+}
+
+function drawPitch(ctx, W, H){
+  ctx.fillStyle = '#2d7d3e'; ctx.fillRect(0, 0, W, H);
+  for (let i = 1; i < 10; i += 2){
+    ctx.fillStyle = 'rgba(255,255,255,.035)';
+    ctx.fillRect(i * W / 10, 0, W / 10, H);
+  }
+  const m = Math.round(W * 0.03), lw = Math.max(1.5, W / 520);
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.lineWidth = lw;
+  ctx.strokeRect(m, m, W - 2 * m, H - 2 * m);
+  ctx.beginPath(); ctx.moveTo(W / 2, m); ctx.lineTo(W / 2, H - m); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, H * 0.14, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, lw * 1.6, 0, Math.PI * 2); ctx.fill();
+  const pw = W * 0.13, ph = H * 0.55, gw = W * 0.055, gh = H * 0.28;
+  for (const side of [0, 1]){
+    ctx.strokeRect(side ? W - m - pw : m, (H - ph) / 2, pw, ph);
+    ctx.strokeRect(side ? W - m - gw : m, (H - gh) / 2, gw, gh);
+    const sx = side ? W - m - pw * 0.72 : m + pw * 0.72;
+    ctx.beginPath(); ctx.arc(sx, H / 2, lw * 1.6, 0, Math.PI * 2); ctx.fill();
+    const goalW = W * 0.012, goalH = H * 0.12;
+    ctx.strokeRect(side ? W - m : m - goalW, (H - goalH) / 2, goalW, goalH);
+  }
+}
+
+function drawChip(ctx, chip, W, H, fontPx){
+  const x = chip.x * W, y = chip.y * H, r = Math.max(9, H * 0.045);
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = r * 0.4;
+  ctx.fillStyle = chip.color;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = Math.max(1.2, r * 0.12);
+  ctx.stroke();
+  const label = chip.label || '';
+  if (label.length <= 3){
+    ctx.fillStyle = '#fff';
+    ctx.font = `700 ${r * (label.length > 2 ? 0.8 : 1.0)}px -apple-system,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y + r * 0.06);
+  } else {
+    ctx.fillStyle = '#fff';
+    ctx.font = `600 ${Math.max(10, fontPx * 0.85)}px -apple-system,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 3;
+    ctx.fillText(label, x, y + r + fontPx);
+  }
+  ctx.restore();
+  ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+}
+
+function renderBoardTo(ctx, W, H, b, editing){
+  drawPitch(ctx, W, H);
+  const lw = Math.max(2, W / 480), fontPx = Math.max(11, W / 55);
+  for (const item of b.items){
+    ctx.save();
+    switch (item.type){
+      case 'chip': drawChip(ctx, item, W, H, fontPx); break;
+      case 'arrow': drawArrow(ctx, item, W, H, lw, fontPx); break;
+      case 'zone': drawZone(ctx, item, W, H, lw, fontPx); break;
+      case 'pen': drawPen(ctx, item, W, H, lw); break;
+      case 'text': drawTextAnn(ctx, item, W, H, fontPx); break;
+    }
+    ctx.restore();
+  }
+  if (editing && ui.boardSel){
+    const item = b.items.find(i => i.id === ui.boardSel);
+    if (item){
+      ctx.save();
+      ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+      if (item.type === 'chip'){
+        const r = Math.max(9, H * 0.045) + 5;
+        ctx.beginPath(); ctx.arc(item.x * W, item.y * H, r, 0, Math.PI * 2); ctx.stroke();
+      } else {
+        const bb = annBBox(item, 0);
+        if (bb) ctx.strokeRect(bb.x * W - 8, bb.y * H - 8, bb.w * W + 16, bb.h * H + 16);
+      }
+      ctx.restore();
+    }
+  }
+  if (editing && ui.boardDrag && ui.boardDrag.preview){
+    ctx.save(); ui.boardDrag.preview(ctx, W, H, lw, fontPx); ctx.restore();
+  }
+}
+function renderBoard(){
+  const b = curBoard();
+  if (!b || !boardCanvas.width) return;
+  bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  renderBoardTo(bctx, boardCanvas.width / dpr, boardCanvas.height / dpr, b, true);
+}
+
+/* board interaction: same tools, board targets */
+function boardNorm(e){
+  const r = boardCanvas.getBoundingClientRect();
+  return { x: clamp((e.clientX - r.left) / r.width, 0, 1), y: clamp((e.clientY - r.top) / r.height, 0, 1) };
+}
+function boardHit(b, p, H){
+  const chipR = Math.max(9, H * 0.045) / H * 1.5;   // normalized-ish forgiving radius
+  for (let i = b.items.length - 1; i >= 0; i--){
+    const it = b.items[i];
+    if (it.type === 'chip'){
+      if (Math.hypot((p.x - it.x) * 105 / 68, p.y - it.y) < chipR) return it;
+    } else {
+      const bb = annBBox(it, 0);
+      const pad = 0.02;
+      if (bb && p.x >= bb.x - pad && p.x <= bb.x + bb.w + pad && p.y >= bb.y - pad && p.y <= bb.y + bb.h + pad)
+        return it;
+    }
+  }
+  return null;
+}
+boardCanvas.addEventListener('pointerdown', e => {
+  const b = curBoard();
+  if (!b || ui.exporting) return;
+  boardCanvas.setPointerCapture(e.pointerId);
+  const p = boardNorm(e);
+  const H = boardCanvas.height / dpr;
+
+  if (ui.tool === 'select' || ui.tool === 'spot'){
+    const hit = boardHit(b, p, H);
+    if (hit){
+      ui.boardSel = hit.id;
+      pushUndo();
+      ui.boardDrag = { mode:'move', item: hit, start: p, orig: JSON.parse(JSON.stringify(hit)) };
+      return;
+    }
+    if (ui.tool === 'spot'){
+      pushUndo();
+      const label = $('#labelInput').value.trim() ||
+        String(b.items.filter(i => i.type === 'chip' && i.color === ui.color).length + 1);
+      const chip = { id: uid(), type:'chip', x: p.x, y: p.y, color: ui.color, label };
+      b.items.push(chip);
+      ui.boardSel = chip.id;
+      ui.boardDrag = { mode:'move', item: chip, start: p, orig: JSON.parse(JSON.stringify(chip)) };
+      persist();
+      return;
+    }
+    ui.boardSel = null;
+    return;
+  }
+  if (ui.tool === 'arrow'){
+    ui.boardDrag = { mode:'newArrow', start: p, cur: p,
+      preview(ctx, W, Hh, lw, f){ drawArrow(ctx, { x1:this.start.x, y1:this.start.y, x2:this.cur.x, y2:this.cur.y,
+        style: ui.arrowStyle, color: ui.color, label:'' }, W, Hh, lw, f); } };
+    return;
+  }
+  if (ui.tool === 'zone'){
+    ui.boardDrag = { mode:'newZone', start: p, cur: p,
+      preview(ctx, W, Hh, lw, f){ const s = this.start, c2 = this.cur;
+        drawZone(ctx, { x: Math.min(s.x, c2.x), y: Math.min(s.y, c2.y), w: Math.abs(c2.x - s.x), h: Math.abs(c2.y - s.y),
+          shape: ui.zoneShape, color: ui.color, label:'' }, W, Hh, lw, f); } };
+    return;
+  }
+  if (ui.tool === 'pen'){
+    ui.boardDrag = { mode:'newPen', points: [p],
+      preview(ctx, W, Hh, lw){ drawPen(ctx, { points: this.points, color: ui.color }, W, Hh, lw); } };
+    return;
+  }
+  if (ui.tool === 'text'){
+    const txt = prompt('Text (use \\n for a new line):', '');
+    if (txt && txt.trim()){
+      mutate(() => {
+        const it = { id: uid(), type:'text', x: p.x, y: p.y, text: txt.replace(/\\n/g, '\n'), color: ui.color };
+        b.items.push(it); ui.boardSel = it.id;
+      });
+    }
+  }
+});
+boardCanvas.addEventListener('pointermove', e => {
+  const d = ui.boardDrag;
+  if (!d) return;
+  const p = boardNorm(e);
+  if (d.mode === 'move'){
+    const dx = p.x - d.start.x, dy = p.y - d.start.y;
+    const it = d.item, o = d.orig;
+    if (it.type === 'chip' || it.type === 'text'){ it.x = clamp(o.x + dx, 0, 1); it.y = clamp(o.y + dy, 0, 1); }
+    else if (it.type === 'arrow'){ it.x1 = o.x1 + dx; it.y1 = o.y1 + dy; it.x2 = o.x2 + dx; it.y2 = o.y2 + dy; }
+    else if (it.type === 'zone'){ it.x = o.x + dx; it.y = o.y + dy; }
+    else if (it.type === 'pen'){ it.points = o.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy })); }
+  } else if (d.mode === 'newArrow' || d.mode === 'newZone'){
+    d.cur = p;
+  } else if (d.mode === 'newPen'){
+    d.points.push(p);
+  }
+});
+boardCanvas.addEventListener('pointerup', () => {
+  const d = ui.boardDrag; ui.boardDrag = null;
+  const b = curBoard();
+  if (!d || !b) return;
+  if (d.mode === 'newArrow'){
+    if (Math.hypot(d.cur.x - d.start.x, d.cur.y - d.start.y) > 0.015){
+      pushUndo();
+      const it = { id: uid(), type:'arrow', x1: d.start.x, y1: d.start.y, x2: d.cur.x, y2: d.cur.y,
+        style: ui.arrowStyle, color: ui.color, label: $('#labelInput').value.trim() };
+      b.items.push(it); ui.boardSel = it.id;
+    }
+  } else if (d.mode === 'newZone'){
+    const w = Math.abs(d.cur.x - d.start.x), h = Math.abs(d.cur.y - d.start.y);
+    if (w > 0.01 && h > 0.01){
+      pushUndo();
+      const it = { id: uid(), type:'zone', x: Math.min(d.start.x, d.cur.x), y: Math.min(d.start.y, d.cur.y),
+        w, h, shape: ui.zoneShape, color: ui.color, label: $('#labelInput').value.trim() };
+      b.items.push(it); ui.boardSel = it.id;
+    }
+  } else if (d.mode === 'newPen'){
+    if (d.points.length > 3){
+      pushUndo();
+      b.items.push({ id: uid(), type:'pen', points: d.points, color: ui.color });
+    }
+  }
+  persist();
+});
+boardCanvas.addEventListener('dblclick', e => {
+  const b = curBoard(); if (!b) return;
+  const hit = boardHit(b, boardNorm(e), boardCanvas.height / dpr);
+  if (hit && hit.type === 'chip'){
+    const name = prompt('Player name / number:', hit.label || '');
+    if (name !== null) mutate(() => hit.label = name.trim());
+  } else if (hit && hit.type === 'text'){
+    const txt = prompt('Text:', hit.text || '');
+    if (txt !== null && txt.trim()) mutate(() => hit.text = txt.trim());
+  }
+});
+function deleteBoardSel(){
+  const b = curBoard();
+  if (!b || !ui.boardSel) return;
+  mutate(() => { b.items = b.items.filter(i => i.id !== ui.boardSel); ui.boardSel = null; });
+}
+
 /* ---------------- tabs ---------------- */
 $$('#tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 function switchTab(name){
@@ -2131,6 +2512,7 @@ function downloadBlob(blob, name){
 
 /* ---------------- snapshot ---------------- */
 $('#btnSnapshot').onclick = () => {
+  if (ui.boardMode) return $('#boardPng').click();
   if (!video.videoWidth) return toast('Open a video first');
   const W = video.videoWidth, H = video.videoHeight;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -2937,7 +3319,10 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') $('#clipModal').classList.remove('open');
     return;
   }
-  if (e.key === 'Escape'){ $$('.modal').forEach(m => m.classList.remove('open')); hideDecision(); return; }
+  if (e.key === 'Escape'){
+    if ($$('.modal.open').length === 0 && ui.boardMode){ setBoardMode(false); return; }
+    $$('.modal').forEach(m => m.classList.remove('open')); hideDecision(); return;
+  }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); return; }
   if (e.metaKey || e.ctrlKey) return;
 
@@ -2958,7 +3343,7 @@ document.addEventListener('keydown', e => {
     case '4': setTool('zone'); break;
     case '5': setTool('pen'); break;
     case '6': setTool('text'); break;
-    case 'Backspace': case 'Delete': deleteSelected(); break;
+    case 'Backspace': case 'Delete': ui.boardMode ? deleteBoardSel() : deleteSelected(); break;
     case '?': $('#helpModal').classList.add('open'); break;
   }
 });
@@ -2973,7 +3358,9 @@ function tick(){
     const sc = ui.session.clips[ui.session.idx];
     if (t >= sc.tOut - 0.02){ video.pause(); ui.session.phase = 'answer'; renderSession(); }
   }
-  if (!ui.exporting){
+  if (ui.boardMode){
+    renderBoard();
+  } else if (!ui.exporting){
     checkPauses(t);
     if (video.videoWidth && overlay.width){
       octx.setTransform(dpr, 0, 0, dpr, 0, 0);

@@ -180,10 +180,21 @@ Verified in `tests/session.js` (16 checks): question-before-clip ordering, auto-
 into the answer screen, custom vs default questions, recap capture, log rendering,
 notes-file content, and reload persistence.
 
+### ✅ v1.8 — tactics board (shipped)
+**🗒 Board** (top bar) swaps the stage to a top-down pitch for teaching schemes
+off-video. All the existing tools work on it — spotlight places a **player chip**
+(drag to move, double-click to rename), arrows/zones/pen/text draw exactly as on video.
+Format presets (5v5/7v7/9v9/11v11) seed both teams in formation; **⟲ Line up** re-seeds
+players while keeping drawings. Multiple named boards per project; each clip's **🗒**
+button creates/opens a board linked to that clip (teach the scheme behind the moment).
+Boards export as **PNG** (1600px) and persist in the project. Undo snapshots were
+extended to cover boards — and, fixing a latent gap, reel/session state too.
+Verified by `tests/board.js` (14 checks): seeding counts, chip place/drag/rename,
+drawing, format switching, clip linking, PNG export, reload persistence.
+
 ## Roadmap
 
 ### Next (highest value first)
-- [ ] **Field-diagram mode**: tactics-board panel for teaching schemes off-video.
 - [ ] **Side-by-side compare**: two clips in sync — "your touch vs. the model touch."
 
 ### Later
@@ -258,6 +269,7 @@ notes-file content, and reload persistence.
 | 2026-08-18 | Fast-export audio = demux AAC → range decode → sample-exact reassembly → re-encode (no edit lists) | Multi-edit `elst` silence gaps play unreliably outside Apple players; decoding only the clip's range keeps memory flat on hour-long files; passthrough covers browsers without AAC encode when the timeline has no gaps |
 | 2026-08-18 | Sessions run the reel list (one "this week" set), not a separate playlist | One ordering UI; the reel IS the session's content — export it for TV or run it live |
 | 2026-08-18 | Autosave flushes on beforeunload | The 600ms debounce could drop the last write if the tab closed immediately (surfaced by the session suite); flush-on-unload closes the race for all data |
+| 2026-08-18 | Board reuses the video draw functions + tool palette on a separate canvas | One visual language everywhere; board items are the same shapes minus time, plus a `chip` type; undo snapshots widened to boards/reel/sessions |
 
 ## Working agreements for future sessions
 

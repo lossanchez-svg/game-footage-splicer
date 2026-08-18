@@ -74,6 +74,14 @@ To make it a real home-screen app on the iPad:
 - Every drawing has a visible time window, so annotations appear and disappear as the
   play unfolds.
 
+### 🗒 Tactics board — teach the scheme off-video
+Hit **Board** in the top bar for a top-down pitch with both teams lined up in formation
+(5v5/7v7/9v9/11v11 presets). Drag player chips around, double-click to name them, and
+use the same arrow/zone/pen/text tools to draw the rotation, the press, the run he
+should make. Keep several named boards per game, attach one to any clip with the clip's
+**🗒** button ("here's the shape behind that moment"), and export any board as a PNG to
+text to him. **⟲ Line up** resets the players without losing your drawings.
+
 ### 🧠 Decision points (the self-awareness tool)
 Add a **decision point** just before a key moment. On playback the video freezes and
 shows a question — *"What are the options here? What would you do?"* — so he answers
