@@ -127,6 +127,54 @@ async function hasRealSupport(page){
     }
   }
 
+  /* ---- highlight reel: second clip, add both, export one stitched mp4 ---- */
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 1; });
+  await page.waitForTimeout(200);
+  await page.click('#btnMarkIn');
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 2; });
+  await page.waitForTimeout(200);
+  await page.click('#btnMarkOut');
+  await page.click('#btnSaveClip');
+  await page.waitForSelector('#clipModal.open');
+  await page.fill('#clipTitle', 'Second clip');
+  await page.click('#ratingRow [data-rating=positive]');
+  await page.click('#clipSave');
+  await page.waitForTimeout(200);
+
+  const reelCount = await page.$$eval('#clipList [data-act=reel]', els => els.length);
+  check('reel toggle on every clip', reelCount === 2);
+  for (let i = 0; i < reelCount; i++){       // re-query each time: toggling re-renders the list
+    await page.click(`#clipList .clipItem >> nth=${i} >> [data-act=reel]`);
+    await page.waitForTimeout(150);
+  }
+  check('reel list shows both clips (ordered)',
+    await page.evaluate(() => document.querySelectorAll('#reelList .annItem').length === 2));
+  await page.fill('#reelTitle', 'Test week reel');
+  if (stubbed) await page.evaluate(() => { window.__fakeEnc.frames = 0; window.__fakeEnc.keys = 0; });
+
+  const [dl3] = await Promise.all([
+    page.waitForEvent('download', { timeout: 180000 }),
+    page.click('#btnExportReel'),
+  ]);
+  check('reel exports one .mp4', dl3.suggestedFilename().endsWith('.mp4'));
+  check('reel filename carries the title', /Test_week_reel/.test(dl3.suggestedFilename()));
+  const reelOut = path.join(OUT, 'reel_' + dl3.suggestedFilename());
+  await dl3.saveAs(reelOut);
+
+  if (stubbed){
+    const enc = await page.evaluate(() => window.__fakeEnc);
+    // 90 reel card + (84 card + 30 media) + (84 card + 75 media + 96 freeze) = 459
+    check(`reel frames = intro + 2×(card+clip) + freeze (${enc.frames} ≈ 459)`,
+      enc.frames >= 445 && enc.frames <= 475);
+  } else if (process.env.FFMPEG){
+    let probe = '';
+    try { execFileSync(process.env.FFMPEG, ['-i', reelOut], { stdio: ['ignore', 'pipe', 'pipe'] }); }
+    catch (e) { probe = e.stderr.toString(); }
+    const m = probe.match(/Duration: (\d+):(\d+):([\d.]+)/);
+    const dur = m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) : 0;
+    check(`reel duration ≈ 15.3s (${dur.toFixed(2)}s)`, dur > 14.3 && dur < 16.3);
+  }
+
   console.log('\n--- errors collected:', errors.length);
   errors.forEach(e => console.log('  ', e));
   await browser.close();

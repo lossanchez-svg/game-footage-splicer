@@ -94,6 +94,12 @@ Mark **In/Out** around any moment and save it as a tagged clip:
 - Filter the library by rating or tag to build a themed session ("tonight: off-ball
   movement work-ons").
 
+### 🎞 Highlight reels — the weekly TV package
+Tick clips into a reel with **➕ Reel**, order them with ↑↓ (strengths first, end on a
+high note), give it a title, and **🎬 Export reel** produces **one video**: an opening
+title card, then every clip with its own coaching card, decision-point freezes, and the
+game audio. AirDrop it once, AirPlay to the TV, and the whole week's review runs itself.
+
 ### 📤 Sharing it back to him — clips that teach on their own
 Exports are built so the clip works **without you in the room** (his mom can play it,
 or he can watch solo on a phone, iPad, or the TV):

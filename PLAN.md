@@ -150,11 +150,23 @@ Fast exports now carry the game audio, still without ever playing in real time:
   app, **round-tripped through the app's own demuxer** (packet count, rate, channels,
   timestamps), then ffmpeg-probed (both streams) and fully decoded clean.
 
+### ✅ v1.6 — highlight reel builder (shipped)
+The weekly TV package: tick clips into a reel (➕ Reel on each clip), order them with
+↑/↓, give the reel a title, and export **one stitched mp4** — an opening reel card
+(title + clip count), then each clip with its own coaching card and decision-point
+freezes, game audio carried throughout with silence under every card. Implementation:
+`exportFast` refactored into `exportProgram(items, …)` — single clips and reels share
+one render path — and `buildFastAudio` now decodes audio **per media segment**, so a
+reel whose clips are scattered across an hour-long game never holds more than one
+clip's PCM in memory. Reel selection/order/title persist in the project (`project.reel`,
+`project.reelTitle`). Reel export requires the ⚡ WebCodecs path (realtime fallback would
+take the reel's full length; a toast says so on unsupported browsers). Verified in
+`tests/fastexport.js`: two clips + title → one mp4 with exactly the expected frame count
+(intro 90 + 2×card 84 + media 105 + freeze 96 = 459) and title-bearing filename.
+
 ## Roadmap
 
 ### Next (reordered per design inputs, highest value first)
-- [ ] **Highlight reel builder**: select multiple clips → one stitched export, each with
-      its title card. The weekly package for the TV.
 - [ ] **Session builder**: ordered clip playlist with per-clip questions, runnable as a
       guided session by mom or solo; logs his answers.
 - [ ] **Field-diagram mode**: tactics-board panel for teaching schemes off-video.
