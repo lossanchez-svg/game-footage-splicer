@@ -9,6 +9,9 @@ npm install            # installs playwright-core only
 node tour.js           # guided first-run tour: do-based advancement through all five
                        # steps, wording that follows the task, skip, restart from Help,
                        # never-again-after-completion, resize + touch
+node tips.js           # tooltips + one-time hints: hover delay, long-press on touch
+                       # (without pressing the control), a tip on every control, and
+                       # each contextual hint firing exactly once, ever
 node smoke.js          # core suite: loading, drawing tools, decision points, clips,
                        # exports, undo, autosave restore
 node tracking.js       # auto-track suite: tracks a synthetic moving ball and asserts

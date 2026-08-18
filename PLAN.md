@@ -58,7 +58,7 @@ Start → End → Save. Bubbles get out of the way of any dialog/export/decision
 ❓ Help has "↻ Restart the walkthrough". The help modal no longer auto-opens.
 Verified by `tests/tour.js` (24 checks) including touch taps and a resize.
 
-### Workstream B — real tooltips (hover + touch), first-use hints
+### ✅ Workstream B — real tooltips (hover + touch), first-use hints — SHIPPED
 Native `title` attributes are invisible on iPad and slow on desktop. Build a lightweight
 tooltip system (no dependencies):
 - Source of truth: move every `title` into `data-tip`; render as a styled bubble on
@@ -72,6 +72,13 @@ tooltip system (no dependencies):
   first reel add → "Export one video, or Run session to watch it together".
 Tests: tooltip appears on hover and on simulated long-press; one-time hints fire once
 and never again after reload.
+**Shipped:** every `title` is gone — controls carry `data-tip` and a `#tipBubble` renders it
+after a 400ms hover or a 500ms long-press (the long press is swallowed, so reading a tip
+never fires the button underneath). Copy audited across the whole app for "what it does
+AND when you'd use it", in plain words. Four one-time hints (`filmroom:hint:*`): first
+tool pick, first spotlight, first saved clip, first reel add — held back while the
+walkthrough is running, since that already says what to do. Verified by `tests/tips.js`
+(19 checks), which also audits *every* reachable control for a full-sentence, jargon-free tip.
 
 ### Workstream C — plain-language pass over every surface
 - Copy audit of all buttons/labels/toasts/modals. Keep layouts compact, but prefer words
@@ -438,6 +445,8 @@ device-aware intake flow:
 | 2026-08-18 | Photos intake: native picker on iOS, folder library on Mac — never fight macOS Photos drags | No web API can browse the Mac Photos library; iOS's file input IS the Photos picker; a remembered iCloud Drive folder is the cross-device equivalent of an album |
 | 2026-08-18 | Tour steps advance on the user's action, never a "Next" button | A "Next"-driven tour teaches nothing — the hand has to do it once; the do-based version also can't get ahead of a user who is still figuring the step out |
 | 2026-08-18 | Tour ring dims via a giant `box-shadow` spread with `pointer-events:none` | Keeps the rest of the UI visible AND clickable (no trap), with no overlay maths and no extra elements |
+| 2026-08-18 | Custom `data-tip` bubbles replace native `title` everywhere | `title` never renders on iPad and takes ~1.5s on desktop — useless for someone hunting for what a button does; a long-press tip also has to swallow its click so exploring can't trigger anything |
+| 2026-08-18 | One-time hints stay silent while the tour is running | Two voices telling a first-timer what to do at once is worse than either alone; the hints then land later, when the tour is no longer there to say it |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions
