@@ -3,6 +3,106 @@
 This is the source of truth for where the project is and where it's going.
 **Keep it updated**: when a feature lands, check it off; when a decision is made, log it.
 
+## ▶ Start here (next session)
+
+You are picking up a working, fully-tested product. Before writing any code:
+
+1. Read `CLAUDE.md` (conventions, test workflow) and this file top to bottom.
+2. **Check PR #1** (`claude/soccer-video-analysis-tool-t0tfym` → `main`). If it has been
+   merged, branch off `main`; if it's still open, either wait for the owner to merge it
+   or continue committing to that same branch (its commits flow into the PR).
+3. **The current epic is “v2 — The Grandma Test”** (next section). Implement it
+   workstream by workstream; each has acceptance criteria and test requirements.
+4. Non-negotiables: single self-contained `index.html`, zero dependencies, works from
+   `file://`, footage never leaves the machine. Run the full test suite in `tests/`
+   (`npm test`, see `tests/README.md`) before every push; add suites for new behavior.
+5. Update this file (checkboxes + decision log) as part of every feature commit.
+
+## Current epic — v2: The Grandma Test (intuitive-first UX + onboarding)
+
+**Goal:** an 88-year-old grandmother who has never seen the app can open it and, with no
+one helping, watch this week's film session with her grandson — and a first-time dad can
+discover annotate → clip → export without reading the README. Judge every change by:
+*"could Grandma figure this out with nobody in the room?"*
+
+**Principles (apply to every workstream):**
+- The next step is always **visible on screen**, never something to remember.
+- **Plain words** over icons and jargon; full sentences in tooltips. Nothing user-facing
+  says fps, In/Out, mux, keyframe, or normalized anything.
+- **One obvious primary action** per screen state; advanced controls fold away.
+- Big targets, readable text, gentle colors already exist — audit for AA contrast.
+- Mistakes are cheap: destructive actions confirm or offer Undo; the app never fails
+  silently (the drop-feedback fix is the model — copy that standard everywhere).
+
+### Workstream A — guided first-run tour (do-based coach marks)
+Replace the auto-opening help modal with a step-by-step tour anchored to the real UI.
+Each step is a small bubble pointing at one control, and it advances when the user
+**does the thing**, not when they click "next":
+1. "Tap here to open your game video" → advances when a video loads.
+2. "Press play — or drag this bar to move through the game" → advances on first play/seek.
+3. "Pick **Spotlight**, then tap your player on the video" → advances on first spotlight.
+4. "Found a moment? **Start clip here** … **End clip here** … **Save clip**" → advances on
+   first saved clip.
+5. "Your clips live here — this is his library" (Clips tab) → tour complete.
+Requirements: a "Skip tour" link on every bubble; completed/skipped state persists
+(localStorage) and the tour never auto-returns; "Restart the tour" lives in Help; bubbles
+reposition on resize and work on touch; non-target UI stays usable (dim, don't block).
+Tests: a suite that walks the tour by doing the actions, verifies advancement, skip, and
+never-again-after-completion.
+
+### Workstream B — real tooltips (hover + touch), first-use hints
+Native `title` attributes are invisible on iPad and slow on desktop. Build a lightweight
+tooltip system (no dependencies):
+- Source of truth: move every `title` into `data-tip`; render as a styled bubble on
+  hover (~400ms delay) and on **long-press** for touch; large readable text.
+- **Audit every control** so each has a plain-language tip that says what it does AND
+  when you'd use it (e.g. Auto-track: "Follows the player you spotlighted so you don't
+  have to move the ring by hand").
+- One-time contextual hints (each shows once, tracked in localStorage): first tool
+  selection → "Now tap or drag on the video"; first spotlight → "Scrub ahead — try
+  🎯 Auto-track to make the ring follow him"; first saved clip → "It's in the Clips tab";
+  first reel add → "Export one video, or Run session to watch it together".
+Tests: tooltip appears on hover and on simulated long-press; one-time hints fire once
+and never again after reload.
+
+### Workstream C — plain-language pass over every surface
+- Copy audit of all buttons/labels/toasts/modals. Keep layouts compact, but prefer words
+  where they fit: e.g. "⟦ In / Out ⟧" → "Start clip / End clip"; "📸 Still" → "📸 Photo";
+  "🎬 Export clip" → "🎬 Save video"; "fps" moves out of the transport bar into a small
+  "Advanced" disclosure (default 30, note that iPhone is often 60). The 🔊/⚡ export mode
+  picker gets plain names ("Best for iPhone" / "Keeps sound, slower").
+- Every empty state states the single next action in one sentence (most exist — audit).
+- Every toast is a full sentence a non-technical person understands.
+Tests: screenshot pass over each tab/mode; smoke assertions updated for renamed labels.
+
+### Workstream D — "Watch" front door for the family
+Grandma's real job is **watching**, not editing. When a project has a reel:
+- On load, show a friendly banner/button: **"▶ This week's film session is ready —
+  Start"** → launches the guided session (already mom-proof).
+- The session screens get an XL type treatment (they're already simple; bump size,
+  ensure every button is thumb-big).
+Tests: banner appears only when a reel exists; starts the session; dismissible and stays
+dismissed for that visit.
+
+### Workstream E — comfort & accessibility
+- "Aa" text-size toggle (normal / large) persisted; large mode bumps base font and
+  control padding app-wide.
+- Contrast audit to WCAG AA on the dark theme; visible keyboard focus states.
+- Longer toast duration in large mode.
+Tests: toggle persists; spot-check computed font sizes.
+
+### Workstream F — friction backlog from real use (fix while in there)
+- Deleting anything offers **Undo in the toast** (replace `confirm()` dialogs where the
+  action is cheap to restore).
+- "Play does nothing" when no video is open → point at Open, don't stay silent.
+- Whole-video export confirm should state the expected duration in minutes.
+- Safari on Mac: 📁 Games hides (correct) — the empty state should mention that the
+  library needs Chrome/Edge on Mac so its absence isn't confusing.
+
+**Definition of done for the epic:** all six workstreams merged with their tests, all
+existing suites still green, README/help updated, and a fresh-eyes walkthrough
+(screenshots at each step) attached to the PR description.
+
 ## Vision
 
 A daily-use film-study tool for a parent breaking down youth soccer footage with their
@@ -223,14 +323,41 @@ device-aware intake flow:
 
 ## Roadmap
 
-### Next (highest value first)
-*(empty — new items come from real-world use)*
+### Next (in order)
+- [ ] **v2 epic — The Grandma Test** (full spec in "Current epic" above): guided
+      do-based tour, real tooltips + one-time hints, plain-language pass, Watch front
+      door, comfort/text-size mode, friction fixes.
+- [ ] **Cross-device continuity via the Games folder**: when the 📁 Games folder is
+      connected with readwrite permission, auto-save the project JSON *next to its
+      video* (`<video>.filmroom.json`) and auto-load it when the video opens on another
+      device. Makes an iCloud Drive folder carry clips/drawings across Mac/iPad without
+      manual Save/Load project. Fall back silently to localStorage where unavailable.
+- [ ] **Tracker tuning from real footage** (blocked on user feedback — see the standing
+      real-footage item in Open questions): adjust ACCEPT/coast thresholds, patch
+      sizing, or search radius based on where the lock number drops on real Trace and
+      iPhone film.
 
-### Later
+### Later (unbuilt features)
 - [ ] Track multiple spotlights in one pass; track backwards from an anchor.
 - [ ] Per-player trend dashboard: tag counts across games/projects, CSV export.
 - [ ] Project bundles: zip of project JSON + exported clips for archiving a season.
-- [ ] Voice-over recording on exports (mic + video mux) for narrated teaching clips.
+- [ ] Voice-over recording on exports (mic + AAC mux — the audio pipeline exists).
+- [ ] Reel export straight to the reel from compare/board content (title cards already
+      exist; boards could render as interstitial cards).
+- [ ] Session insights: surface week-over-week patterns from the session log (his
+      answers already accumulate; even a simple "asked before / sees it now" view).
+
+### Known refinements (smaller, pick up alongside other work)
+- [ ] Realtime (🔊) export produces webm in Chrome — either label the tradeoff more
+      clearly in the picker or route audio-needing exports through fast-mp4 + audio
+      everywhere it's supported and retire the realtime path.
+- [ ] Whole-video fast export of a long game: progress is fine but there's no
+      time-remaining estimate; add one (seek pace is measurable after ~5s).
+- [ ] Board: no undo *within* a chip drag (each drag is one undo step — verify feel).
+- [ ] PWA: verify installed-app behavior on a real iPad (icon, offline, orientation);
+      confirm GitHub Pages deploy after PR #1 merges.
+- [ ] Tag editor renames update the current project only — decide whether that's enough
+      or renames should also rewrite other stored projects when opened (migration note).
 
 ## Open questions (check before building the next feature)
 
@@ -301,6 +428,7 @@ device-aware intake flow:
 | 2026-08-18 | Board reuses the video draw functions + tool palette on a separate canvas | One visual language everywhere; board items are the same shapes minus time, plus a `chip` type; undo snapshots widened to boards/reel/sessions |
 | 2026-08-18 | Compare: A is the master clock, B hard-resynced per frame (no free-running B) | Start-sync alone drifts; per-frame correction keeps the pair within one frame indefinitely; B side can be an external file (loaded, never persisted) |
 | 2026-08-18 | Photos intake: native picker on iOS, folder library on Mac — never fight macOS Photos drags | No web API can browse the Mac Photos library; iOS's file input IS the Photos picker; a remembered iCloud Drive folder is the cross-device equivalent of an album |
+| 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions
 
