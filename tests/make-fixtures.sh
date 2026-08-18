@@ -29,5 +29,9 @@ mkdir -p fixtures
   -filter_complex "[0][1]overlay=x='40+55*t':y='171+50*sin(1.3*t)'[a];[a][2]overlay=x='500-70*t':y=119[b];[b]noise=alls=8:allf=t,eq=brightness='0.12*sin(2*t)'" \
   -c:v libvpx-vp9 -b:v 700k fixtures/hard.webm
 
+# 4s of real AAC (ADTS) for the muxer/demuxer audio suite
+"$FFMPEG" -y -f lavfi -i sine=frequency=600:duration=4 -c:a aac -b:a 96k \
+  -f adts fixtures/clip.aac
+
 echo "fixtures ready:"
 ls -la fixtures

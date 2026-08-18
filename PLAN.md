@@ -130,12 +130,29 @@ per-sample diagnostics. Verified by `tests/hardtrack.js`: an 18px target on a no
 field with breathing exposure and an occluder crossing straight over it — tracked
 through the crossing with ≤0.004 normalized error; clean-footage regression unchanged.
 
+### ✅ v1.5 — audio in fast mp4 exports (shipped)
+Fast exports now carry the game audio, still without ever playing in real time:
+- A pure-JS **mp4/mov audio demuxer** (`demuxMp4Audio`) walks the source container
+  (iPhone video and ⌘⇧5 screen recordings are both AAC-in-mp4/mov), finds the `soun`
+  track, parses `esds` → AudioSpecificConfig, and maps every AAC packet to its byte
+  range and timestamp; packets for just the clip's range are read with coalesced
+  `File.slice` reads (no full-file load, so hour-long Trace files are fine).
+- The clip's packets are wrapped in a tiny audio-only mp4 (reusing `buildMp4`) and
+  decoded via `decodeAudioData`; the export's audio timeline is then assembled
+  **sample-exactly** from the video segment map — real silence under the title card and
+  decision freezes — and AAC-encoded with `AudioEncoder`.
+- `buildMp4` grew an AAC track (`mp4a`/`esds`, run-length `stts`), so the writer can
+  emit video-only, audio-only (the decode wrapper), or muxed two-track files.
+- Fallbacks, each with a clear toast: no AAC in the source (WebM) → silent; browser
+  can't AAC-encode → bit-exact packet **passthrough** when the timeline has no
+  card/freezes, else silent; ranges >10 min → passthrough or silent (memory guard).
+- Verified in `tests/muxer.js` with real codec data: real H.264 + real AAC muxed by the
+  app, **round-tripped through the app's own demuxer** (packet count, rate, channels,
+  timestamps), then ffmpeg-probed (both streams) and fully decoded clean.
+
 ## Roadmap
 
 ### Next (reordered per design inputs, highest value first)
-- [ ] **Audio in fast exports**: decode source audio (WebCodecs AudioDecoder or
-      decodeAudioData on clip ranges), AAC-encode where supported, extend buildMp4 with
-      an mp4a/esds track. Until then: realtime path keeps audio.
 - [ ] **Highlight reel builder**: select multiple clips → one stitched export, each with
       its title card. The weekly package for the TV.
 - [ ] **Session builder**: ordered clip playlist with per-clip questions, runnable as a
@@ -161,6 +178,11 @@ through the crossing with ≤0.004 normalized error; clean-footage regression un
   into the tag editor?
 - **Solo sessions**: is exported-video context enough, or should the session builder
   (guided in-app flow that logs his answers) move up the list?
+- **Real-footage validation** (standing item): synthetic fixtures isolate failure modes,
+  but only real film shows the rest — same-jersey players converging, motion blur, heat
+  shimmer. After each feature that touches tracking or export, the user runs it on one
+  real Trace clip and one zoomed-out iPhone clip and reports where the lock number drops
+  or playback misbehaves; that feedback drives tuning.
 
 ### Explicitly not planned
 - YouTube downloading (ToS) — screen recording is the supported path.
@@ -207,6 +229,7 @@ through the crossing with ≤0.004 normalized error; clean-footage regression un
 | 2026-08-18 | Hand-rolled mp4 muxer + baseline H.264, keyframes every 2s | Zero dependencies; baseline forbids B-frames so the simple muxer (no ctts) is always correct; validated against real H.264 in tests/muxer.js |
 | 2026-08-18 | Fast exports are silent; audio stays on the realtime path for now | AAC encode/mux is a large addition; game audio rarely carries the teaching; roadmap item tracks adding it |
 | 2026-08-18 | Tracker ZNCC centers each RGB channel separately | With one global mean, every grass patch correlates ~0.6 with the template's green component and the tracker "matches" anywhere; per-channel centering makes uniform background score ~0 (found via trace on the hard fixture) |
+| 2026-08-18 | Fast-export audio = demux AAC → range decode → sample-exact reassembly → re-encode (no edit lists) | Multi-edit `elst` silence gaps play unreliably outside Apple players; decoding only the clip's range keeps memory flat on hour-long files; passthrough covers browsers without AAC encode when the timeline has no gaps |
 
 ## Working agreements for future sessions
 

@@ -16,8 +16,9 @@ node hardtrack.js      # hard-mode tracking: small target on a noisy field with
 node touch.js          # touch/iPad suite: responsive layout + tap interactions
 node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise
-FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264:
-                          # ffmpeg-encoded samples through buildMp4(), probe + full decode
+FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264 + AAC:
+                          # ffmpeg-encoded samples through buildMp4(), round-tripped
+                          # through the app's demuxMp4Audio(), probe + full decode
 ```
 
 Notes

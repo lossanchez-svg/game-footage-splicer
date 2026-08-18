@@ -103,10 +103,11 @@ or he can watch solo on a phone, iPad, or the TV):
   **built-in freeze-frame showing the question** before the play continues — the
   "what should happen here?" moment is part of the video itself.
 - **Two export modes** (picker appears in the top bar where supported):
-  **⚡ mp4 · silent** builds a true H.264 `.mp4` frame-by-frame — plays natively on any
-  iPhone/iPad/TV with no conversion, never drops frames, works from any browser.
-  **🔊 with audio** records in real time and keeps the game sound (file format depends
-  on the browser — Safari gives mp4, Chrome may give webm).
+  **⚡ mp4 (fast)** builds a true H.264 `.mp4` frame-by-frame — plays natively on any
+  iPhone/iPad/TV with no conversion, never drops frames, and **carries the game audio
+  over** from iPhone/`.mov` footage (silence under the title card and decision freezes,
+  exactly where it belongs). **🔊 real-time** records the playthrough instead (file
+  format depends on the browser — Safari gives mp4, Chrome may give webm).
 - AirDrop the file to a phone/iPad, then **AirPlay to the TV** for the big-screen review.
 - **📸 Still** — saves the current annotated frame as an image; the fastest way to send
   one teaching picture.
@@ -143,8 +144,10 @@ recovery…), general defensive principles, format notes from 5v5 to 11v11 — a
 
 ## Notes & limits
 
-- **⚡ mp4 exports are silent** (game audio isn't included yet — it's on the roadmap).
-  When the crowd noise matters, use **🔊 with audio**, which records in real time
-  (a 20s clip takes 20s) and whose format depends on the browser.
+- **⚡ mp4 export audio** comes straight from the source file's AAC track — iPhone
+  videos and ⌘⇧5 screen recordings both have one. A WebM source, or a browser that
+  can't encode AAC, exports silent (the app tells you when that happens); the
+  **🔊 real-time** mode always keeps audio but records in real time (a 20s clip
+  takes 20s) and its format depends on the browser.
 - Autosave is per-browser. Moving to another machine? **💾 Save project** and keep the
   `.filmroom.json` next to the video file.

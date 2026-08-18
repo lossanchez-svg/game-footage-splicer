@@ -222,9 +222,9 @@
   <div class="spacer"></div>
   <button id="btnSnapshot" title="Save a still image of this frame with all drawings">📸 Still</button>
   <button id="btnExport" title="Export the current In→Out range (or the whole video) as an annotated video file">🎬 Export clip</button>
-  <select id="exportMode" style="display:none" title="⚡ mp4: renders frame-by-frame into an H.264 .mp4 that plays natively on iPhone/iPad — no sound. 🔊 with audio: records in real time and keeps the game audio; format depends on the browser.">
-    <option value="fast">⚡ mp4 · silent</option>
-    <option value="realtime">🔊 with audio</option>
+  <select id="exportMode" style="display:none" title="⚡ mp4: renders frame-by-frame into an H.264 .mp4 that plays natively on iPhone/iPad, carrying the game audio over from iPhone/.mov footage (silent under title cards and decision freezes). 🔊 real-time: records the screen pass in real time instead; format depends on the browser.">
+    <option value="fast">⚡ mp4 (fast)</option>
+    <option value="realtime">🔊 real-time</option>
   </select>
   <div class="divider"></div>
   <button id="btnSaveProj" title="Download all clips + drawings as a project file">💾 Save project</button>
@@ -593,7 +593,7 @@
     <h4>Saving your work</h4>
     <p>Everything autosaves in this browser per video file (matched by file name + size), so reopening the same file restores your clips and drawings. <b>💾 Save project</b> downloads a backup file you can move between machines or keep with the video; <b>📂 Load project</b> brings it back.</p>
     <h4>Exports — made to watch without you</h4>
-    <p><b>🎬 Export clip</b> renders a saved clip with every drawing burned in, at up to 1080p (looks right on a big TV). The export opens with a <b>title card</b> showing the rating, position, and your coaching note, and any <b>decision point</b> in the clip becomes a built-in freeze-frame showing the question before the play continues — so the clip teaches on its own when Mom runs it or he watches solo. AirDrop the file to a phone/iPad and AirPlay it to the TV. <b>📸 Still</b> saves the current frame as an image — fastest way to text him one teaching picture.</p>
+    <p><b>🎬 Export clip</b> renders a saved clip with every drawing burned in, at up to 1080p (looks right on a big TV). The export opens with a <b>title card</b> showing the rating, position, and your coaching note, and any <b>decision point</b> in the clip becomes a built-in freeze-frame showing the question before the play continues — so the clip teaches on its own when Mom runs it or he watches solo. The fast ⚡ mp4 mode carries the <b>game audio</b> over from iPhone/.mov footage, muted under the card and freezes. AirDrop the file to a phone/iPad and AirPlay it to the TV. <b>📸 Still</b> saves the current frame as an image — fastest way to text him one teaching picture.</p>
     <h4>Your words, not mine</h4>
     <p>The tag list is a starting point. In the Save-clip dialog hit <b>✎ Edit tag list</b> to rename any tag to the words his coach uses, remove ones you don't use, or add your own — renames update clips you've already saved.</p>
     <h4>Zoomed-out footage</h4>
@@ -723,7 +723,9 @@ document.addEventListener('drop', e => {
   else if (j) loadProjectFile(j);
 });
 
+let currentFile = null;   // kept for the fast exporter's audio demuxer
 function loadVideo(file){
+  currentFile = file;
   const url = URL.createObjectURL(file);
   const key = 'filmroom:' + file.name + ':' + file.size;
   video.src = url;
@@ -2132,20 +2134,31 @@ async function exportFast(tIn, tOut, label, clip){
     .sort((a, b) => a.t - b.t);
   let pi = 0;
 
+  // audio timeline mirror: which stretches of output frames are source media
+  // (at which video time) and which are burned-in silence (card, freezes)
+  const segments = [];
+  let curSeg = null;
   try {
     if (clip){
       drawTitleCard(ctx, W, H, clip);
+      const before = n;
       for (let i = 0; i < Math.round(FPS * 2.8) && !ui.exportCancel; i++) await pushFrame();
+      segments.push({ type:'silence', frames: n - before });
     }
     const dt = 1 / FPS;
     for (let t = tIn; t < tOut - 1e-4 && !ui.exportCancel && !encError; t += dt){
       await seekTo(Math.min(t, video.duration || t));
       ctx.drawImage(video, 0, 0, W, H);
       drawScene(ctx, W, H, t, {editing:false});
+      if (!curSeg){ curSeg = { type:'media', t, frames: 0 }; segments.push(curSeg); }
       await pushFrame();
+      curSeg.frames++;
       if (pi < pausePts.length && t >= pausePts[pi].t){
         drawQuestionBanner(ctx, W, H, pausePts[pi].question);
+        const before = n;
         for (let i = 0; i < Math.round(FPS * 3.2) && !ui.exportCancel; i++) await pushFrame();
+        segments.push({ type:'silence', frames: n - before });
+        curSeg = null;
         pi++;
       }
       $('#busyBarFill').style.width = clamp((t - tIn) / (tOut - tIn) * 100, 0, 100) + '%';
@@ -2165,16 +2178,29 @@ async function exportFast(tIn, tOut, label, clip){
     toast('Fast mp4 export hit a snag — using the with-audio exporter instead');
     return exportRange(tIn, tOut, label, clip);
   }
-  const mp4 = buildMp4(samples, description, W, H, FPS);
+  $('#busyOverlay').style.display = 'flex';
+  $('#busyMsg').textContent = '🔊 Adding audio…';
+  const audio = await buildFastAudio(segments, tIn, tOut, n, FPS);
+  $('#busyOverlay').style.display = 'none';
+
+  const mp4 = buildMp4({ samples, avcC: description, W, H, fps: FPS },
+                       audio && audio.samples ? audio : null);
   const base = (project.videoName || 'clip').replace(/\.[^.]+$/, '');
   const safe = (label || 'clip').replace(/[^\w\- ]+/g, '').slice(0, 40).trim().replace(/ +/g, '_') || 'clip';
   downloadBlob(new Blob([mp4], {type:'video/mp4'}), `${base}__${safe}.mp4`);
-  toast('Exported 🎬 iPhone-ready mp4 — check your Downloads folder');
+  if (audio && audio.samples) toast('Exported 🎬🔊 iPhone-ready mp4 with audio — check your Downloads folder');
+  else if (audio && audio.silentReason === 'encoder')
+    toast('Exported 🎬 mp4 (silent — this browser can’t encode AAC; use the 🔊 export mode when the sound matters)');
+  else if (audio && audio.silentReason === 'long')
+    toast('Exported 🎬 mp4 (silent — audio for very long exports isn’t supported yet)');
+  else toast('Exported 🎬 iPhone-ready mp4 (no audio track found in this file — exported silent)');
 }
 
-/* minimal ISO-BMFF writer: ftyp + mdat + moov, one AVC video track, one chunk */
-function buildMp4(samples, avcC, W, H, fps){
-  const TS = 90000, sampleDur = Math.round(TS / fps);
+/* minimal ISO-BMFF writer: ftyp + mdat + moov.
+   vt (H.264 video track): {samples:[{data,isKey}], avcC, W, H, fps} or null
+   at (AAC audio track):   {samples:[{data,dur}], asc, sampleRate, channels} or null
+   (audio durs are in the audio timescale = sampleRate; one chunk per track) */
+function buildMp4(vt, at){
   const u32 = v => [v>>>24 & 255, v>>>16 & 255, v>>>8 & 255, v & 255];
   const u16 = v => [v>>>8 & 255, v & 255];
   const str = s => [...s].map(ch => ch.charCodeAt(0));
@@ -2190,49 +2216,342 @@ function buildMp4(samples, avcC, W, H, fps){
   };
   const matrix = [ ...u32(0x10000), ...u32(0), ...u32(0), ...u32(0), ...u32(0x10000), ...u32(0),
                    ...u32(0), ...u32(0), ...u32(0x40000000) ];
-  const durTS = sampleDur * samples.length;
-  const durMs = Math.round(durTS / TS * 1000);
+
+  const TSv = 90000;
+  const vSampleDur = vt ? Math.round(TSv / vt.fps) : 0;
+  const vDurTS = vt ? vSampleDur * vt.samples.length : 0;
+  const aDurTS = at ? at.samples.reduce((s, x) => s + x.dur, 0) : 0;
+  const durMs = Math.max(vt ? Math.round(vDurTS / TSv * 1000) : 0,
+                         at ? Math.round(aDurTS / at.sampleRate * 1000) : 0);
 
   const ftyp = box('ftyp', str('isom'), u32(0x200), str('isom'), str('iso2'), str('avc1'), str('mp41'));
-  const mdatPayload = flat(samples.map(s => s.data));
-  const mdat = box('mdat', mdatPayload);
-  const chunkOffset = ftyp.length + 8;                    // mdat payload starts after its header
+  const vBytes = vt ? flat(vt.samples.map(s => s.data)) : new Uint8Array(0);
+  const aBytes = at ? flat(at.samples.map(s => s.data)) : new Uint8Array(0);
+  const mdat = box('mdat', vBytes, aBytes);
+  const vOff = ftyp.length + 8;                 // mdat payload start
+  const aOff = vOff + vBytes.length;
 
-  const avc1 = box('avc1',
-    [0,0,0,0,0,0], u16(1),                                // reserved, data_ref_index
-    u16(0), u16(0), u32(0), u32(0), u32(0),               // pre_defined / reserved
-    u16(W), u16(H), u32(0x480000), u32(0x480000),         // dimensions, 72dpi
-    u32(0), u16(1),                                       // reserved, frame_count
-    new Uint8Array(32),                                   // compressor name (empty)
-    u16(24), u16(0xFFFF),                                 // depth, pre_defined -1
-    box('avcC', avcC));
-
-  const stbl = box('stbl',
-    box('stsd', u32(0), u32(1), avc1),
-    box('stts', u32(0), u32(1), u32(samples.length), u32(sampleDur)),
-    box('stss', u32(0), u32(samples.filter(s => s.isKey).length),
-      flat(samples.flatMap((s, i) => s.isKey ? [u32(i + 1)] : []))),
-    box('stsc', u32(0), u32(1), u32(1), u32(samples.length), u32(1)),
-    box('stsz', u32(0), u32(0), u32(samples.length), flat(samples.map(s => u32(s.data.length)))),
-    box('stco', u32(0), u32(1), u32(chunkOffset)));
-
-  const moov = box('moov',
-    box('mvhd', u32(0), u32(0), u32(0), u32(1000), u32(durMs),
-      u32(0x10000), u16(0x100), u16(0), u32(0), u32(0), matrix,
-      u32(0), u32(0), u32(0), u32(0), u32(0), u32(0), u32(2)),
-    box('trak',
-      box('tkhd', [0,0,0,3], u32(0), u32(0), u32(1), u32(0), u32(durMs),
+  function videoTrak(id){
+    const avc1 = box('avc1',
+      [0,0,0,0,0,0], u16(1),                                // reserved, data_ref_index
+      u16(0), u16(0), u32(0), u32(0), u32(0),               // pre_defined / reserved
+      u16(vt.W), u16(vt.H), u32(0x480000), u32(0x480000),   // dimensions, 72dpi
+      u32(0), u16(1),                                       // reserved, frame_count
+      new Uint8Array(32),                                   // compressor name (empty)
+      u16(24), u16(0xFFFF),                                 // depth, pre_defined -1
+      box('avcC', vt.avcC));
+    const stbl = box('stbl',
+      box('stsd', u32(0), u32(1), avc1),
+      box('stts', u32(0), u32(1), u32(vt.samples.length), u32(vSampleDur)),
+      box('stss', u32(0), u32(vt.samples.filter(s => s.isKey).length),
+        flat(vt.samples.flatMap((s, i) => s.isKey ? [u32(i + 1)] : []))),
+      box('stsc', u32(0), u32(1), u32(1), u32(vt.samples.length), u32(1)),
+      box('stsz', u32(0), u32(0), u32(vt.samples.length), flat(vt.samples.map(s => u32(s.data.length)))),
+      box('stco', u32(0), u32(1), u32(vOff)));
+    return box('trak',
+      box('tkhd', [0,0,0,3], u32(0), u32(0), u32(id), u32(0), u32(durMs),
         u32(0), u32(0), u16(0), u16(0), u16(0), u16(0), matrix,
-        u32(W << 16), u32(H << 16)),
+        u32(vt.W << 16), u32(vt.H << 16)),
       box('mdia',
-        box('mdhd', u32(0), u32(0), u32(0), u32(TS), u32(durTS), u16(0x55C4), u16(0)),
+        box('mdhd', u32(0), u32(0), u32(0), u32(TSv), u32(vDurTS), u16(0x55C4), u16(0)),
         box('hdlr', u32(0), u32(0), str('vide'), u32(0), u32(0), u32(0), str('VideoHandler'), [0]),
         box('minf',
           box('vmhd', [0,0,0,1], u16(0), u16(0), u16(0), u16(0)),
           box('dinf', box('dref', u32(0), u32(1), box('url ', [0,0,0,1]))),
-          stbl))));
+          stbl)));
+  }
 
+  function audioTrak(id){
+    // MPEG-4 elementary stream descriptors (lengths are < 128, so 1-byte sizes)
+    const desc = (tag, body) => [tag, body.length, ...body];
+    const dsi = desc(0x05, [...at.asc]);                       // DecoderSpecificInfo = AudioSpecificConfig
+    const dcd = desc(0x04, [0x40, 0x15, 0,0,0, ...u32(0), ...u32(0), ...dsi]); // AAC, audio stream
+    const es  = desc(0x03, [...u16(id), 0, ...dcd, ...desc(0x06, [0x02])]);
+    const mp4a = box('mp4a',
+      [0,0,0,0,0,0], u16(1),                                   // reserved, data_ref_index
+      u16(0), u16(0), u32(0),                                  // version, revision, vendor
+      u16(at.channels), u16(16), u16(0), u16(0),               // channels, bits, comp, packet
+      u16(at.sampleRate), u16(0),                              // sample rate 16.16
+      box('esds', u32(0), Uint8Array.from(es)));
+    const runs = [];                                           // run-length stts
+    for (const s of at.samples){
+      const last = runs[runs.length - 1];
+      if (last && last.d === s.dur) last.n++;
+      else runs.push({ n: 1, d: s.dur });
+    }
+    const stbl = box('stbl',
+      box('stsd', u32(0), u32(1), mp4a),
+      box('stts', u32(0), u32(runs.length), flat(runs.map(r => [...u32(r.n), ...u32(r.d)]))),
+      box('stsc', u32(0), u32(1), u32(1), u32(at.samples.length), u32(1)),
+      box('stsz', u32(0), u32(0), u32(at.samples.length), flat(at.samples.map(s => u32(s.data.length)))),
+      box('stco', u32(0), u32(1), u32(aOff)));
+    return box('trak',
+      box('tkhd', [0,0,0,3], u32(0), u32(0), u32(id), u32(0), u32(durMs),
+        u32(0), u32(0), u16(0), u16(0), u16(0x100), u16(0), matrix, u32(0), u32(0)),
+      box('mdia',
+        box('mdhd', u32(0), u32(0), u32(0), u32(at.sampleRate), u32(aDurTS), u16(0x55C4), u16(0)),
+        box('hdlr', u32(0), u32(0), str('soun'), u32(0), u32(0), u32(0), str('SoundHandler'), [0]),
+        box('minf',
+          box('smhd', u32(0), u16(0), u16(0)),
+          box('dinf', box('dref', u32(0), u32(1), box('url ', [0,0,0,1]))),
+          stbl)));
+  }
+
+  const traks = [];
+  if (vt) traks.push(videoTrak(1));
+  if (at) traks.push(audioTrak(vt ? 2 : 1));
+  const moov = box('moov',
+    box('mvhd', u32(0), u32(0), u32(0), u32(1000), u32(durMs),
+      u32(0x10000), u16(0x100), u16(0), u32(0), u32(0), matrix,
+      u32(0), u32(0), u32(0), u32(0), u32(0), u32(0), u32(traks.length + 1)),
+    ...traks);
   return flat([ftyp, mdat, moov]);
+}
+
+/* ---------------- fast-export audio ----------------
+  Pulls the AAC audio straight out of the source .mp4/.mov (iPhone video and
+  macOS screen recordings both carry AAC), decodes just the clip's range,
+  rebuilds the export's audio timeline sample-exactly — real silence under the
+  title card and decision freezes — then AAC-encodes it into the same mp4.
+  Sources without AAC (e.g. WebM) export silent, with a note.
+----------------------------------------------------- */
+const ASC_RATES = [96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350];
+
+async function demuxMp4Audio(file){
+  const readAt = async (off, len) => new Uint8Array(await file.slice(off, off + len).arrayBuffer());
+  const rd32 = (b, o) => (b[o]<<24 | b[o+1]<<16 | b[o+2]<<8 | b[o+3]) >>> 0;
+  const rd64 = (b, o) => Number((BigInt(rd32(b, o)) << 32n) | BigInt(rd32(b, o+4)));
+  const typ = (b, o) => String.fromCharCode(b[o], b[o+1], b[o+2], b[o+3]);
+  try {
+    // find moov at the top level (iPhone/QuickTime files usually put it last)
+    let off = 0, moov = null, hops = 0;
+    while (off < file.size - 8 && hops++ < 64){
+      const h = await readAt(off, Math.min(16, file.size - off));
+      let bs = rd32(h, 0), hdr = 8;
+      const bt = typ(h, 4);
+      if (hops === 1 && !['ftyp','moov','mdat','free','skip','wide','pnot','styp'].includes(bt)) return null;
+      if (bs === 1){ bs = rd64(h, 8); hdr = 16; }
+      else if (bs === 0) bs = file.size - off;
+      if (bs < 8) return null;
+      if (bt === 'moov'){
+        if (bs > 80e6) return null;
+        moov = await readAt(off, bs);
+        break;
+      }
+      off += bs;
+    }
+    if (!moov) return null;
+
+    const kids = (buf, start, end) => {
+      const out = [];
+      let o = start;
+      while (o < end - 7){
+        let bs = rd32(buf, o), hs = 8;
+        if (bs === 1){ bs = rd64(buf, o + 8); hs = 16; }
+        else if (bs === 0) bs = end - o;
+        if (bs < 8 || o + bs > end) break;
+        out.push({ type: typ(buf, o + 4), start: o + hs, end: o + bs });
+        o += bs;
+      }
+      return out;
+    };
+    const find = (list, type) => list.find(k => k.type === type);
+
+    for (const trak of kids(moov, 8, moov.length).filter(k => k.type === 'trak')){
+      const tk = kids(moov, trak.start, trak.end);
+      const mdia = find(tk, 'mdia'); if (!mdia) continue;
+      const mk = kids(moov, mdia.start, mdia.end);
+      const hdlr = find(mk, 'hdlr');
+      if (!hdlr || typ(moov, hdlr.start + 8) !== 'soun') continue;
+      const mdhd = find(mk, 'mdhd');
+      const mdhdV = moov[mdhd.start];
+      const timescale = mdhdV === 1 ? rd32(moov, mdhd.start + 20) : rd32(moov, mdhd.start + 12);
+      const minf = find(mk, 'minf'); if (!minf) continue;
+      const stbl = find(kids(moov, minf.start, minf.end), 'stbl'); if (!stbl) continue;
+      const sk = kids(moov, stbl.start, stbl.end);
+      const stsd = find(sk, 'stsd');
+      // first sample entry; QuickTime sound descriptions vary, so scan for esds
+      const entry = kids(moov, stsd.start + 8, stsd.end)[0];
+      if (!entry || entry.type !== 'mp4a') continue;
+      let asc = null;
+      for (let o = entry.start; o < entry.end - 8; o++){
+        if (typ(moov, o + 4) === 'esds'){
+          // walk descriptors: 0x03 ES → 0x04 DecoderConfig → 0x05 DecoderSpecificInfo
+          let p = o + 12;                       // skip box header + fullbox version
+          const len = () => { let l = 0, b; do { b = moov[p++]; l = (l << 7) | (b & 127); } while (b & 128); return l; };
+          if (moov[p] === 3){ p++; len(); p += 3; }
+          if (moov[p] === 4){ p++; len(); p += 13;
+            if (moov[p] === 5){ p++; const l = len(); asc = moov.slice(p, p + l); }
+          }
+          break;
+        }
+      }
+      if (!asc || asc.length < 2) continue;
+      const freqIdx = ((asc[0] & 7) << 1) | (asc[1] >> 7);
+      const sampleRate = ASC_RATES[freqIdx] || timescale;
+      const channels = (asc[1] >> 3) & 15 || 1;
+
+      const stts = find(sk, 'stts'), stsz = find(sk, 'stsz'),
+            stsc = find(sk, 'stsc'), stco = find(sk, 'stco') || find(sk, 'co64');
+      if (!stts || !stsz || !stsc || !stco) continue;
+      const nSamples = rd32(moov, stsz.start + 8);
+      const fixedSize = rd32(moov, stsz.start + 4);
+      const sizeAt = i => fixedSize || rd32(moov, stsz.start + 12 + i * 4);
+      // per-sample durations
+      const durs = new Uint32Array(nSamples);
+      {
+        let i = 0;
+        const n = rd32(moov, stts.start + 4);
+        for (let e = 0; e < n && i < nSamples; e++){
+          const cnt = rd32(moov, stts.start + 8 + e * 8), d = rd32(moov, stts.start + 12 + e * 8);
+          for (let k = 0; k < cnt && i < nSamples; k++) durs[i++] = d;
+        }
+      }
+      // chunk table
+      const co64 = stco.type === 'co64';
+      const nChunks = rd32(moov, stco.start + 4);
+      const chunkOff = i => co64 ? rd64(moov, stco.start + 8 + i * 8) : rd32(moov, stco.start + 8 + i * 4);
+      const nStsc = rd32(moov, stsc.start + 4);
+      const stscAt = i => ({ first: rd32(moov, stsc.start + 8 + i * 12),
+                             per: rd32(moov, stsc.start + 12 + i * 12) });
+      // walk chunks → per-sample absolute offsets and times
+      const samples = new Array(nSamples);
+      let si = 0, t = 0, e = 0;
+      for (let c = 0; c < nChunks && si < nSamples; c++){
+        while (e + 1 < nStsc && stscAt(e + 1).first <= c + 1) e++;
+        let o = chunkOff(c);
+        for (let k = 0; k < stscAt(e).per && si < nSamples; k++){
+          const sz = sizeAt(si);
+          samples[si] = { off: o, size: sz, t: t / timescale, dur: durs[si] };
+          o += sz; t += durs[si]; si++;
+        }
+      }
+      samples.length = si;
+      return { file, timescale, asc, sampleRate, channels, samples };
+    }
+    return null;
+  } catch(err){ console.warn('demux failed', err); return null; }
+}
+
+async function extractAudioPackets(dmx, t0, t1){
+  const wanted = dmx.samples.filter(s => s.t >= t0 && s.t < t1);
+  if (!wanted.length) return [];
+  // coalesce contiguous byte ranges into as few file reads as possible
+  const spans = [];
+  for (const s of wanted){
+    const last = spans[spans.length - 1];
+    if (last && s.off === last.off + last.len && last.len < 8e6) last.len += s.size;
+    else spans.push({ off: s.off, len: s.size });
+  }
+  const buffers = await Promise.all(spans.map(sp =>
+    dmx.file.slice(sp.off, sp.off + sp.len).arrayBuffer().then(b => new Uint8Array(b))));
+  let spanIdx = 0, spanPos = 0;
+  return wanted.map(s => {
+    if (spanPos + s.size > buffers[spanIdx].length){ spanIdx++; spanPos = 0; }
+    const data = buffers[spanIdx].slice(spanPos, spanPos + s.size);
+    spanPos += s.size;
+    return { data, dur: s.dur, t: s.t };
+  });
+}
+
+function makeAsc(sampleRate, channels){
+  let fi = ASC_RATES.indexOf(sampleRate);
+  if (fi < 0) fi = 4;                            // 44100 fallback
+  return new Uint8Array([ (2 << 3) | (fi >> 1), ((fi & 1) << 7) | (channels << 3) ]);
+}
+
+async function aacEncodeSupported(sampleRate, channels){
+  try {
+    if (!window.AudioEncoder) return false;
+    const r = await AudioEncoder.isConfigSupported({ codec:'mp4a.40.2', sampleRate,
+      numberOfChannels: channels, bitrate: 128000 });
+    return !!(r && r.supported);
+  } catch(e){ return false; }
+}
+
+/* segments: [{type:'silence'|'media', frames, t?}] mirroring the video frames pushed.
+   Returns an audio track for buildMp4, {silentReason} for a known fallback, or null. */
+async function buildFastAudio(segments, tIn, tOut, totalFrames, FPS){
+  try {
+    if (!currentFile || !totalFrames) return null;
+    const dmx = await demuxMp4Audio(currentFile);
+    if (!dmx || !dmx.samples.length) return null;
+    const rate = dmx.sampleRate;
+    const ch = Math.min(2, dmx.channels || 1);
+    const pureMedia = segments.length === 1 && segments[0].type === 'media';
+
+    if (tOut - tIn > 600){                       // whole-game exports: keep memory sane
+      if (!pureMedia) return { silentReason: 'long' };
+      const packets = await extractAudioPackets(dmx, tIn - 0.012, tOut);
+      if (!packets.length) return null;
+      return { samples: packets.map(p => ({ data: p.data, dur: p.dur })),
+               asc: dmx.asc, sampleRate: dmx.timescale, channels: dmx.channels };
+    }
+    if (!(await aacEncodeSupported(rate, ch))){
+      if (!pureMedia) return { silentReason: 'encoder' };
+      const packets = await extractAudioPackets(dmx, tIn - 0.012, tOut);
+      if (!packets.length) return null;
+      return { samples: packets.map(p => ({ data: p.data, dur: p.dur })),
+               asc: dmx.asc, sampleRate: dmx.timescale, channels: dmx.channels };
+    }
+
+    // decode the clip's range: wrap the AAC packets in a tiny audio-only mp4
+    // and let the platform decoder handle it
+    const packets = await extractAudioPackets(dmx, Math.max(0, tIn - 0.25), Math.min(tOut + 0.3, 1e9));
+    if (!packets.length) return null;
+    const pcmStart = packets[0].t;
+    const wrap = buildMp4(null, { samples: packets.map(p => ({ data: p.data, dur: p.dur })),
+      asc: dmx.asc, sampleRate: dmx.timescale, channels: dmx.channels });
+    const oac = new OfflineAudioContext({ numberOfChannels: ch, length: 8, sampleRate: rate });
+    const abuf = await new Promise((res, rej) => {
+      const p = oac.decodeAudioData(wrap.buffer, res, rej);
+      if (p && p.then) p.then(res, rej);
+    });
+
+    // assemble the export's PCM timeline, sample-exact
+    const totalOut = Math.round(totalFrames / FPS * rate);
+    const planes = Array.from({ length: ch }, () => new Float32Array(totalOut));
+    let w = 0;
+    for (const seg of segments){
+      const n = Math.round(seg.frames / FPS * rate);
+      if (seg.type === 'media'){
+        const srcOff = Math.max(0, Math.round((seg.t - pcmStart) * rate));
+        for (let c = 0; c < ch; c++){
+          const src = abuf.getChannelData(Math.min(c, abuf.numberOfChannels - 1));
+          const avail = Math.max(0, Math.min(n, src.length - srcOff, totalOut - w));
+          planes[c].set(src.subarray(srcOff, srcOff + avail), w);
+        }
+      }
+      w += n;
+    }
+
+    // AAC-encode the assembled timeline
+    const outSamples = [];
+    let asc = null, encErr = null;
+    const enc = new AudioEncoder({
+      output: (chunk, meta) => {
+        if (!asc && meta && meta.decoderConfig && meta.decoderConfig.description)
+          asc = new Uint8Array(meta.decoderConfig.description);
+        const d = new Uint8Array(chunk.byteLength);
+        chunk.copyTo(d);
+        outSamples.push({ data: d, dur: 1024 });
+      },
+      error: e => { encErr = e; },
+    });
+    enc.configure({ codec:'mp4a.40.2', sampleRate: rate, numberOfChannels: ch, bitrate: 128000 });
+    const BLOCK = 4800;
+    for (let off = 0; off < totalOut && !encErr; off += BLOCK){
+      const n = Math.min(BLOCK, totalOut - off);
+      const data = new Float32Array(n * ch);
+      for (let c = 0; c < ch; c++) data.set(planes[c].subarray(off, off + n), c * n);
+      const ad = new AudioData({ format:'f32-planar', sampleRate: rate, numberOfFrames: n,
+        numberOfChannels: ch, timestamp: Math.round(off / rate * 1e6), data });
+      enc.encode(ad); ad.close();
+    }
+    await enc.flush(); enc.close();
+    if (encErr || !outSamples.length) return { silentReason: 'encoder' };
+    return { samples: outSamples, asc: asc || makeAsc(rate, ch), sampleRate: rate, channels: ch };
+  } catch(err){ console.warn('fast-export audio failed', err); return null; }
 }
 
 /* ---------------- help ---------------- */
