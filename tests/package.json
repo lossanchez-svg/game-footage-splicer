@@ -1,0 +1,12 @@
+{
+  "name": "filmroom-tests",
+  "private": true,
+  "description": "Playwright smoke tests for Film Room (../index.html)",
+  "scripts": {
+    "fixtures": "./make-fixtures.sh",
+    "test": "node smoke.js && node tracking.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}
