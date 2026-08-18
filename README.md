@@ -179,6 +179,12 @@ recovery…), general defensive principles, format notes from 5v5 to 11v11 — a
 **questions to ask him instead of telling him**, ending every session with
 *2 things he did well, 1 thing to work on — in his own words*.
 
+### 👀 Comfort mode
+The **Aa** button in the top bar makes everything bigger — text, buttons, tabs,
+tooltips, the lot — and remembers your choice. Messages also stay on screen longer so
+there's time to read them. The dark theme meets WCAG AA contrast throughout, and every
+control shows a clear focus ring when you move through the app with the keyboard.
+
 ## Keyboard shortcuts
 
 | Key | Action |

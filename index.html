@@ -15,7 +15,7 @@
   :root{
     --bg:#0d1117; --bg2:#161b22; --bg3:#1f2630; --line:#2d333b;
     --text:#e6edf3; --dim:#8b949e; --accent:#2ea043; --accent2:#58a6ff;
-    --pos:#3fb950; --neg:#f85149; --neu:#8b949e; --warn:#d29922;
+    --pos:#3fb950; --neg:#f85149; --neu:#8b949e; --warn:#d29922; --accent-btn:#1a7f37;
     --radius:8px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -31,14 +31,21 @@
   button{font:inherit; color:inherit; background:var(--bg3); border:1px solid var(--line);
     border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap; touch-action:manipulation;}
   button:hover{background:#2b3340;}
-  button.primary{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;}
-  button.primary:hover{background:#38b155;}
+  /* --accent stays the bright brand green for borders and marks; text sits on the
+     darker --accent-btn so white-on-green clears WCAG AA (4.5:1) */
+  button.primary{background:var(--accent-btn); border-color:var(--accent-btn); color:#fff; font-weight:600;}
+  button.primary:hover{background:#1c883b; border-color:#1c883b;}
   button.active{background:var(--accent2); border-color:var(--accent2); color:#04121f; font-weight:600;}
   button.danger:hover{background:#5c1f1f; border-color:var(--neg);}
   button:disabled{opacity:.4; cursor:default;}
   input,select,textarea{font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line);
     border-radius:6px; padding:5px 8px;}
-  input:focus,select:focus,textarea:focus{outline:1px solid var(--accent2);}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent2);}
+  /* keyboard users must always be able to see where they are */
+  :focus-visible{outline:3px solid #79c0ff; outline-offset:2px; border-radius:6px;}
+  button:focus-visible,summary:focus-visible,.chip:focus-visible,.colorChip:focus-visible,
+  #tabs button:focus-visible,#timeline:focus-visible{outline:3px solid #79c0ff; outline-offset:2px;}
+  ::placeholder{color:#8b949e; opacity:1;}
   ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-thumb{background:#333c48;border-radius:6px}
 
   /* ---------- Top bar ---------- */
@@ -265,6 +272,39 @@
     padding:6px 2px; font-size:13px;}
   #tourSkip:hover{background:none; color:var(--text);}
 
+  /* ---------- comfort mode: bigger type and bigger targets, app-wide ---------- */
+  body.bigText{font-size:17px;}
+  body.bigText button,body.bigText input,body.bigText select,body.bigText textarea{font-size:17px;}
+  body.bigText button{padding:10px 16px;}
+  body.bigText .miniBtn{font-size:15px; padding:8px 13px;}
+  body.bigText .speedBtn{font-size:15px; padding:9px 12px;}
+  body.bigText .chip{font-size:15px; padding:7px 14px;}
+  body.bigText .colorChip{width:34px; height:34px; padding:0;}
+  body.bigText .toolGrid button{font-size:14px; padding:11px 4px;}
+  body.bigText .toolGrid button .ico{font-size:19px;}
+  body.bigText .hint,body.bigText .timeTag,body.bigText .fieldRow label,
+  body.bigText .cmpLabel,body.bigText .clipItem .tag,body.bigText .clipItem .notes,
+  body.bigText .section h4,body.bigText .tagGroup h5{font-size:15px;}
+  body.bigText #timecode{font-size:16px; min-width:180px;}
+  body.bigText .clipItem .title,body.bigText .annItem .lbl{font-size:16px;}
+  body.bigText #tabs button{font-size:16px; padding:14px 4px;}
+  body.bigText #sidebar{width:400px;}
+  body.bigText #topbar .logo{font-size:19px;}
+  body.bigText #videoName{font-size:14px;}
+  body.bigText #tipBubble{font-size:17px; max-width:min(360px,90vw);}
+  body.bigText #tourBubble{width:min(400px,92vw);}
+  body.bigText #tourBubble .msg{font-size:18px;}
+  body.bigText #tourBubble .step{font-size:13px;}
+  body.bigText .toast{font-size:17px; padding:13px 20px;}
+  body.bigText #panel-coach .body,body.bigText #panel-coach summary,
+  body.bigText #helpBox p,body.bigText #helpBox li,body.bigText #helpBox td{font-size:16px;}
+  body.bigText #dropHint .sub{font-size:16px;}
+  body.bigText #watchBanner .who{font-size:20px;}
+  body.bigText #watchBanner .who small{font-size:15px;}
+  body.bigText #watchStart{font-size:20px; padding:15px 28px;}
+  body.bigText #timeline{height:54px;}
+  #btnTextSize.active{background:var(--accent2); border-color:var(--accent2); color:#04121f; font-weight:700;}
+
   .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
     background:var(--bg3); border:1px solid var(--line); border-radius:8px; padding:9px 16px;
     z-index:120; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px; transition:opacity .3s; }
@@ -314,6 +354,7 @@
   <button id="btnSaveProj" data-tip="Save all his clips and drawings into one small file you can back up or move to another computer. Your work is already saved automatically here.">💾 Save project</button>
   <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
   <div class="divider"></div>
+  <button id="btnTextSize" data-tip="Make everything on screen bigger — text, buttons, everything. Press it again to go back to normal.">Aa</button>
   <button id="btnHelp" data-tip="How everything works, plus a button to run the walkthrough again.">❓ Help</button>
   <input type="file" id="fileVideo" accept="video/*,.mov,.mp4,.m4v,.webm" hidden>
   <input type="file" id="fileProj" accept=".json,.filmroom" hidden>
@@ -885,7 +926,18 @@ function fmtT(t){
   const m = Math.floor(t/60), s = t%60;
   return m + ':' + (s<10?'0':'') + s.toFixed(2);
 }
+let bigText = false;
+function setTextSize(big){
+  bigText = !!big;
+  document.body.classList.toggle('bigText', bigText);
+  $('#btnTextSize').classList.toggle('active', bigText);
+  try { localStorage.setItem('filmroom:textSize', bigText ? 'large' : 'normal'); } catch(e){}
+  layout();
+  if (typeof tourPlace === 'function') tourPlace();
+}
+
 function toast(msg, ms=2200){
+  if (bigText) ms = Math.round(ms * 1.6);   // more words on screen, more time to read them
   const el = document.createElement('div');
   el.className = 'toast'; el.textContent = msg;
   document.body.appendChild(el);
@@ -4094,6 +4146,9 @@ $$('.modal').forEach(m => tourWatch.observe(m, { attributes:true, attributeFilte
   tourWatch.observe(el, { attributes:true, attributeFilter:['style'] }));
 $('#tourSkip').onclick = () => endTour(false);
 $('#helpTour').onclick = () => { $('#helpModal').classList.remove('open'); startTour(true); };
+
+$('#btnTextSize').onclick = () => setTextSize(!bigText);
+setTextSize(localStorage.getItem('filmroom:textSize') === 'large');
 
 startTour(false);
 </script>

@@ -116,12 +116,23 @@ for the visit; finishing a session hides it too; reopening the game offers it ag
 Session screens got the XL treatment (26px headings, 28px questions, 56px-tall buttons,
 17px inputs) so they read from a sofa. Verified by `tests/watch.js` (15 checks).
 
-### Workstream E — comfort & accessibility
+### ✅ Workstream E — comfort & accessibility — SHIPPED
 - "Aa" text-size toggle (normal / large) persisted; large mode bumps base font and
   control padding app-wide.
 - Contrast audit to WCAG AA on the dark theme; visible keyboard focus states.
 - Longer toast duration in large mode.
 Tests: toggle persists; spot-check computed font sizes.
+**Shipped:** an **Aa** button in the top bar switches the whole app between normal and
+large — base font 14→17px, buttons taller and wider, small print, tabs, tooltips, the
+walkthrough bubble and the watch banner all scale — persisted in `filmroom:textSize`,
+and toasts stay on screen 1.6× longer in large mode. Contrast: white-on-green primary
+buttons were 3.4:1, so text now sits on a darker `--accent-btn` (#1a7f37, 4.5:1) while
+`--accent` stays the bright brand green for borders and marks; placeholders pinned to a
+passing grey. Keyboard focus shows a 3px `:focus-visible` ring on every control.
+Verified by `tests/comfort.js` (21 checks) — including a real WCAG AA audit that walks
+every visible text node on every screen (both text sizes, both tabs, Help, the
+save-clip dialog, the watch banner, the walkthrough bubble and tooltips), computing the
+effective background and the correct threshold for large vs normal text.
 
 ### Workstream F — friction backlog from real use (fix while in there)
 - Deleting anything offers **Undo in the toast** (replace `confirm()` dialogs where the
@@ -467,6 +478,8 @@ device-aware intake flow:
 | 2026-08-18 | Frame rate hides under "Advanced"; everything else is spelled out | It is the only genuinely technical setting left, and it only affects two buttons — burying it costs nothing and removes the one piece of jargon from the main transport bar |
 | 2026-08-18 | The jargon ban is enforced by a test, not by review | Wording drifts back in with every feature; `tests/plainwords.js` sweeps the rendered DOM and the toast literals so a regression fails the suite |
 | 2026-08-18 | The watch banner is dismissed per visit, never permanently | It is an offer, not a notification: someone who came to edit dismisses it once, and the next person to open the game still finds the session waiting |
+| 2026-08-18 | Primary-button green split into `--accent` (marks) and `--accent-btn` (text backgrounds) | White on the brand green measured 3.4:1 — below AA. Darkening only the button background keeps the brand colour everywhere it carries no text |
+| 2026-08-18 | Contrast is enforced by a computed-style audit in the test suite | A one-off manual audit rots on the next feature; the audit walks real rendered text, so new screens are covered automatically |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions
