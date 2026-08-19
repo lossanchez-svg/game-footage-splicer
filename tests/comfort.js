@@ -180,7 +180,16 @@ const CONTRAST_AUDIT = `(() => {
           tags: ['Heavy / poor touch'], notes: '', position: 'Winger', format: '9v9' },
         { id: 'c', tIn: 6, tOut: 8, title: 'Worth talking about', rating: 'neutral',
           tags: ['High-IQ play'], notes: '', position: 'Winger', format: '9v9' },
-      ], sessions: [],
+      ], sessions: [
+        { when: '2026-03-02', title: 'Week 1',
+          entries: [{ clipId: 'a', title: 'Great scan', question: 'What did you see first?',
+                      answer: 'i looked before it came' }],
+          wentWell: ['scanned early'], workOn: 'first touch toward space' },
+        { when: '2026-03-09', title: 'Week 2',
+          entries: [{ clipId: 'a', title: 'Great scan', question: 'What did you see first?',
+                      answer: 'their six was stepping so i went round him' }],
+          wentWell: [], workOn: 'first touch toward space' },
+      ],
     }));
   });
   await page.click('#btnTrends');
@@ -189,6 +198,8 @@ const CONTRAST_AUDIT = `(() => {
   bad = await page.evaluate(CONTRAST_AUDIT);
   check('the progress dashboard meets WCAG AA' + (bad.length ? ' — ' + bad.join(' | ') : ''),
     bad.length === 0);
+  check('his answers actually rendered, so the audit above covered them',
+    await page.$$eval('#trendBody .said', els => els.length) >= 2);
   await page.click('#trendClose');
 
   // ---- the two onboarding surfaces are audited too ----

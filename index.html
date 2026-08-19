@@ -280,6 +280,22 @@
   body.bigText .trendItem .txt{font-size:15px;}
   .trendEmpty{color:var(--dim); font-size:13px;}
 
+  /* his own words, session over session */
+  .qGroup{background:var(--bg3); border:1px solid var(--line); border-radius:var(--radius);
+    padding:11px 13px; margin-bottom:8px;}
+  .qGroup .qText{font-size:13px; font-weight:600; margin-bottom:8px;}
+  .said{display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:baseline;
+    padding:5px 0 5px 10px; border-left:2px solid var(--line);}
+  .said + .said{margin-top:2px;}
+  .said.latest{border-left-color:var(--accent);}
+  .said .when{color:var(--dim); font-size:11px; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .said .words{font-size:13px; color:#c9d1d9;}
+  .said.latest .words{color:var(--text);}
+  .said .tagNow{color:var(--accent); font-size:11px; text-transform:uppercase; letter-spacing:.6px;}
+  body.bigText .qGroup .qText{font-size:15px;}
+  body.bigText .said .words{font-size:15px;}
+  body.bigText .said .when, body.bigText .said .tagNow{font-size:13px;}
+
   /* ---------- "this week's session is ready" front door ---------- */
   #watchBanner{display:none; align-items:center; gap:14px; flex-wrap:wrap;
     padding:14px 18px; background:linear-gradient(90deg,#15301d,#161b22);
@@ -4263,7 +4279,7 @@ async function collectGames(){
     name: p.videoName,
     date: p.videoDate || savedAtOf(p) || 0,
     clips: p.clips || [],
-    sessions: (p.sessions || []).length,
+    sessions: p.sessions || [],
   })).sort((a, b) => a.date - b.date);
 }
 
@@ -4317,7 +4333,7 @@ function renderTrends(){
   }
 
   const counts = countBy(clips);
-  const sessions = games.reduce((n, g) => n + g.sessions, 0);
+  const sessions = games.reduce((n, g) => n + g.sessions.length, 0);
   const strengthPct = Math.round(counts.positive / clips.length * 100);
   const when = d => d ? new Date(d).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '';
   $('#trendScope').textContent = games.length > 1
@@ -4372,7 +4388,116 @@ function renderTrends(){
   /* ---- the actual trend: early games vs recent ones ---- */
   html += renderMovement(games);
 
+  /* ---- what he said, session over session ---- */
+  html += renderSaidInsights(games);
+
   host.innerHTML = html;
+}
+
+/* Every session entry that he actually answered, flattened across games and put
+   in date order. The position/format filter still applies: an entry is kept when
+   its clip matches, so "Showing: Striker" scopes his answers too. */
+function sessionEntries(games){
+  const out = [];
+  const filtering = !!(ui.trendPos || ui.trendFmt);
+  for (const g of games){
+    const byId = new Map(g.clips.map(c => [c.id, c]));
+    for (const sess of g.sessions || []){
+      for (const e of sess.entries || []){
+        if (filtering && !byId.has(e.clipId)) continue;   // filtered out, or the clip is gone
+        out.push({ when: sess.when || '', game: g.name, title: e.title || '',
+                   question: e.question || '', answer: (e.answer || '').trim() });
+      }
+    }
+  }
+  return out.sort((a, b) => (a.when < b.when ? -1 : a.when > b.when ? 1 : 0));
+}
+
+function sessionRecaps(games){
+  const out = [];
+  for (const g of games)
+    for (const sess of g.sessions || [])
+      if (sess.workOn || (sess.wentWell || []).length)
+        out.push({ when: sess.when || '', title: sess.title || '',
+                   workOn: sess.workOn || '', wentWell: sess.wentWell || [] });
+  return out.sort((a, b) => (a.when < b.when ? 1 : a.when > b.when ? -1 : 0));   // newest first
+}
+
+const niceDate = w => {
+  const t = Date.parse(w);
+  return isNaN(t) ? w : new Date(t).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+};
+
+/* "Asked before / sees it now": the same question, answered in more than one
+   session. Read in order, that IS his game-reading changing — in his words,
+   which is the whole point of asking before showing him the film. */
+function renderSaidInsights(games){
+  const entries = sessionEntries(games);
+  const answered = entries.filter(e => e.answer);
+
+  let html = `<div class="trendSection"><h4>In his own words</h4>`;
+
+  if (!entries.length)
+    return html + `<div class="why">Nothing here yet. Press <b>🎓 Watch together</b> on this week's set: each clip asks its question first, and anything he says gets kept here.</div></div>`;
+
+  const share = Math.round(answered.length / entries.length * 100);
+  html += `<div class="why">He has been asked ${entries.length} question${entries.length === 1 ? '' : 's'} across your sessions and answered ${answered.length} of them in writing (${share}%). The rest he talked out loud — those are not lost, they are just not written down.</div>`;
+
+  /* group by the question itself */
+  const norm = q => q.toLowerCase().replace(/[^a-z0-9 ]+/g, '').replace(/\s+/g, ' ').trim();
+  const groups = new Map();
+  for (const e of answered){
+    const k = norm(e.question);
+    if (!k) continue;
+    if (!groups.has(k)) groups.set(k, { question: e.question, said: [] });
+    groups.get(k).said.push(e);
+  }
+  const repeats = [...groups.values()].filter(g => g.said.length > 1)
+    .sort((a, b) => (b.said[b.said.length - 1].when || '').localeCompare(a.said[a.said.length - 1].when || ''));
+
+  if (repeats.length){
+    html += `<div class="why" style="margin-top:12px;color:var(--text)"><b>Asked before, and again since</b></div>
+      <div class="why">Read each one top to bottom.</div>`;
+    for (const grp of repeats.slice(0, 5)){
+      html += `<div class="qGroup"><div class="qText">🧠 ${escapeHtml(grp.question)}</div>`;
+      grp.said.forEach((e, i) => {
+        const latest = i === grp.said.length - 1;
+        html += `<div class="said${latest ? ' latest' : ''}">
+          <span class="when">${escapeHtml(niceDate(e.when))}</span>
+          <span class="words">“${escapeHtml(e.answer)}”${latest && grp.said.length > 1 ? ' <span class="tagNow">most recent</span>' : ''}</span>
+        </div>`;
+      });
+      html += '</div>';
+    }
+  } else if (answered.length) {
+    html += `<div class="qGroup"><div class="qText">Ask the same question again in a later session</div>
+      <div class="why" style="margin:0">When a question he has answered before comes round a second time, both answers show up here side by side — that comparison is the clearest picture you can get of his game-reading changing.</div></div>`;
+  }
+
+  /* the most recent thing he actually said, when there is no repeat yet */
+  if (!repeats.length && answered.length){
+    const last = answered[answered.length - 1];
+    html += `<div class="qGroup"><div class="qText">🧠 ${escapeHtml(last.question)}</div>
+      <div class="said latest"><span class="when">${escapeHtml(niceDate(last.when))}</span>
+      <span class="words">“${escapeHtml(last.answer)}” <span class="tagNow">most recent</span></span></div></div>`;
+  }
+
+  html += '</div>';
+
+  /* ---- the work-on thread ---- */
+  const recaps = sessionRecaps(games);
+  if (recaps.length){
+    html += `<div class="trendSection"><h4>What you said to work on</h4>
+      <div class="why">The one thing from the end of each session, newest first. Repeats are the point — that is the thing that has not moved yet.</div>
+      <div class="trendList">`;
+    for (const r of recaps.slice(0, 8)){
+      const well = r.wentWell.length ? ` <span style="color:var(--dim)">· went well: ${escapeHtml(r.wentWell.join(', '))}</span>` : '';
+      html += `<div class="trendItem"><span class="dir">🔧</span><span class="txt"><b>${escapeHtml(niceDate(r.when))}</b> — ${escapeHtml(r.workOn || '(nothing written down)')}${well}</span></div>`;
+    }
+    html += '</div></div>';
+  }
+
+  return html;
 }
 
 /* Split the games in half by date and compare how often each tag appears, per
