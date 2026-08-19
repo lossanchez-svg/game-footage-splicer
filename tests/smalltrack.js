@@ -460,6 +460,82 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
   });
   check('a tracking report is offered after a run', rep);
 
+  /* ---- following him by hand must work for the whole play ----
+     Reported as "I move the ring to track with the player, but it disappears
+     after a few seconds". A spotlight inherited the four-second lifetime meant
+     for arrows and scribbles, so a ring dropped at 0:00 simply stopped being
+     drawn at 0:04 — and pinning him later than that recorded the pin while
+     showing nothing, which makes tracking him by hand impossible. */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'small.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const hbox = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(250);
+
+  await page.click('#toolGrid button[data-tool=spot]');
+  const h0 = him(0);
+  await page.mouse.move(hbox.x + hbox.width * h0.x, hbox.y + hbox.height * h0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+
+  const life = await page.evaluate(() => {
+    const a = window.__filmroom.getProject().annotations[0];
+    return { start: a.tStart, end: a.tEnd };
+  });
+  check(`a new spotlight lasts a play, not four seconds ` +
+    `(${life.start.toFixed(1)}s to ${life.end.toFixed(1)}s)`, life.end - life.start > 7);
+
+  // now follow him by hand, past where the old four-second life ended, by
+  // dragging the ring onto him the way anyone would
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  for (const t of [2, 5, 7]){
+    await page.evaluate(t => { document.querySelector('#video').currentTime = t; }, t);
+    await page.waitForTimeout(250);
+    const from = await page.evaluate(t => {
+      const a = window.__filmroom.getProject().annotations[0];
+      return window.__filmroom.spotPos(a, t);
+    }, t);
+    const to = him(t);
+    await page.mouse.move(hbox.x + hbox.width * from.x, hbox.y + hbox.height * from.y);
+    await page.mouse.down();
+    await page.mouse.move(hbox.x + hbox.width * to.x, hbox.y + hbox.height * to.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+  }
+  const pinned = await page.evaluate(() => {
+    const a = window.__filmroom.getProject().annotations[0];
+    return { end: a.tEnd, keys: a.keys.length,
+             shownAt7: 7 >= a.tStart && 7 <= a.tEnd,
+             at7: window.__filmroom.spotPos(a, 7) };
+  });
+  check(`dragging him along leaves the ring on screen at 7s (visible to ${pinned.end.toFixed(1)}s, ${pinned.keys} points)`,
+    pinned.shownAt7 && pinned.keys >= 3);
+  const want7 = him(7);
+  const dErr = Math.hypot(pinned.at7.x - want7.x, pinned.at7.y - want7.y);
+  check(`and the ring is where it was dragged (err ${dErr.toFixed(3)})`, dErr < 0.05);
+
+  /* Once the ring stops being drawn there is no way to drag it back — it is not
+     on screen to grab. "Pin him here" is the way out of that, so it has to
+     stretch the ring's life rather than record a point nobody can see. */
+  await page.evaluate(() => {
+    const a = window.__filmroom.getProject().annotations[0];
+    a.tEnd = 3;                        // as if an end had been set early
+  });
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 6; });
+  await page.waitForTimeout(250);
+  await page.click('#selKeyHere');
+  await page.waitForTimeout(200);
+  const after = await page.evaluate(() => window.__filmroom.getProject().annotations[0].tEnd);
+  check(`and Pin him here past the end stretches it rather than vanishing (${after.toFixed(1)}s)`,
+    after >= 5.9);
+
+
   console.log('\n--- errors collected:', errors.length);
   errors.forEach(e => console.log('  ', e));
   await browser.close();
