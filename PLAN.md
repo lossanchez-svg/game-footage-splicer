@@ -445,6 +445,26 @@ counted.
 Verified by `tests/trends.js` (28 checks) over a synthetic six-game season; the dashboard
 is also now part of the WCAG AA contrast sweep in `tests/comfort.js`.
 
+### ✅ v2.3 — session insights (shipped)
+The session log had been accumulating his answers since v1.7 and nothing ever read them
+back. **📈 Progress** now ends with two sections built from them:
+- **In his own words** — how many questions he has been asked across every session and
+  how many he answered in writing, then the flagship: **"asked before, and again since"**.
+  Questions are grouped by their own text (normalised for case and punctuation) and any
+  question answered in **two or more** sessions shows both answers in date order, oldest
+  first, newest marked *most recent*. Read top to bottom, that is his game-reading
+  changing in his own words — which is the entire reason the session builder asks before
+  it shows him the film. A question answered once is never dressed up as a trend; when
+  there is no repeat yet, the section says plainly what to do to create one.
+- **What you said to work on** — the closing line of every session, newest first, with
+  what went well riding along. Repeats are the signal, and the copy says so.
+- Unwritten answers are described as *talked out loud — not lost*, so the percentage
+  never reads as him having failed to answer.
+- The position/format filter scopes these too (entries are matched back to their clip),
+  so "Showing: Striker" narrows what he was asked, not just the bars above.
+Verified by `tests/insights.js` (17 checks), including that his free text is escaped
+rather than rendered, and the styling is inside the WCAG AA sweep in `tests/comfort.js`.
+
 ## Roadmap
 
 ### Next (in order)
@@ -467,8 +487,7 @@ is also now part of the WCAG AA contrast sweep in `tests/comfort.js`.
 - [ ] Voice-over recording on exports (mic + AAC mux — the audio pipeline exists).
 - [ ] Reel export straight to the reel from compare/board content (title cards already
       exist; boards could render as interstitial cards).
-- [ ] Session insights: surface week-over-week patterns from the session log (his
-      answers already accumulate; even a simple "asked before / sees it now" view).
+- [x] Session insights — shipped, see v2.3 below.
 
 ### Known refinements (smaller, pick up alongside other work)
 - [ ] Realtime (🔊) export produces webm in Chrome — either label the tradeoff more
@@ -592,6 +611,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-18 | The trend view compares early vs recent games as per-game rates, not raw counts | The two halves of a season rarely hold the same number of games, so raw counts would report "more heavy touches" purely because you broke down more film in October |
 | 2026-08-18 | "What is changing" is prose, not a chart | It is the one insight a parent acts on, and a sentence ("about 2 a game early on, 0 a game lately") is read where a dumbbell chart is decoded; the bars above already carry the magnitudes |
 | 2026-08-18 | The dashboard reads localStorage *and* the Games folder sidecars | v2.1 made the folder the cross-device source of truth; a season view that ignored it would under-report every game broken down on the other computer |
+| 2026-08-19 | "Asked before / sees it now" groups by the question text, and needs two *answered* instances | The question is the stable key across games — clips differ every week. Requiring two answers keeps the section honest: one answer is a record, two is a comparison, and only the comparison tells you anything |
+| 2026-08-19 | Unanswered questions are reported as "talked out loud — not lost" | Most film-session answers are spoken, not typed. A bare "3 of 8 answered" would read as the kid failing to participate when in fact the app simply was not the place he said it |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions

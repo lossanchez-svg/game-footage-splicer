@@ -187,6 +187,17 @@ how many games and moments, what share are strengths, a bar for every game in da
 the labels that come up most — and, once there are four games, **what is changing**:
 *"Heavy / poor touch — coming up less often: about 2 a game early on, 0 a game lately."*
 
+It ends with **his own words**: when the same question comes round in a later session,
+both answers sit side by side in date order —
+
+> *Mar 2* — "i dunno i just passed it"
+> *Mar 22* — "i looked over my shoulder first so i knew the 9 was open"
+
+That comparison is the clearest picture you can get of his game-reading changing, and it
+is why the session builder asks before it shows him the film. Underneath it, the one
+thing you said to work on at the end of each session, newest first — repeats are the
+point.
+
 That last part is the bit no highlight service can tell you, because it comes from the
 things **you** chose to name. Filter by position or format, and **⬇ Spreadsheet** exports
 every saved moment as a CSV for Numbers, Excel or Sheets.
