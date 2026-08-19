@@ -267,14 +267,11 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
   for (const t of [1, 3, 5]){
     const got = await faintAt(t), want = faint(t);
     const err = Math.hypot(got.x - want.x, got.y - want.y);
-    /* REOPENED REGRESSION, recorded rather than hidden. This read 0.004 at
-       t=5 in v3.0 and reads 0.039 now. v3.1 changed patch selection to fix a
-       failure evidenced three times on real footage (the template was never
-       mostly the player), and on this synthetic clip — solid blocks, no body
-       structure, a same-coloured decoy at walking pace — the change costs
-       accuracy late on. The bound is held here so it stays visible. */
-    check(`holds the faint player through the crossing, t=${t} (err ${err.toFixed(3)})`,
-      err < (t >= 5 ? 0.05 : 0.03));
+    /* Was 0.446 originally, 0.008 after the ensemble landed, then 0.163 when
+       v3.1 changed patch selection — recorded as a reopened regression at the
+       time. Closed again in v3.3 by refusing matches that hang off the edge of
+       the picture and by letting the size ladder reach genuinely small patches. */
+    check(`holds the faint player through the crossing, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
   }
   // and the template is cut to his outline rather than to a square of ground
   const fEns = await page.evaluate(() => window.__filmroom.trackReport.spots[0].ensemble);
@@ -292,11 +289,8 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      room around it closed it. */
   const fEnd = await faintAt(7), fWant = faint(7);
   const endErr = Math.hypot(fEnd.x - fWant.x, fEnd.y - fWant.y);
-  /* Same reopened regression: 0.008 in v3.0, 0.163 now, against 0.446 before
-     any of this work. Better than where it started, worse than its best, and
-     the trade was made knowingly for the real-footage failure. */
-  check(`known gap — a walking-pace look-alike steals it late on ` +
-    `(err ${endErr.toFixed(3)} at t=7; 0.446 originally, 0.008 at its best)`, endErr < 0.20);
+  check(`and still on him at the end, past the walking-pace look-alike ` +
+    `(err ${endErr.toFixed(3)} at t=7, was 0.446)`, endErr < 0.03);
 
   /* ---- and a player with an actual body ----
      Every other fixture's "player" is a solid rectangle, which is exactly the

@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.2</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.3</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2213,7 +2213,13 @@ async function autoTrack(arg, dir = 1){
      small player survives, and a small ring still asks for more. */
   const rMin = Math.min(...st.map(x => x.spot.r || 0.035));
   const hiRes = Math.min(1280, video.videoWidth || 1280);
-  const W = Math.round(clamp(20 / rMin, Math.min(960, hiRes), hiRes));
+  /* Work at the footage's own resolution. `20/rMin` asked for "enough pixels for
+     a ring this size", which assumes the ring is sized to the player — and the
+     case that keeps failing is exactly the one where it is not. A default ring
+     around a distant player asked for 571px and got 960 from a 1280 source,
+     throwing away a quarter of the linear detail on a subject about ten pixels
+     wide. There is nothing to gain by shrinking him further. */
+  const W = hiRes;
   const H = Math.round(W * video.videoHeight / video.videoWidth);
   trackCanvas.width = W; trackCanvas.height = H;
   const grab = () => { trackCtx.drawImage(video, 0, 0, W, H); return trackCtx.getImageData(0, 0, W, H); };
@@ -2252,6 +2258,21 @@ async function autoTrack(arg, dir = 1){
     let ss = 0;
     for (let i = 0; i < raw.length; i++){ z[i] = raw[i] - mean[i % 3]; ss += z[i]*z[i]; }
     return { z, norm: Math.sqrt(Math.max(ss, 1e-6)) };
+  }
+  /* How much of this patch would actually land on the picture? nccAt clamps its
+     reads, so a template hanging off the edge of the frame re-reads the last row
+     or column — a smear that correlates with itself beautifully. The search
+     window is already clipped to the frame, but the PATCH was not: the ring
+     ended one real run pinned to the left edge at x = 0.000 for three seconds,
+     scoring 0.98 on a template that was mostly replicated edge pixels. A match
+     that is largely off the picture is not a match. */
+  function onScreenFrac(cx, cy, spread, P){
+    const x0 = cx - P.w*spread, x1 = cx + P.w*spread;
+    const y0 = cy + (P.oy - P.h)*spread, y1 = cy + (P.oy + P.h)*spread;
+    const iw = Math.max(0, Math.min(x1, W-1) - Math.max(x0, 0));
+    const ih = Math.max(0, Math.min(y1, H-1) - Math.max(y0, 0));
+    const tw = Math.max(1e-6, x1 - x0), th = Math.max(1e-6, y1 - y0);
+    return (iw / tw) * (ih / th);
   }
   function nccAt(img, T, cx, cy, spread, P){    // per-channel-centered ZNCC, -1..1
     let s0 = 0, s1 = 0, s2 = 0, q0 = 0, q1 = 0, q2 = 0, sxy = 0, i = 0, n = 0;
@@ -2405,7 +2426,7 @@ async function autoTrack(arg, dir = 1){
   }
 
   function pickPatch(img, cx, cy, ringR, search){
-    const base = r0 => clamp(Math.round(r0 * W * 1.15), 5, 28);
+    const base = r0 => clamp(Math.round(r0 * W * 1.15), 4, 28);
     const cand = [];
     const reach = Math.round(search * 1.6);
 
@@ -2439,7 +2460,7 @@ async function autoTrack(arg, dir = 1){
        the player rather than the field, so a smaller one has to win clearly. */
     let best = null;
     const tried = [];
-    for (const f of [1, 0.7, 0.5, 0.35, 0.22]){
+    for (const f of [1, 0.7, 0.5, 0.35, 0.22, 0.14, 0.09]){
       const k = base((ringR || 0.035) * f);
       if (tried.includes(k)) continue;
       tried.push(k);
@@ -2702,7 +2723,9 @@ async function autoTrack(arg, dir = 1){
            good one — which is not hypothetical: two squares outvoted the
            template cut to the player's own outline at a crossing and took the
            ring with them. A vote has to be earned. */
-        if (m.ncc >= c.accept) votes.push({ c, m, wgt: (m.ncc - c.accept + 0.02) * c.trust });
+        c.seen = onScreenFrac(m.x, m.y, x.spread, c.P);
+        if (m.ncc >= c.accept && c.seen > 0.6)
+          votes.push({ c, m, wgt: (m.ncc - c.accept + 0.02) * c.trust });
       }
       /* Where they agree — and when they split, the side that continues his
          motion wins. A player carries on doing roughly what he was doing; a
@@ -5099,7 +5122,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v3.2';
+const APP_BUILD = 'v3.3';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),

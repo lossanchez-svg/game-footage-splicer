@@ -906,6 +906,40 @@ the drags at 5s and 7s do nothing because the ring is not on screen to grab, and
 
 Suite: 446 checks green.
 
+### ✅ v3.3 — the edge of the picture, and an edit that never shipped (shipped)
+The v3.2 report carried the number v3.1 was built to produce: **`bestPeak: 0.639`**. That
+is the best any template could manage at finding him one frame later, against 0.93–0.98
+on the fixtures — so no patch on the list is mostly the player, which is what every report
+has said. Two concrete things came out of it.
+
+**An edit that never shipped.** The report says `working: 960` from a 1280 source. v3.1
+claimed to have stopped downscaling and had not: the edit script that made that change hit
+an `AssertionError` on a *later* substitution and aborted **before writing the file**, and
+only part of it was reapplied. The claim was in the commit message, the PLAN entry and the
+PR, and none of it was true. Multi-edit scripts now get their result checked rather than
+their exit line read.
+
+**The ring ended pinned to the left edge** — `x: 0.000` for the last three seconds of the
+clip, scoring 0.98 with all three templates agreeing. `bestMatch`'s search window was
+clipped to the frame in v2.9.2, but the *patch* never was: `nccAt` clamps its reads, so a
+template hanging off the edge re-reads the last column, and a smear correlates with itself
+beautifully. A vote now requires the template to be at least 60% on the picture.
+
+Also: the size ladder reaches genuinely small patches (down to `0.09 × ring`, floor 4),
+because its smallest was still about twice the player's width on the footage that fails.
+
+Closing this **also closed the regression v3.1 reopened**: `faint.webm`'s late look-alike
+goes 0.163 → **0.006**, back under the strict bound, and the tests are strict again.
+
+| clip | v3.2 | v3.3 |
+| --- | --- | --- |
+| `faint` late look-alike | 0.039 / **0.163** | 0.002 / **0.006** |
+| `dim` | 0.002 0.008 0.002 | 0.001 0.007 0.005 |
+| `canopy`, `body`, `small`, `trees`, `pan`, `crowd` | — | unchanged |
+| `exit` | lost at 4.625s | lost at 4.625s |
+
+Suite: 446 checks green.
+
 ## Roadmap
 
 ### Next (in order)
@@ -1059,6 +1093,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | A template must be substantially on the picture for its match to count | nccAt clamps its reads, so a patch hanging off the edge re-reads the last column and correlates with its own smear at 0.98. The search window was clipped to the frame long ago; the patch never was, and the ring finished a real run pinned to x = 0.000 |
+| 2026-08-19 | Multi-edit scripts are verified by their effect, not their exit line | An AssertionError on a later substitution aborted a script before it wrote the file, so a change that was described in a commit message, a PLAN entry and a PR simply did not exist. The report caught it two builds later |
 | 2026-08-19 | A spotlight lasts a play; arrows and scribbles keep the four-second default | They are different kinds of object. One marks a moment, the other follows a player through one, and sharing a lifetime meant the ring stopped being drawn while the player was still running |
 | 2026-08-19 | Putting a point on a spotlight stretches its visible range to include it | Marking where he is is a statement that he is there. Recording it while showing nothing is incoherent, and once the ring is not drawn it cannot be grabbed, so there was no way back |
 | 2026-08-19 | Patches are scored by peak-to-sidelobe margin on the next frame | Distinctiveness is biased toward contrast, raw next-frame score toward tiny crops, and each put a useless template in charge on real footage. What a tracker needs is a patch that matches him much better than it matches anything nearby, which is one subtraction and is the thing both proxies were failing to stand in for |
