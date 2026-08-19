@@ -49,6 +49,9 @@ node continuity.js     # cross-device continuity: the project written next to it
                        # in the Games folder, a second device picking it up, newest-wins
                        # when both have work, and silent fallback when the folder is
                        # read-only or the video came from somewhere else
+node trends.js         # progress dashboard: cross-game totals from localStorage and the
+                       # Games folder, a bar per game in date order, most-used labels,
+                       # early-vs-recent movement, filters, and the CSV export
 FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264 + AAC:
                           # ffmpeg-encoded samples through buildMp4(), round-tripped
                           # through the app's demuxMp4Audio(), probe + full decode

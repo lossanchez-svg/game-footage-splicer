@@ -144,14 +144,19 @@ const CONTRAST_AUDIT = `(() => {
   await page.click('#clipCancel');
 
   // ---- keyboard focus is visible ----
-  await page.evaluate(() => document.body.focus());
-  await page.keyboard.press('Tab');
-  await page.waitForTimeout(120);
-  const focus = await page.evaluate(() => {
-    const el = document.activeElement;
-    const st = getComputedStyle(el);
-    return { on: el.id || el.tagName, width: parseFloat(st.outlineWidth), style: st.outlineStyle };
-  });
+  await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
+  let focus = null;
+  for (let i = 0; i < 6 && !focus; i++){
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(80);
+    focus = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body || el === document.documentElement) return null;
+      const st = getComputedStyle(el);
+      return { on: el.id || el.tagName, width: parseFloat(st.outlineWidth), style: st.outlineStyle };
+    });
+  }
+  focus = focus || { on: 'nothing', width: 0, style: 'none' };
   check(`tabbing to a control shows a visible ring (${focus.on}: ${focus.width}px ${focus.style})`,
     focus.width >= 2 && focus.style !== 'none');
 
@@ -162,6 +167,29 @@ const CONTRAST_AUDIT = `(() => {
     return reachable.length;
   });
   check('the top bar and transport are keyboard reachable (' + tabbed + ' controls)', tabbed > 10);
+
+  // ---- the progress dashboard, with real data in it ----
+  await page.evaluate(() => {
+    localStorage.setItem('filmroom:season1.mp4:100', JSON.stringify({
+      version: 1, videoName: 'season1.mp4', videoKey: 'filmroom:season1.mp4:100',
+      videoDate: Date.UTC(2026, 2, 1), savedAt: '2026-03-01T00:00:00.000Z',
+      annotations: [], clips: [
+        { id: 'a', tIn: 0, tOut: 2, title: 'Great scan', rating: 'positive',
+          tags: ['Scanned before receiving'], notes: '', position: 'Winger', format: '9v9' },
+        { id: 'b', tIn: 3, tOut: 5, title: 'Touch got away', rating: 'negative',
+          tags: ['Heavy / poor touch'], notes: '', position: 'Winger', format: '9v9' },
+        { id: 'c', tIn: 6, tOut: 8, title: 'Worth talking about', rating: 'neutral',
+          tags: ['High-IQ play'], notes: '', position: 'Winger', format: '9v9' },
+      ], sessions: [],
+    }));
+  });
+  await page.click('#btnTrends');
+  await page.waitForSelector('#trendModal.open');
+  await page.waitForTimeout(400);
+  bad = await page.evaluate(CONTRAST_AUDIT);
+  check('the progress dashboard meets WCAG AA' + (bad.length ? ' — ' + bad.join(' | ') : ''),
+    bad.length === 0);
+  await page.click('#trendClose');
 
   // ---- the two onboarding surfaces are audited too ----
   await page.evaluate(() => {
