@@ -62,6 +62,9 @@ node voice.js          # voice-over: recording over a clip (stubbed mic emitting
                        # WAV), storage in IndexedDB rather than the project file, and the
                        # export timeline inspected as PCM — the narration plays, goes
                        # quiet under a question freeze, and resumes after it
+node bundle.js         # season bundles: the hand-rolled zip opened by a REAL unzip
+                       # (listing + checksum test), what is packed, the readme, and the
+                       # packed project loading back into the app. Needs `unzip` on PATH
 FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264 + AAC:
                           # ffmpeg-encoded samples through buildMp4(), round-tripped
                           # through the app's demuxMp4Audio(), probe + full decode
