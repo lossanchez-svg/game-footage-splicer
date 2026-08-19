@@ -101,6 +101,9 @@ The best path depends on the device — each one leads with its strongest option
   spotlight panel right after a run and send the JSON file — it records what the tracker
   saw (match scores, patch sizes, positions) so the failure can be read as numbers. It
   contains no video and no frames.
+  The tracker holds itself to a bar measured from your own footage — if the grass
+  around him can impersonate him, the bar goes up to match — and it will tell you it
+  lost him rather than follow the field and claim a clean run.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.

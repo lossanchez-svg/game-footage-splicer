@@ -80,3 +80,19 @@ Notes
   Chrome/Safari play mp4/mov fine — this is a test-environment limitation only.
 - The app exposes `window.__filmroom` (`getProject()`, `spotPos()`) for assertions.
 - Exit code 0 = all green; anything printed as `FAIL`/collected error is a real problem.
+
+### Fixture difficulty
+
+The synthetic fixtures are easier than real film, and it matters. Measured
+distinctiveness (how well a default-ring patch tells itself apart from the field):
+`small` 0.812, `pan` 0.869, `trees` 0.742, `exit` 0.799 — all matching at 0.96+.
+A real far-sideline clip that defeated the tracker measured **0.489**, matching in the
+0.6-0.8 band. Three rounds of reproduction fixtures passed because of that gap.
+
+`faint.webm` is built to the measurement instead: muddy 5x13 smudges on noisy textured
+grass, three of them crossing at the same depth, largest candidate patch scoring 0.43.
+It reproduced the failure on the first run. `exit.webm` covers a player who simply runs
+out of shot, where the only honest answers are "inside the picture" and "lost him".
+
+When adding a tracking fixture, check what it actually scores
+(`window.__filmroom.trackReport`) before trusting that it reproduces anything.
