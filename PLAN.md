@@ -728,6 +728,43 @@ This also closed the gap left open one build earlier: the walking-pace look-alik
 `multitrack` crossing errors moved from 0.003/0.001 to 0.019/0.019 — still well inside
 tolerance, and the only numbers anywhere that got worse.
 
+### ✅ v2.9.6 — "it follows him for a second, then stops" (shipped)
+Reported straight after v2.9.5 went live. **Reproduced and fixed: a clip out-point
+silently bounded every auto-track run.** Mark a moment with **End clip here** at 0:01 —
+which is the ordinary way anyone saves a clip — and from then on every "Follow him from
+here" stopped at 0:01, reporting a cheerful *"Followed him for 1.0 seconds"*. That is the
+same sentence the tracker prints on a successful run, so there was no way to tell a
+boundary nobody could see from a tracker that had given up. This is the four-second trap
+of v2.5 wearing a different hat, and it is the second time an invisible bound has been
+mistaken for a broken tracker.
+- "Follow him from here" means follow him. Only an end set **on this spotlight** may stop
+  it early now; clip in/out marks no longer bound it at all.
+- When a run does end before the clip does, the finish message says **why** and what to
+  do — the spotlight's own end, or the 25-second-per-go cap.
+- `trackLimitFor` returns a reason alongside the time, and the reason is in the report as
+  `stopBecause`, so a short run explains itself without anyone having to guess.
+
+Two further defects found while chasing this, both real, both fixed, and both — stated
+plainly — **behaviour-neutral on all eight fixtures**, so neither is evidenced as the
+thing the user hit:
+- **A runaway outline fit.** `fitPlayer` walked out to 90px looking for the edge of him,
+  and on a crowded pitch him, the next player, a shadow and the far sideline are one
+  connected blob, so it could return a box 365px across. A walk that never reaches open
+  ground now refuses to answer, and the square ladder decides instead. `crowd.webm`
+  covers it.
+- **Cumulative drift against an unreachable floor.** The anchor guard incremented below
+  `bg*0.8` but only reset above a *higher* `bg+0.05`, so a run hovering between the two
+  never cleared its counter and hit the limit within a second however well it was
+  matching. Drift is now strictly consecutive, its floor is calibrated from what the
+  anchor actually achieves over the first second, and `MAX_COAST` goes 5 → 10 so a player
+  behind someone else for a second is not given up on.
+Also measured and **rejected**: warming up the *accept* bar the same way. It made
+`dim.webm` markedly worse (err 0.004 → 0.190), because on hard footage a high bar is
+doing useful work — it refuses bad matches and coasts on prediction instead. The accept
+bar keeps its impostor-derived value.
+
+Suite: 432 checks green.
+
 ## Roadmap
 
 ### Next (in order)
@@ -881,6 +918,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | Clip in/out marks no longer bound an auto-track run | "Follow him from here" means follow him. A clip end marked minutes earlier stopped every run at that point and reported it in the same words as a successful run, which is indistinguishable from a broken tracker — the four-second trap of v2.5 in a new form |
+| 2026-08-19 | A run that ends early names the boundary that ended it | The failure was never that the run was short; it was that "Followed him for 1.0 seconds" is the same sentence whether it hit a boundary or gave up. A duration alone is not a diagnosis |
+| 2026-08-19 | The accept bar is NOT warm-up calibrated, though the anchor floor is | Measured: lowering it to what the template achieves made hard footage markedly worse (err 0.004 → 0.190), because a high bar refuses bad matches and coasts on prediction instead. A change that looks symmetrical is not automatically right on both sides |
 | 2026-08-19 | The template is a box fitted to the player, not a square centred on the ring | Same-kit team-mates are identical in colour, so shape is the only thing left to match on, and a square either misses his body or fills with the ground beside him — 92% field on the clip that failed. Fitting his actual extent is measurable per clip; guessing an aspect ratio is not |
 | 2026-08-19 | The fitted box carries twice his measured size | A skin-tight body box failed exactly as the square did (err 0.405): a template holding only the player has no surroundings to hold position with and slides onto the next player in the same kit. x2.5 breaks other clips, so the margin is a measured optimum, not a direction to push |
 | 2026-08-19 | Distinctiveness sets the accept bar but no longer picks the patch shape | It is size-biased — smaller always separates from grass better — so it scored a whole-body box below a torso-sized square that tracked far worse. A proxy metric that disagrees with the outcome it is proxying for should not be the one deciding |

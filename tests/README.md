@@ -100,6 +100,12 @@ rectangle — no stance, no legs, no gap between them — which makes them usele
 question about matching a player's shape. A square template fails this clip at err 0.142
 (t=5) and 0.403 (t=7).
 
+`crowd.webm` packs five players within a few dozen pixels under a dark sideline band —
+where "everything that is not grass" is one connected blob and the outline fit has to
+refuse rather than return the lot. `dim.webm` is one isolated player on ground textured
+enough that even a box cut to him scores poorly, which is where a threshold derived only
+from the background outruns what the tracker can actually achieve.
+
 When adding a tracking fixture, check what it actually scores
 (`window.__filmroom.trackReport`) before trusting that it reproduces anything — and
 check that its player is shaped like a player if shape is what you are testing.

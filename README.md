@@ -108,6 +108,9 @@ The best path depends on the device — each one leads with its strongest option
   it measures how much of the picture he actually fills and cuts the template to that,
   which is what keeps it on your son rather than on the team-mate in the identical kit
   running the other way.
+  **Auto-track runs until it loses him, whatever you have marked.** Clip start/end marks
+  do not cut it short. The only thing that stops it early is an end you set on that
+  spotlight with **Disappears here** — and if that happens, it tells you so.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.

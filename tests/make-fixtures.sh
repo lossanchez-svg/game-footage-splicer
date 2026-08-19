@@ -135,3 +135,40 @@ b='50+8*sin(X/9)+5*sin(Y/5)'" \
 [b3][8]overlay=x='430-44*t+5+2*sin(8*t)':y='184+5*cos(1.2*t)'[b4];\
 [b4]noise=alls=9:allf=t" \
   -c:v libvpx-vp9 -b:v 1200k fixtures/body.webm
+
+# 8s "crowd" fixture: five players packed within a few dozen pixels of each
+# other, half in one kit and half in the other, under a dark band like a far
+# sideline. This is where fitting a box to "everything here that is not grass"
+# runs away: him, the team-mate beside him, a shadow and the sideline are one
+# connected blob, and the fit has to refuse rather than return the lot.
+"$FFMPEG" -y -f lavfi -i "nullsrc=s=640x360:r=30:d=8,geq=\
+r='if(lt(Y,96), 26+18*sin(X/6), 44+10*sin(X/7)+7*sin(Y/4))':\
+g='if(lt(Y,96), 48+22*sin(X/8), 124+30*sin(X/7)+20*sin(Y/4))':\
+b='if(lt(Y,96), 30+12*sin(X/5), 54+11*sin(X/7)+7*sin(Y/4))'" \
+  -f lavfi -i "color=c=0x6e4a3a:s=6x18:r=30:d=8" -f lavfi -i "color=c=0x8a8f74:s=6x18:r=30:d=8" \
+  -f lavfi -i "color=c=0x6a4a40:s=6x18:r=30:d=8" -f lavfi -i "color=c=0x8b9078:s=6x18:r=30:d=8" \
+  -f lavfi -i "color=c=0x70483c:s=6x18:r=30:d=8" \
+  -filter_complex "[0][1]overlay=x='120+38*t':y='150+8*sin(1.5*t)'[a];\
+[a][2]overlay=x='150+34*t':y='158+6*cos(1.1*t)'[b];\
+[b][3]overlay=x='96+40*t':y='170+7*sin(1.9*t)'[c];\
+[c][4]overlay=x='168+30*t':y='140+5*sin(0.8*t)'[d];\
+[d][5]overlay=x='138+44*t':y='186+6*cos(1.6*t)'[e];\
+[e]noise=alls=12:allf=t" \
+  -c:v libvpx-vp9 -b:v 1400k fixtures/crowd.webm
+
+# 8s "dim" fixture: one isolated player with a body, on ground textured strongly
+# enough that a box cut to him still scores poorly against it. This is the case
+# where a threshold derived only from the background rises towards its ceiling
+# while the scores the tracker can actually achieve do not.
+"$FFMPEG" -y -f lavfi -i "nullsrc=s=640x360:r=30:d=8,geq=\
+r='46+22*sin(X/4)+18*sin(Y/3)+10*sin((X-Y)/7)':\
+g='120+40*sin(X/4)+30*sin(Y/3)+16*sin((X-Y)/7)':\
+b='56+20*sin(X/4)+16*sin(Y/3)'" \
+  -f lavfi -i "color=c=0xd8b48c:s=4x4:r=30:d=8"  -f lavfi -i "color=c=0x8a2b2b:s=8x10:r=30:d=8" \
+  -f lavfi -i "color=c=0x2f3a58:s=3x9:r=30:d=8"  -f lavfi -i "color=c=0x2f3a58:s=3x9:r=30:d=8" \
+  -filter_complex "[0][1]overlay=x='102+40*t':y='168+6*sin(1.5*t)'[a1];\
+[a1][2]overlay=x='100+40*t':y='172+6*sin(1.5*t)'[a2];\
+[a2][3]overlay=x='100+40*t+1+2*sin(9*t)':y='182+6*sin(1.5*t)'[a3];\
+[a3][4]overlay=x='100+40*t+5-2*sin(9*t)':y='182+6*sin(1.5*t)'[a4];\
+[a4]noise=alls=13:allf=t" \
+  -c:v libvpx-vp9 -b:v 1400k fixtures/dim.webm
