@@ -604,6 +604,26 @@ barely stands out the finish message says so and points at **Ring −**.
 `tracking.js` and `hardtrack.js` report unchanged errors (0.002–0.004), so the v1.4 tuning
 is intact. New `tests/smalltrack.js` (8 checks) is the regression: err 0.373 → **0.002**.
 
+### ✅ v2.9.1 — the update that never arrived (shipped)
+A retest of the v2.9 tracker fix reported the same failure. The tracker was not the
+reason: **`sw.js` served the app cache-first**, refreshing in the background, so every
+deploy reached a returning visitor **one visit late**. Anyone testing a fix ran the code
+from before it, saw the same bug, and reasonably concluded the fix had not worked. This is
+the worst possible failure mode for a hosted single-file app that gets iterated on.
+- The app shell (`/` and `/index.html`) is now **network-first**, with the cache as the
+  offline fallback; everything else stays cache-first. Cache name bumped so the old
+  worker is replaced.
+- A **build stamp** (`v2.9`) sits next to the logo in the top bar, so any screenshot or
+  screen recording answers "which build is this?" without anyone having to guess. Also on
+  `window.__filmroom.build`.
+- **Note for the next report:** the previously-installed worker still serves one stale
+  load before the new one takes over, so a single hard reload is needed once; after that
+  it self-corrects.
+Also added `tests/fixtures/pan.webm` and four checks in `smalltrack.js`: a **panning
+camera**, where the grass streams past while the player drifts slowly in frame — the case
+where a grass-heavy template would follow the field. The v2.9 tracker holds it at err
+0.005, so panning is not a remaining failure mode.
+
 ## Roadmap
 
 ### Next (in order)
@@ -749,6 +769,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-18 | The trend view compares early vs recent games as per-game rates, not raw counts | The two halves of a season rarely hold the same number of games, so raw counts would report "more heavy touches" purely because you broke down more film in October |
 | 2026-08-18 | "What is changing" is prose, not a chart | It is the one insight a parent acts on, and a sentence ("about 2 a game early on, 0 a game lately") is read where a dumbbell chart is decoded; the bars above already carry the magnitudes |
 | 2026-08-18 | The dashboard reads localStorage *and* the Games folder sidecars | v2.1 made the folder the cross-device source of truth; a season view that ignored it would under-report every game broken down on the other computer |
+| 2026-08-19 | The app shell is served network-first, not cache-first | Cache-first meant every fix arrived a visit late, so a user testing a fix ran the code from before it. Being one version stale is far more damaging than the one request network-first costs, and the cache still covers going offline |
+| 2026-08-19 | The build version is visible in the top bar | Two debugging rounds were spent unable to tell whether a report came from the fixed code. A stamp in every screenshot removes that whole class of ambiguity |
 | 2026-08-19 | The tracking patch is chosen by distinctiveness, not taken from the ring | The ring marks WHERE the player is; on zoomed-out film it says nothing about how big he is, and a template that is 97% grass matches grass everywhere at 0.9 confidence. Measuring how well the surrounding field can impersonate each candidate size picks a patch that is actually about the player |
 | 2026-08-19 | `bestMatch` prefers candidates near the prediction | Team-mates in the same kit are indistinguishable to a template matcher, so an equal-scoring look-alike crossing the window would take the ring and the tracker would follow the wrong player, confidently and silently. A distance penalty on the choice (never on the reported score) makes an impostor have to be clearly better |
 | 2026-08-19 | Candidate patches below an RMS-contrast floor are rejected | A patch entirely inside one flat-coloured object has zero variance and correlates with nothing — it scores 0 even against the player it was cut from. Caught only because it broke an existing suite |

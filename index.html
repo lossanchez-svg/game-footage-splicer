@@ -53,6 +53,9 @@
     background:var(--bg2); border-bottom:1px solid var(--line); flex-wrap:wrap;}
   #topbar .logo{font-weight:700; font-size:16px; margin-right:4px; letter-spacing:.3px;}
   #topbar .logo span{color:var(--accent);}
+  #buildTag{color:var(--dim); font-size:11px; font-variant-numeric:tabular-nums;
+    border:1px solid var(--line); border-radius:10px; padding:1px 7px;}
+  body.bigText #buildTag{font-size:13px;}
   #videoName{color:var(--dim); font-size:12px; max-width:220px; overflow:hidden;
     text-overflow:ellipsis; white-space:nowrap;}
   #continuity{color:var(--pos); font-size:12px; white-space:nowrap;}
@@ -429,6 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v2.9</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -4633,7 +4637,8 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-window.__filmroom = { getProject: () => project, spotPos, version: 1,
+const APP_BUILD = 'v2.9';
+window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
   drawBoardCard,
