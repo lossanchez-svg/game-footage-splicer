@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v2.9.4</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v2.9.5</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2201,11 +2201,20 @@ async function autoTrack(arg, dir = 1){
   const S = 2;                                   // pixel sampling stride inside the patch
   const cx0 = v => clamp(Math.round(v), 0, W-1), cy0 = v => clamp(Math.round(v), 0, H-1);
 
-  function extractPatch(img, cx, cy, spread, ph){
+  /* The sampled patch is a BOX, not a square. Same-kit team-mates are the same
+     player to a template matcher — colour cannot separate them, so the only
+     thing left is shape, and a person is upright. A square centred on the ring
+     spends half its area on the ground beside and below him and captures a
+     stripe of torso; an upright box the proportions of a body captures his
+     stance, his legs, the gap between them and his outline against the grass.
+     `oy` shifts the box off the ring centre, because the ring marks where he is
+     standing and his body is above it. Which box is actually best is measured
+     per clip in pickPatch rather than assumed here. */
+  function extractPatch(img, cx, cy, spread, P){
     const out = [];
-    for (let dy = -ph; dy <= ph; dy += S)
-      for (let dx = -ph; dx <= ph; dx += S){
-        const o = (cy0(cy + dy*spread)*W + cx0(cx + dx*spread)) * 4;
+    for (let dy = -P.h; dy <= P.h; dy += S)
+      for (let dx = -P.w; dx <= P.w; dx += S){
+        const o = (cy0(cy + (dy + P.oy)*spread)*W + cx0(cx + dx*spread)) * 4;
         out.push(img.data[o], img.data[o+1], img.data[o+2]);
       }
     return Float32Array.from(out);
@@ -2224,11 +2233,11 @@ async function autoTrack(arg, dir = 1){
     for (let i = 0; i < raw.length; i++){ z[i] = raw[i] - mean[i % 3]; ss += z[i]*z[i]; }
     return { z, norm: Math.sqrt(Math.max(ss, 1e-6)) };
   }
-  function nccAt(img, T, cx, cy, spread, ph){    // per-channel-centered ZNCC, -1..1
+  function nccAt(img, T, cx, cy, spread, P){    // per-channel-centered ZNCC, -1..1
     let s0 = 0, s1 = 0, s2 = 0, q0 = 0, q1 = 0, q2 = 0, sxy = 0, i = 0, n = 0;
-    for (let dy = -ph; dy <= ph; dy += S)
-      for (let dx = -ph; dx <= ph; dx += S){
-        const o = (cy0(cy + dy*spread)*W + cx0(cx + dx*spread)) * 4;
+    for (let dy = -P.h; dy <= P.h; dy += S)
+      for (let dx = -P.w; dx <= P.w; dx += S){
+        const o = (cy0(cy + (dy + P.oy)*spread)*W + cx0(cx + dx*spread)) * 4;
         let v = img.data[o];   s0 += v; q0 += v*v; sxy += T.z[i++]*v;
         v = img.data[o+1];     s1 += v; q1 += v*v; sxy += T.z[i++]*v;
         v = img.data[o+2];     s2 += v; q2 += v*v; sxy += T.z[i++]*v;
@@ -2255,21 +2264,21 @@ async function autoTrack(arg, dir = 1){
      shot would otherwise be "found" a hundred pixels below the picture, at a
      confident-looking score, with the ring parked off-screen for the rest of
      the clip. Off the frame is not a place he can be. */
-  function bestMatch(img, T, cx, cy, radius, spread, ph){
+  function bestMatch(img, T, cx, cy, radius, spread, P){
     let best = -2, bestRaw = -2, bx = clamp(cx, 0, W-1), by = clamp(cy, 0, H-1);
     const r2 = Math.max(1, radius * radius);
     const xa = Math.max(0, cx - radius), xb = Math.min(W-1, cx + radius);
     const ya = Math.max(0, cy - radius), yb = Math.min(H-1, cy + radius);
     for (let y = ya; y <= yb; y += 3)
       for (let x = xa; x <= xb; x += 3){
-        const raw = nccAt(img, T, x, y, spread, ph);
+        const raw = nccAt(img, T, x, y, spread, P);
         const dx = x - cx, dy = y - cy;
         const s = raw - NEAR_BIAS * Math.sqrt((dx*dx + dy*dy) / r2);
         if (s > best){ best = s; bestRaw = raw; bx = x; by = y; }
       }
     for (let y = Math.max(0, by-2); y <= Math.min(H-1, by+2); y++)
       for (let x = Math.max(0, bx-2); x <= Math.min(W-1, bx+2); x++){
-        const raw = nccAt(img, T, x, y, spread, ph);
+        const raw = nccAt(img, T, x, y, spread, P);
         const dx = x - cx, dy = y - cy;
         const s = raw - NEAR_BIAS * Math.sqrt((dx*dx + dy*dy) / r2);
         if (s > best){ best = s; bestRaw = raw; bx = x; by = y; }
@@ -2288,46 +2297,159 @@ async function autoTrack(arg, dir = 1){
      itself apart from the field around it?" A grass-dominated patch matches its
      own neighbourhood almost perfectly and scores nothing; a patch sitting on
      the player does not. Pick the one that stands out most. */
+  /* Find how much of the picture he actually occupies, rather than assuming.
+     Same-kit team-mates cannot be told apart by colour, so the only thing left
+     is his shape — and a shape is only useful if the template is actually cut to
+     it. A square is wrong twice over: fit his width and it misses his body, fit
+     his height and it fills with the ground either side. Both were measured: on
+     a clip with a proper silhouette a square lost him at t=5 (err 0.142, then
+     0.403), while a box cut to his body held to err 0.004.
+
+     So: take the field colour from a ring of ground well outside him, mark every
+     nearby pixel that differs from it, and grow out from where the ring was
+     dropped for as long as those marks continue — tolerating a gap or two, since
+     shorts and socks in a lighter colour break a player in half. What comes back
+     is his outline in this frame. If nothing coherent is there (a player too
+     small or too faint to separate from the field), it returns null and the
+     square ladder decides instead. */
+  function fitPlayer(img, cx, cy, ringR){
+    const reach = clamp(Math.round((ringR || 0.035) * W * 2.4), 8, 90);
+    const at = (x, y) => { const o = (cy0(y)*W + cx0(x)) * 4; return [img.data[o], img.data[o+1], img.data[o+2]]; };
+
+    // field colour: a ring of ground beyond any reasonable player
+    const rs = [[], [], []];
+    for (let a = 0; a < 32; a++){
+      const th = a / 32 * Math.PI * 2;
+      for (const rr of [reach * 1.1, reach * 1.4]){
+        const c = at(cx + Math.cos(th)*rr, cy + Math.sin(th)*rr);
+        rs[0].push(c[0]); rs[1].push(c[1]); rs[2].push(c[2]);
+      }
+    }
+    const med = a => { const b = a.slice().sort((p, q) => p - q); return b[b.length >> 1]; };
+    const field = [med(rs[0]), med(rs[1]), med(rs[2])];
+    // how much the ground varies from itself, so the threshold suits this pitch
+    const devs = rs[0].map((_, i) => Math.abs(rs[0][i]-field[0]) + Math.abs(rs[1][i]-field[1]) + Math.abs(rs[2][i]-field[2]));
+    const thr = Math.max(30, med(devs) * 3);
+    const off = (x, y) => { const c = at(x, y); return Math.abs(c[0]-field[0]) + Math.abs(c[1]-field[1]) + Math.abs(c[2]-field[2]) > thr; };
+
+    // how wide is he, at the height the ring was dropped? then how tall, over
+    // that width. Two passes, because a leg is narrow and a torso is not.
+    const span = (stepX, stepY, wide) => {
+      let last = 0, gap = 0;
+      for (let d = 1; d <= reach; d++){
+        let hit = false;
+        for (let o = -wide; o <= wide && !hit; o++)
+          hit = stepX ? off(cx + d*stepX, cy + o) : off(cx + o, cy + d*stepY);
+        if (hit){ last = d; gap = 0; }
+        else if (++gap > 3) break;                 // shorts, socks, a shadow gap
+      }
+      return last;
+    };
+    if (!off(cx, cy) && !off(cx, cy - 2) && !off(cx, cy + 2)) return null;  // nothing here
+    const wL = span(-1, 0, 1), wR = span(1, 0, 1);
+    const halfW = Math.max(wL, wR, 1);
+    const up = span(0, -1, halfW), dn = span(0, 1, halfW);
+    if (up + dn < 4) return null;                  // too small to be a body
+    const h = Math.max(3, Math.round((up + dn) / 2) + 1);
+    const w = Math.max(3, halfW + 1);
+    if (h / w > 6 || w / h > 3) return null;        // not a person-shaped thing
+    /* Cut to his shape, but not skin-tight. A box holding only the player has
+       nothing around it to hold position with and slides onto the next player in
+       the same kit; a box big enough to see the ground he is standing on is
+       anchored. Measured on the silhouette clip: skin-tight lost him exactly as
+       a square did (err 0.405 at t=7), the same shape with room around it held
+       to 0.004. The margin is what the tracker needs; the shape is what keeps
+       that margin from being almost all field. */
+    const M = 2.0;
+    return { w: Math.max(3, Math.round(w * M)), h: Math.max(4, Math.round(h * M)),
+             oy: Math.round((dn - up) / 2) };
+  }
+
   function pickPatch(img, cx, cy, ringR, search){
     const base = r0 => clamp(Math.round(r0 * W * 1.15), 5, 28);
-    const tried = [], cand = [];
-    let best = null;
-    for (const f of [1, 0.7, 0.5, 0.35, 0.22]){
-      const ph = base((ringR || 0.035) * f);
-      if (tried.includes(ph)) continue;
-      tried.push(ph);
-      const T = prepTemplate(extractPatch(img, cx, cy, 1, ph));
+    const cand = [];
+    const reach = Math.round(search * 1.6);
+
+    /* How well could the FIELD around him impersonate this template? Probing a
+       few fixed points is not enough — the tracker sweeps a neighbourhood and
+       will happily settle wherever mown stripes or noise line up. So sweep it
+       the same way and take the best impostor found anywhere outside him. */
+    const rate = P => {
+      const T = prepTemplate(extractPatch(img, cx, cy, 1, P));
       /* A patch small enough to sit entirely inside one flat-coloured thing has
          no internal contrast at all, and a template with no variance correlates
          with nothing — it would score 0 against the player himself. Such a
          candidate is unusable however "distinct" it looks. */
-      const rms = T.norm / Math.sqrt(Math.max(1, T.z.length));
-      if (rms < 5){
-        if (window.__patchDebug) window.__patchDebug.push({ f, ph, rms: +rms.toFixed(2), skipped: 'featureless' });
-        continue;
-      }
-      /* How well could the FIELD around him impersonate this template? Probing a
-         few fixed points is not enough — the tracker sweeps a neighbourhood and
-         will happily settle wherever mown stripes or noise line up. So sweep it
-         the same way and take the best impostor found anywhere outside him. */
+      if (T.norm / Math.sqrt(Math.max(1, T.z.length)) < 5) return null;
       let bg = -1;
-      const reach = Math.round(search * 1.6);
-      const keepOut = Math.max(ph * 2, 6);
+      const keepOutX = Math.max(P.w * 2, 6), keepOutY = Math.max(P.h * 2, 6);
       for (let dy = -reach; dy <= reach; dy += 3)
         for (let dx = -reach; dx <= reach; dx += 3){
-          if (Math.abs(dx) < keepOut && Math.abs(dy) < keepOut) continue;
-          const sc = nccAt(img, T, cx + dx, cy + dy, 1, ph);
+          if (Math.abs(dx) < keepOutX && Math.abs(dy) < keepOutY) continue;
+          const sc = nccAt(img, T, cx + dx, cy + dy, 1, P);
           if (sc > bg) bg = sc;
         }
-      const distinct = 1 - bg;
-      // prefer the largest patch that is still clearly not the field: a bigger
-      // template is steadier, but only once it is actually about the player
-      if (!best || distinct > best.distinct + 0.08) best = { ph, distinct };
-      cand.push({ ph, distinct: +distinct.toFixed(3) });
-      if (window.__patchDebug) window.__patchDebug.push({ f, ph, bg: +bg.toFixed(3), distinct: +distinct.toFixed(3) });
+      return 1 - bg;
+    };
+    const note = (P, distinct, how) => {
+      cand.push({ w: P.w, h: P.h, oy: P.oy, shape: how, distinct: +distinct.toFixed(3) });
+    };
+
+    /* Stage 1 — how big? Square boxes at the ring's size and a series of tighter
+       ones. A bigger template is steadier, but only once it is actually about
+       the player rather than the field, so a smaller one has to win clearly. */
+    let best = null;
+    const tried = [];
+    for (const f of [1, 0.7, 0.5, 0.35, 0.22]){
+      const k = base((ringR || 0.035) * f);
+      if (tried.includes(k)) continue;
+      tried.push(k);
+      const P = { w: k, h: k, oy: 0 };
+      const distinct = rate(P);
+      if (distinct == null) continue;
+      note(P, distinct, 'square');
+      if (!best || distinct > best.distinct + 0.08) best = { P, distinct };
     }
-    // everything was featureless: fall back to the ring the user drew
-    return Object.assign(best || { ph: base(ringR || 0.035), distinct: 0 }, { cand });
+    if (!best) return { P: { w: base(ringR || 0.035), h: base(ringR || 0.035), oy: 0 }, distinct: 0, cand };
+
+    /* Stage 2 — what shape? Everyone on the pitch wears the same kit, so colour
+       cannot tell team-mates apart and the tracker swaps players. Shape can: a
+       person is upright, and his outline against the grass, his stance and the
+       gap between his legs are a far more specific thing to match than a square
+       of torso. A square either fits his width and misses his body, or fits his
+       height and fills up with the ground either side of him — on the footage
+       that failed, a 57x57 square around a player about 10x26 pixels was 92%
+       field. So the body boxes are sized to his HEIGHT, which is taller than the
+       ring is wide, rather than to whichever small square won above. Both
+       offsets are tried, because the ring may sit at his feet or across his
+       middle depending on where it was dropped, and guessing which is how the
+       square ended up mostly grass in the first place. */
+    const fitted = fitPlayer(img, cx, cy, ringR);
+    if (fitted){
+      const d = rate(fitted);
+      if (d != null){
+        note(fitted, d, 'his actual outline');
+        /* This one is not judged on distinctiveness, which is a size-biased
+           measure — a smaller patch always separates from grass better, so it
+           would veto any box cut to a whole player. It was measured directly
+           instead: on the silhouette clip it takes err at t=7 from 0.403 to
+           0.004, and where it is wrong it does not fire at all. */
+        best = { P: fitted, distinct: d, fitted: true };
+      }
+    }
+    const k0 = base(ringR || 0.035);
+    if (!best.fitted) for (const hf of [1.4, 1.0, 0.7])
+      for (const oyf of [0, -0.45]){
+        const h = Math.round(k0 * hf);
+        const P = { w: Math.max(3, Math.round(h * 0.42)), h, oy: Math.round(h * oyf) };
+        const distinct = rate(P);
+        if (distinct == null) continue;
+        note(P, distinct, oyf ? 'body, reaching up' : 'body');
+        // the square is the incumbent: a body-shaped box takes over only if it
+        // is clearly better, never on a coin toss
+        if (distinct > best.distinct + 0.08) best = { P, distinct };
+      }
+    return { P: best.P, distinct: best.distinct, cand };
   }
 
   pushUndo();
@@ -2347,7 +2469,7 @@ async function autoTrack(arg, dir = 1){
     x.baseSearch = clamp(Math.round(W * 0.06), 14, 80);
     const chosen = pickPatch(img, cx0(spotPos(spot, t0).x * W), cy0(spotPos(spot, t0).y * H),
                              spot.r || 0.035, x.baseSearch);
-    x.ph = chosen.ph;
+    x.P = chosen.P;
     x.distinct = chosen.distinct;
     x.cand = chosen.cand || [];
     /* A fixed accept threshold is only meaningful if it sits above what the
@@ -2370,7 +2492,7 @@ async function autoTrack(arg, dir = 1){
     x.px = cx0(startPos.x * W); x.py = cy0(startPos.y * H);
     x.spread = 1; x.vx = 0; x.vy = 0; x.coast = 0; x.drift = 0;
     x.lost = false; x.lastGoodT = t0; x.lastGoodIdx = 0; x.done = false;
-    x.tplRaw = extractPatch(img, x.px, x.py, 1, x.ph);
+    x.tplRaw = extractPatch(img, x.px, x.py, 1, x.P);
     x.anchor = prepTemplate(x.tplRaw);           // frozen — guards against drift
     x.T = prepTemplate(x.tplRaw);
     x.trace = [];
@@ -2386,7 +2508,7 @@ async function autoTrack(arg, dir = 1){
     startedAt: +t0.toFixed(3),
     spots: st.map(x => ({
       label: x.spot.label || '', ringR: x.spot.r || 0.035,
-      patchHalf: x.ph, distinct: x.distinct == null ? null : +x.distinct.toFixed(3),
+      patch: x.P, distinct: x.distinct == null ? null : +x.distinct.toFixed(3),
       acceptBar: +x.accept.toFixed(3), patchTried: x.cand, searchRadius: x.baseSearch, stopAt: +x.tEnd.toFixed(3),
     })),
   };
@@ -2404,7 +2526,7 @@ async function autoTrack(arg, dir = 1){
       if (dir > 0 ? t > x.tEnd + 1e-3 : t < x.tEnd - 1e-3){ x.done = true; continue; }
       const predX = clamp(x.px + x.vx, 0, W-1), predY = clamp(x.py + x.vy, 0, H-1);
       const radius = x.coast ? x.baseSearch * 2 : x.baseSearch;
-      const m = bestMatch(img, x.T, Math.round(predX), Math.round(predY), radius, x.spread, x.ph);
+      const m = bestMatch(img, x.T, Math.round(predX), Math.round(predY), radius, x.spread, x.P);
 
       /* Coasting doubles the search window, which is right for a player who
          reappears from behind a team-mate — and wrong as a licence to teleport.
@@ -2420,7 +2542,7 @@ async function autoTrack(arg, dir = 1){
         // mild multi-scale: follow slow zoom changes
         let bestSpread = x.spread, bestScore = m.ncc;
         for (const f of [0.94, 1.06]){
-          const s2 = nccAt(img, x.T, m.x, m.y, x.spread * f, x.ph);
+          const s2 = nccAt(img, x.T, m.x, m.y, x.spread * f, x.P);
           if (s2 > bestScore + 0.02){ bestScore = s2; bestSpread = x.spread * f; }
         }
         x.spread = clamp(x.spread*0.9 + bestSpread*0.1, 0.5, 2.2);
@@ -2433,7 +2555,7 @@ async function autoTrack(arg, dir = 1){
            0.1 on any grass. So the floor comes from the same measurement the
            accept bar does: if the original picture of him matches here no
            better than the FIELD does, this is not him. */
-        aScore = nccAt(img, x.anchor, m.x, m.y, x.spread, x.ph);
+        aScore = nccAt(img, x.anchor, m.x, m.y, x.spread, x.P);
         const aFloor = x.bg * 0.8, aClear = x.bg + 0.05;
         /* A leap beyond the normal window has to prove itself against the
            anchor there and then, not over the next five frames. This is exactly
@@ -2451,7 +2573,7 @@ async function autoTrack(arg, dir = 1){
           x.samples.push({ t, x: x.px / W, y: x.py / H });
           x.lastGoodIdx = x.samples.length - 1;
           if (m.ncc > ADAPT){
-            const cur = extractPatch(img, x.px, x.py, x.spread, x.ph);
+            const cur = extractPatch(img, x.px, x.py, x.spread, x.P);
             for (let i = 0; i < x.tplRaw.length; i++) x.tplRaw[i] = x.tplRaw[i]*0.9 + cur[i]*0.1;
             x.T = prepTemplate(x.tplRaw);
           }
@@ -4718,7 +4840,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v2.9.4';
+const APP_BUILD = 'v2.9.5';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),

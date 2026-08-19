@@ -104,6 +104,10 @@ The best path depends on the device — each one leads with its strongest option
   The tracker holds itself to a bar measured from your own footage — if the grass
   around him can impersonate him, the bar goes up to match — and it will tell you it
   lost him rather than follow the field and claim a clean run.
+  It also matches **his shape rather than a square of ground**: when you drop the ring
+  it measures how much of the picture he actually fills and cuts the template to that,
+  which is what keeps it on your son rather than on the team-mate in the identical kit
+  running the other way.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.

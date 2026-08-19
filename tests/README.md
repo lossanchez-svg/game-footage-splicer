@@ -94,5 +94,12 @@ grass, three of them crossing at the same depth, largest candidate patch scoring
 It reproduced the failure on the first run. `exit.webm` covers a player who simply runs
 out of shot, where the only honest answers are "inside the picture" and "lost him".
 
+`body.webm` gives the player a head, a torso and two legs that scissor as he runs, with
+a look-alike in the same kit crossing him. Every other fixture's player is a solid
+rectangle — no stance, no legs, no gap between them — which makes them useless for any
+question about matching a player's shape. A square template fails this clip at err 0.142
+(t=5) and 0.403 (t=7).
+
 When adding a tracking fixture, check what it actually scores
-(`window.__filmroom.trackReport`) before trusting that it reproduces anything.
+(`window.__filmroom.trackReport`) before trusting that it reproduces anything — and
+check that its player is shaped like a player if shape is what you are testing.

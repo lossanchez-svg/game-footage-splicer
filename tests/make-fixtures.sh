@@ -113,3 +113,25 @@ b='50+8*sin(X/9)+5*sin(Y/5)'" \
 [b][3]overlay=x='250+8*t':y='214+5*sin(0.9*t)'[c];\
 [c]noise=alls=11:allf=t" \
   -c:v libvpx-vp9 -b:v 1200k fixtures/faint.webm
+
+# 8s "body" fixture: a player with an actual body — head, torso and two legs with
+# a gap that opens and closes as he runs — rather than the solid blocks the other
+# fixtures use. Same-kit team-mates cannot be told apart by colour, so shape is
+# the only thing left, and a solid rectangle has no shape to find. A look-alike
+# in the same kit crosses him at the same depth around t=5.
+"$FFMPEG" -y -f lavfi -i "nullsrc=s=640x360:r=30:d=8,geq=r='42+8*sin(X/11)+5*sin(Y/6)':g='122+24*sin(X/11)+15*sin(Y/6)':b='52+9*sin(X/11)+5*sin(Y/6)'" \
+  -f lavfi -i "color=c=0xd8b48c:s=4x4:r=30:d=8"  -f lavfi -i "color=c=0x8a2b2b:s=8x10:r=30:d=8" \
+  -f lavfi -i "color=c=0x2f3a58:s=3x9:r=30:d=8"  -f lavfi -i "color=c=0x2f3a58:s=3x9:r=30:d=8" \
+  -f lavfi -i "color=c=0xd8b48c:s=4x4:r=30:d=8"  -f lavfi -i "color=c=0x8a2b2b:s=8x10:r=30:d=8" \
+  -f lavfi -i "color=c=0x2f3a58:s=3x9:r=30:d=8"  -f lavfi -i "color=c=0x2f3a58:s=3x9:r=30:d=8" \
+  -filter_complex "\
+[0][1]overlay=x='102+40*t':y='168+6*sin(1.5*t)'[a1];\
+[a1][2]overlay=x='100+40*t':y='172+6*sin(1.5*t)'[a2];\
+[a2][3]overlay=x='100+40*t+1+2*sin(9*t)':y='182+6*sin(1.5*t)'[a3];\
+[a3][4]overlay=x='100+40*t+5-2*sin(9*t)':y='182+6*sin(1.5*t)'[a4];\
+[a4][5]overlay=x='432-44*t':y='170+5*cos(1.2*t)'[b1];\
+[b1][6]overlay=x='430-44*t':y='174+5*cos(1.2*t)'[b2];\
+[b2][7]overlay=x='430-44*t+1-2*sin(8*t)':y='184+5*cos(1.2*t)'[b3];\
+[b3][8]overlay=x='430-44*t+5+2*sin(8*t)':y='184+5*cos(1.2*t)'[b4];\
+[b4]noise=alls=9:allf=t" \
+  -c:v libvpx-vp9 -b:v 1200k fixtures/body.webm

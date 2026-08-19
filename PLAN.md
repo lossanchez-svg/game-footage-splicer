@@ -693,6 +693,41 @@ The report now also carries the anchor score, the bar each sample was held to, a
 rejection reason, and the **full patch-candidate sweep** — the one number still missing
 from the first report was what the smaller patches would have scored.
 
+### ✅ v2.9.5 — match his shape, not a square of ground (shipped)
+From the user, and correct: *"there will always be look-alikes since teams wear the
+same uniforms and players will have similar characteristics — you may want to look at
+the entire body of the player."* Colour cannot separate two players in the same kit, so
+shape is the only thing left, and the tracker was sampling a **square** centred on the
+ring. A square is wrong twice over: fit his width and it misses his body, fit his height
+and it fills with the ground either side of him. On the footage that failed, a 57x57
+square around a player roughly 10x26 pixels was **92% field**.
+- The patch is now a **box** — half-width, half-height and a vertical offset — and it is
+  **fitted to him**, not guessed. Field colour is taken from a ring of ground well
+  outside him, every nearby pixel that differs from it is marked, and his extent is
+  grown from where the ring was dropped, tolerating a gap or two (shorts and socks in a
+  lighter colour break a player in half). If nothing coherent is there, the old square
+  ladder still decides.
+- The box carries **twice his measured size**. This was the part that mattered and it was
+  not obvious: a skin-tight body box lost the player exactly as a square did (err 0.405
+  at t=7), because a template holding only the player has nothing around it to hold
+  position with and slides onto the next player in the same kit. The same shape with room
+  around it held to **0.002**. Margin x2.5 breaks two other clips, so 2.0 is a measured
+  optimum rather than a trend.
+- **Distinctiveness is not what chooses it.** That measure is size-biased — a smaller
+  patch always separates from grass better — so it would veto any box cut to a whole
+  player. It still sets the accept bar; it no longer picks the shape.
+
+New `tests/fixtures/body.webm`: a player with a head, a torso and two legs that scissor
+as he runs, plus a look-alike in the same kit crossing him at the same depth. Every other
+fixture's player is a solid rectangle, which has no stance, no legs and no gap — the
+wrong instrument entirely for this question. With a square template it fails at err 0.142
+(t=5) and 0.403 (t=7); with the fitted box, **0.005 and 0.002**.
+
+This also closed the gap left open one build earlier: the walking-pace look-alike in
+`faint.webm` went from err 0.446 to **0.004**. Suite: 428 checks green. The two
+`multitrack` crossing errors moved from 0.003/0.001 to 0.019/0.019 — still well inside
+tolerance, and the only numbers anywhere that got worse.
+
 ## Roadmap
 
 ### Next (in order)
@@ -846,6 +881,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | The template is a box fitted to the player, not a square centred on the ring | Same-kit team-mates are identical in colour, so shape is the only thing left to match on, and a square either misses his body or fills with the ground beside him — 92% field on the clip that failed. Fitting his actual extent is measurable per clip; guessing an aspect ratio is not |
+| 2026-08-19 | The fitted box carries twice his measured size | A skin-tight body box failed exactly as the square did (err 0.405): a template holding only the player has no surroundings to hold position with and slides onto the next player in the same kit. x2.5 breaks other clips, so the margin is a measured optimum, not a direction to push |
+| 2026-08-19 | Distinctiveness sets the accept bar but no longer picks the patch shape | It is size-biased — smaller always separates from grass better — so it scored a whole-body box below a torso-sized square that tracked far worse. A proxy metric that disagrees with the outcome it is proxying for should not be the one deciding |
 | 2026-08-19 | Match thresholds are derived from the measured impostor score, not hardcoded | pickPatch already computes how well the field impersonates the template; `ACCEPT = 0.45` sat below that measurement (0.511) on real footage, so the tracker was accepting grass by its own arithmetic. A constant cannot know how hard the footage is; the measurement already does |
 | 2026-08-19 | Fixtures are built to a measurement, not to a hypothesised mechanism | Three rounds of reproductions passed because every fixture scored 0.74-0.87 distinctiveness against real footage's 0.489. Building `faint.webm` to that number reproduced the failure on the first run, after three mechanism-guesses had failed |
 | 2026-08-19 | The late-clip look-alike swap is recorded as a known gap with a bounding test | It is a real remaining failure and needs motion-consistency logic that is a bigger change than this pass; a test that holds the current bound keeps it visible instead of letting a passing suite imply it is solved |
