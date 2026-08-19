@@ -177,6 +177,13 @@ or he can watch solo on a phone, iPad, or the TV):
   format depends on the browser — Safari gives mp4, Chrome may give webm). It appears in
   the picker as **Keeps sound, slower**.
 - AirDrop the file to a phone/iPad, then **AirPlay to the TV** for the big-screen review.
+- **🎤 Voice-over** — press 🎤 on any clip and talk over it while it plays. Your voice
+  goes into the exported video with the game sound turned down underneath, so the clip
+  coaches on its own when he watches it alone or his mum plays it. If you added a
+  question to the clip, the narration goes quiet at the freeze exactly like the picture
+  does, then carries on. Recordings stay on the computer you made them on (they're kept
+  outside the project file so they can't fill up the browser's storage), and they need
+  the **Best for iPhone** way of saving — the app says so if you pick the other one.
 - **📸 Photo** — saves the current annotated frame as an image; the fastest way to send
   one teaching picture.
 
