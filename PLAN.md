@@ -821,6 +821,60 @@ user's clip is reasoned from their report rather than reproduced in a fixture.
 
 Suite: 442 checks green.
 
+### ✅ v3.1 — the template was never mostly the player (shipped)
+Third report, and the three of them together say one thing. Every run's **first
+frame-to-frame match** was 0.62, 0.538, 0.62 — where a real lock on the synthetic clips
+is 0.93–0.98. A template that barely resembles itself one frame later is not a template
+of a player; it is a template of grass, team-mates and tree line that happen to sit near
+him, all moving differently. The anchor score then falls from 0.62 to about 0.2 within
+two seconds while the adaptive templates report 0.9, because they re-learn whatever they
+are sitting on. And on all three runs `patchTried` contained **no measured outline at
+all**, so the ensemble was squares of mostly-not-him every time.
+- **The outline fit now measures his width and bounds his height from it.** It used to
+  demand open ground in every direction before answering, and on a park pitch — head in
+  a tree line, fence, parked cars — it never could. Sideways there *is* grass either side
+  of a player, so that measurement is sound; a person is about three times as tall as
+  wide, which is a fact about people rather than a guess about this clip.
+- **Selection is by peak-to-sidelobe margin, not distinctiveness.** Candidates are all
+  built and all probed one frame on, scored by how much better they match him than the
+  best impostor nearby. Raw next-frame score alone was tried and is biased toward tiny
+  crops (they match themselves at 0.95 and everything else too, which put a 13x13 crop in
+  charge and lost three clips); distinctiveness is biased toward whatever holds the most
+  contrast. A peak is what a tracker actually needs and neither proxy could see it.
+- **The ensemble is chosen for spread, not rank.** Three candidates ranked by one number
+  are three near-identical crops that fail together and agree while doing it. Each further
+  member must differ in area by half again, and the measured outline keeps a seat whenever
+  it is usable at all.
+- **Full resolution.** `20/rMin` asked for "enough pixels for a ring this size", which
+  assumes the ring is sized to the player — exactly what is not true in the failing case.
+  A default ring on a distant player asked for 571px and got 960 from a 1280 source,
+  discarding a quarter of the linear detail on a subject ten pixels wide.
+- **It says when it cannot get hold of him.** Whether a lock is possible is now measured,
+  so a weak best-peak produces a message naming the fix — make the ring sit on him rather
+  than around him — instead of a duration that reads as a broken tracker.
+
+| clip | v3.0 | v3.1 |
+| --- | --- | --- |
+| `canopy` tree line + four players | 0.066 0.039 0.078 | **0.003 0.037 0.079** |
+| `dim` busy ground | 0.005 0.005 0.004 | **0.002 0.008 0.002** |
+| `crowd` five packed | 0.008 0.047 0.088 | 0.008 0.046 0.088 |
+| `body`, `small`, `trees`, `pan` | 0.002–0.007 | 0.002–0.008 |
+| `faint` late walking-pace decoy | **0.004 / 0.008** | **0.039 / 0.163** ← regressed |
+
+**Reopened regression, stated rather than hidden:** `faint.webm`'s late look-alike goes
+from 0.008 back to 0.163 — the level it sat at two builds ago. That clip is solid blocks
+with no body structure and a same-coloured decoy at walking pace, and the new selection
+costs accuracy on it. The trade was made knowingly: the real footage failure is evidenced
+three times over, this one is synthetic, and 0.163 is still far better than the 0.446 it
+started at. `smalltrack.js` holds the bound so it stays visible.
+
+**Still unverified on the footage that matters.** No fixture reproduces the user's clip —
+`canopy.webm` was built for it and tracks fine, because its outline fit succeeds where
+theirs did not. Every change here is aimed at a cause the reports show plainly; whether it
+fixes their clip is not something the suite can answer.
+
+Suite: 442 checks green.
+
 ## Roadmap
 
 ### Next (in order)
@@ -974,6 +1028,10 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | Patches are scored by peak-to-sidelobe margin on the next frame | Distinctiveness is biased toward contrast, raw next-frame score toward tiny crops, and each put a useless template in charge on real footage. What a tracker needs is a patch that matches him much better than it matches anything nearby, which is one subtraction and is the thing both proxies were failing to stand in for |
+| 2026-08-19 | The ensemble is chosen for spread of scale, not by ranking | Three candidates ranked by one number are three near-identical crops: they fail together and agree with each other while doing it, which is an ensemble in name only |
+| 2026-08-19 | The outline fit measures width and derives height from it | Sideways there is open grass either side of a player so the measurement terminates; upwards his head runs into tree lines and fences, and demanding open ground in every direction meant the fit never once succeeded on real footage |
+| 2026-08-19 | Auto-track works at the footage's own resolution | The old rule sized the working frame from the ring, which assumes the ring is sized to the player — false in exactly the case that fails, where it discarded a quarter of the detail on a ten-pixel subject |
 | 2026-08-19 | No single template is chosen; several track together and the ring goes where they agree | Three separate measures were tried for predicting whether a patch would track — size, body shape, distinctiveness — and each was wrong on real footage, the last one preferring a boxful of tree canopy. The problem is not which measure but that anything is picked once and committed to for the whole clip |
 | 2026-08-19 | Ensemble members track independently rather than sharing an averaged position | Sharing one centre coupled them: a drifting template moved the centre, which dragged the others' next search, and all three followed the wrong player in perfect agreement. Trackers that cannot disagree are not an ensemble |
 | 2026-08-19 | When templates split, the side continuing his motion wins | With identical kit, appearance cannot separate two players. Motion can, and it is the only signal that stays valid across different footage, angles and subjects rather than being tuned to one clip |
