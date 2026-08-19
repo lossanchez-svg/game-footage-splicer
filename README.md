@@ -79,9 +79,12 @@ The best path depends on the device — each one leads with its strongest option
 
 ### ✏️ Telestration (drawing on the video)
 - **🔦 Spotlight** — a colored ring + name that **follows a player**. Drop it on your
-  son, set where the play ends (*Disappears here*), and hit **🎯 Auto-track** — it follows
-  him automatically, with nothing to place by hand (and tells you where to pick him up
-  again if it loses him in a crowd). You can also do it by hand: move ahead and drag the
+  son and hit **🎯 Auto-track** — it follows him from wherever you are until it loses him,
+  with nothing to set up first and nothing to place by hand (and it tells you where to
+  pick him up again if it does lose him in a crowd). Want it to stop at a particular
+  moment? Set *Disappears here* first and it respects that. Two players to follow — him
+  and the defender? Put a ring on each and press **🎯 Follow everyone on screen**: they
+  are tracked in a single pass, which is barely slower than doing one. You can also do it by hand: move ahead and drag the
   ring, or press **📍 Pin him here**; the ring glides between the spots you set, and an
   auto-tracked path stays just as editable. Add a
   second spotlight in another color for the defender or the open teammate. The tracker

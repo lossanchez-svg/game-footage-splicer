@@ -672,6 +672,7 @@
 
       <div class="section">
         <h4>Drawings <span id="annCount" style="color:var(--dim)"></span></h4>
+        <button class="miniBtn" id="btnTrackAll" style="display:none;margin-bottom:6px" data-tip="Follow every ring that is on screen right now — him and the defender, say — in a single pass. Much quicker than doing them one at a time.">🎯 Follow everyone on screen</button>
         <div id="annList"></div>
       </div>
     </div>
@@ -1145,7 +1146,7 @@ function mutate(fn){
   fn();
   persist();
   renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); renderBoardBar();
-  updateWatchBanner();
+  updateWatchBanner(); updateTrackAll();
 }
 
 /* ---------------- video loading ---------------- */
@@ -1970,7 +1971,7 @@ overlay.addEventListener('pointerup', e => {
     persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
   }
 });
-function afterMutate(){ persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel(); }
+function afterMutate(){ persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel(); updateTrackAll(); }
 
 /* ---------------- tools UI ---------------- */
 $$('#toolGrid button').forEach(b => b.onclick = () => setTool(b.dataset.tool));
@@ -2114,34 +2115,52 @@ function thinSamples(pts, eps){
           ...thinSamples(pts.slice(idx), eps)];
 }
 
-async function autoTrack(spot){
-  if (ui.tracking || ui.exporting) return;
-  const T_END = Math.min(spot.tEnd, video.duration || spot.tEnd);
+/* How far should it follow? The old answer was "to this spotlight's End time",
+   which defaults to 4 seconds after the ring was placed — so pressing Track on a
+   fresh spotlight followed the player for four seconds and stopped, and pressing
+   it after scrubbing past that point did nothing but show a toast. Neither reads
+   as anything but "the tracker is broken". Now it follows until it loses him. */
+function trackEndFor(spot, t0){
+  const D = video.duration || 0;
+  const explicit = Math.abs((spot.tEnd - spot.tStart) - DEFAULT_DUR) > 0.05;
+  if (explicit && spot.tEnd > t0 + 0.2) return Math.min(spot.tEnd, D || spot.tEnd);
+  if (ui.tOut != null && ui.tOut > t0 + 0.2) return Math.min(ui.tOut, D || ui.tOut);
+  return Math.min(t0 + 25, D || t0 + 25);
+}
+
+/* Tracks one spotlight, or several in a single pass: seeking and decoding the
+   frame is what costs, so N players cost barely more than one. */
+async function autoTrack(arg){
+  const spots = (Array.isArray(arg) ? arg : [arg]).filter(a => a && a.type === 'spot');
+  if (!spots.length || ui.tracking || ui.exporting) return;
   const t0 = video.currentTime;
-  if (t0 >= T_END - 0.15){
-    return toast('First tell it where to stop: move to the end of the play, press “Disappears here”, come back to the start, then press Auto-track.', 6000);
-  }
+
+  const st = spots.map(spot => {
+    const tEnd = trackEndFor(spot, t0);
+    return { spot, tEnd, ok: tEnd > t0 + 0.15 };
+  }).filter(x => x.ok);
+  if (!st.length)
+    return toast('Move to where the play starts, then press Auto-track — it follows him from there.', 5500);
+
   ui.tracking = true; ui.trackCancel = false;
   video.pause(); hideDecision();
   $('#trackPill').style.display = 'flex';
 
-  // working resolution adapts to ring size: a small ring (far player) gets a
-  // higher-resolution frame so the patch still has enough pixels to match
-  const r = spot.r || 0.035;
-  const W = Math.round(clamp(16 / r, 480, Math.min(960, video.videoWidth)));
+  // one working resolution for the pass: driven by the SMALLEST ring, so the
+  // furthest-away player still has enough pixels to match on
+  const rMin = Math.min(...st.map(x => x.spot.r || 0.035));
+  const W = Math.round(clamp(16 / rMin, 480, Math.min(960, video.videoWidth)));
   const H = Math.round(W * video.videoHeight / video.videoWidth);
   trackCanvas.width = W; trackCanvas.height = H;
   const grab = () => { trackCtx.drawImage(video, 0, 0, W, H); return trackCtx.getImageData(0, 0, W, H); };
 
-  const patchHalf = clamp(Math.round(r * W * 1.15), 8, 28);
-  const baseSearch = Math.max(12, Math.round(patchHalf * 1.6));
   const S = 2;                                   // pixel sampling stride inside the patch
   const cx0 = v => clamp(Math.round(v), 0, W-1), cy0 = v => clamp(Math.round(v), 0, H-1);
 
-  function extractPatch(img, cx, cy, spread){
+  function extractPatch(img, cx, cy, spread, ph){
     const out = [];
-    for (let dy = -patchHalf; dy <= patchHalf; dy += S)
-      for (let dx = -patchHalf; dx <= patchHalf; dx += S){
+    for (let dy = -ph; dy <= ph; dy += S)
+      for (let dx = -ph; dx <= ph; dx += S){
         const o = (cy0(cy + dy*spread)*W + cx0(cx + dx*spread)) * 4;
         out.push(img.data[o], img.data[o+1], img.data[o+2]);
       }
@@ -2161,10 +2180,10 @@ async function autoTrack(spot){
     for (let i = 0; i < raw.length; i++){ z[i] = raw[i] - mean[i % 3]; ss += z[i]*z[i]; }
     return { z, norm: Math.sqrt(Math.max(ss, 1e-6)) };
   }
-  function nccAt(img, T, cx, cy, spread){        // per-channel-centered ZNCC, -1..1
+  function nccAt(img, T, cx, cy, spread, ph){    // per-channel-centered ZNCC, -1..1
     let s0 = 0, s1 = 0, s2 = 0, q0 = 0, q1 = 0, q2 = 0, sxy = 0, i = 0, n = 0;
-    for (let dy = -patchHalf; dy <= patchHalf; dy += S)
-      for (let dx = -patchHalf; dx <= patchHalf; dx += S){
+    for (let dy = -ph; dy <= ph; dy += S)
+      for (let dx = -ph; dx <= ph; dx += S){
         const o = (cy0(cy + dy*spread)*W + cx0(cx + dx*spread)) * 4;
         let v = img.data[o];   s0 += v; q0 += v*v; sxy += T.z[i++]*v;
         v = img.data[o+1];     s1 += v; q1 += v*v; sxy += T.z[i++]*v;
@@ -2177,104 +2196,154 @@ async function autoTrack(spot){
     if (varY < 1) return -1;                     // flat region — can't be the player
     return sxy / (T.norm * Math.sqrt(varY));
   }
-  function bestMatch(img, T, cx, cy, radius, spread){
+  function bestMatch(img, T, cx, cy, radius, spread, ph){
     let best = -2, bx = cx, by = cy;
     for (let y = cy - radius; y <= cy + radius; y += 3)
       for (let x = cx - radius; x <= cx + radius; x += 3){
-        const s = nccAt(img, T, x, y, spread);
+        const s = nccAt(img, T, x, y, spread, ph);
         if (s > best){ best = s; bx = x; by = y; }
       }
     for (let y = by - 2; y <= by + 2; y++)
       for (let x = bx - 2; x <= bx + 2; x++){
-        const s = nccAt(img, T, x, y, spread);
+        const s = nccAt(img, T, x, y, spread, ph);
         if (s > best){ best = s; bx = x; by = y; }
       }
     return { x: bx, y: by, ncc: best };
   }
 
   pushUndo();
-  const startPos = spotPos(spot, t0);
-  // keep keys outside the tracked range; everything inside is rewritten
-  const beforeKeys = spot.keys.filter(k => k.t < t0 - 0.001);
-  const afterKeys  = spot.keys.filter(k => k.t > T_END + 0.001);
-  const samples = [{ t: t0, x: startPos.x, y: startPos.y }];
-
   await seekTo(t0);
   let img = grab();
-  let px = cx0(startPos.x * W), py = cy0(startPos.y * H);
-  let spread = 1;
-  const tplRaw = extractPatch(img, px, py, 1);
-  const anchor = prepTemplate(tplRaw);           // frozen — guards against drift
-  let T = prepTemplate(tplRaw);
 
   const ACCEPT = 0.45, ADAPT = 0.65, MAX_COAST = 5;
   const dt = 1/8;
-  let vx = 0, vy = 0, coast = 0, drift = 0;
-  let t = t0, lost = false, lastGoodT = t0, lastGoodIdx = 0;
-  const trace = [];                              // per-sample diagnostics (console/tests)
-  window.__trackTrace = trace;
+  const T_LAST = Math.max(...st.map(x => x.tEnd));
 
-  while (t < T_END - 1e-3 && !ui.trackCancel){
-    t = Math.min(t + dt, T_END);
+  for (const x of st){
+    const spot = x.spot;
+    const startPos = spotPos(spot, t0);
+    x.ph = clamp(Math.round((spot.r || 0.035) * W * 1.15), 8, 28);
+    x.baseSearch = Math.max(12, Math.round(x.ph * 1.6));
+    // keys outside the tracked range are kept; everything inside is rewritten
+    x.beforeKeys = spot.keys.filter(k => k.t < t0 - 0.001);
+    x.afterKeys  = spot.keys.filter(k => k.t > x.tEnd + 0.001);
+    x.samples = [{ t: t0, x: startPos.x, y: startPos.y }];
+    x.px = cx0(startPos.x * W); x.py = cy0(startPos.y * H);
+    x.spread = 1; x.vx = 0; x.vy = 0; x.coast = 0; x.drift = 0;
+    x.lost = false; x.lastGoodT = t0; x.lastGoodIdx = 0; x.done = false;
+    x.tplRaw = extractPatch(img, x.px, x.py, 1, x.ph);
+    x.anchor = prepTemplate(x.tplRaw);           // frozen — guards against drift
+    x.T = prepTemplate(x.tplRaw);
+    x.trace = [];
+  }
+  window.__trackTrace = st[0].trace;             // per-sample diagnostics (console/tests)
+  window.__trackTraces = st.map(x => x.trace);
+
+  let t = t0;
+  while (t < T_LAST - 1e-3 && !ui.trackCancel && st.some(x => !x.done)){
+    t = Math.min(t + dt, T_LAST);
     await seekTo(t);
     img = grab();
-    const predX = clamp(px + vx, 0, W-1), predY = clamp(py + vy, 0, H-1);
-    const radius = coast ? baseSearch * 2 : baseSearch;
-    const m = bestMatch(img, T, Math.round(predX), Math.round(predY), radius, spread);
+    let worst = 1;
 
-    if (m.ncc >= ACCEPT){
-      // mild multi-scale: follow slow zoom changes
-      let bestSpread = spread, bestScore = m.ncc;
-      for (const f of [0.94, 1.06]){
-        const s2 = nccAt(img, T, m.x, m.y, spread * f);
-        if (s2 > bestScore + 0.02){ bestScore = s2; bestSpread = spread * f; }
+    for (const x of st){
+      if (x.done) continue;
+      if (t > x.tEnd + 1e-3){ x.done = true; continue; }
+      const predX = clamp(x.px + x.vx, 0, W-1), predY = clamp(x.py + x.vy, 0, H-1);
+      const radius = x.coast ? x.baseSearch * 2 : x.baseSearch;
+      const m = bestMatch(img, x.T, Math.round(predX), Math.round(predY), radius, x.spread, x.ph);
+
+      if (m.ncc >= ACCEPT){
+        // mild multi-scale: follow slow zoom changes
+        let bestSpread = x.spread, bestScore = m.ncc;
+        for (const f of [0.94, 1.06]){
+          const s2 = nccAt(img, x.T, m.x, m.y, x.spread * f, x.ph);
+          if (s2 > bestScore + 0.02){ bestScore = s2; bestSpread = x.spread * f; }
+        }
+        x.spread = clamp(x.spread*0.9 + bestSpread*0.1, 0.5, 2.2);
+        // anchor check: adaptive template must not have wandered off the player
+        const aScore = nccAt(img, x.anchor, m.x, m.y, x.spread, x.ph);
+        if (aScore < 0.1){ if (++x.drift >= 5){ x.lost = true; x.done = true; } }
+        else if (aScore > 0.25) x.drift = 0;
+        if (!x.done){
+          x.vx = clamp(x.vx*0.5 + (m.x - x.px)*0.5, -x.baseSearch, x.baseSearch);
+          x.vy = clamp(x.vy*0.5 + (m.y - x.py)*0.5, -x.baseSearch, x.baseSearch);
+          x.px = m.x; x.py = m.y; x.coast = 0; x.lastGoodT = t;
+          x.samples.push({ t, x: x.px / W, y: x.py / H });
+          x.lastGoodIdx = x.samples.length - 1;
+          if (m.ncc > ADAPT){
+            const cur = extractPatch(img, x.px, x.py, x.spread, x.ph);
+            for (let i = 0; i < x.tplRaw.length; i++) x.tplRaw[i] = x.tplRaw[i]*0.9 + cur[i]*0.1;
+            x.T = prepTemplate(x.tplRaw);
+          }
+        }
+      } else {
+        // occluded / momentarily unmatchable: coast on predicted motion
+        if (++x.coast > MAX_COAST){ x.lost = true; x.done = true; }
+        else {
+          x.px = predX; x.py = predY;
+          x.samples.push({ t, x: x.px / W, y: x.py / H }); // provisional — trimmed if never reacquired
+        }
       }
-      spread = clamp(spread*0.9 + bestSpread*0.1, 0.5, 2.2);
-      // anchor check: adaptive template must not have wandered off the player
-      const aScore = nccAt(img, anchor, m.x, m.y, spread);
-      if (aScore < 0.1){ if (++drift >= 5){ lost = true; break; } }
-      else if (aScore > 0.25) drift = 0;
-      vx = clamp(vx*0.5 + (m.x - px)*0.5, -baseSearch, baseSearch);   // velocity for prediction
-      vy = clamp(vy*0.5 + (m.y - py)*0.5, -baseSearch, baseSearch);
-      px = m.x; py = m.y; coast = 0; lastGoodT = t;
-      samples.push({ t, x: px / W, y: py / H });
-      lastGoodIdx = samples.length - 1;
-      if (m.ncc > ADAPT){
-        const cur = extractPatch(img, px, py, spread);
-        for (let i = 0; i < tplRaw.length; i++) tplRaw[i] = tplRaw[i]*0.9 + cur[i]*0.1;
-        T = prepTemplate(tplRaw);
-      }
-    } else {
-      // occluded / momentarily unmatchable: coast on predicted motion
-      if (++coast > MAX_COAST){ lost = true; break; }
-      px = predX; py = predY;
-      samples.push({ t, x: px / W, y: py / H }); // provisional — trimmed if never reacquired
+
+      x.trace.push({ t: +t.toFixed(3), ncc: +m.ncc.toFixed(3), coast: x.coast, drift: x.drift,
+        x: +(x.px / W).toFixed(3), y: +(x.py / H).toFixed(3),
+        vx: +x.vx.toFixed(1), vy: +x.vy.toFixed(1) });
+      x.spot.keys = [...x.beforeKeys, ...x.samples, ...x.afterKeys];   // live feedback
+      if (!x.done) worst = Math.min(worst, m.ncc);
     }
 
-    trace.push({ t: +t.toFixed(3), ncc: +m.ncc.toFixed(3), coast, drift,
-      x: +(px / W).toFixed(3), y: +(py / H).toFixed(3), vx: +vx.toFixed(1), vy: +vy.toFixed(1) });
-    spot.keys = [...beforeKeys, ...samples, ...afterKeys];   // live feedback while tracking
-    $('#trackPct').textContent = Math.round((t - t0) / (T_END - t0) * 100) + '%' +
-      ' · lock ' + Math.max(0, m.ncc).toFixed(2);
+    $('#trackPct').textContent = Math.round((t - t0) / Math.max(0.001, T_LAST - t0) * 100) + '%' +
+      (st.length > 1 ? ' · ' + st.length + ' players' : '') +
+      ' · lock ' + Math.max(0, worst).toFixed(2);
     await new Promise(r => requestAnimationFrame(r));
   }
 
-  samples.length = lastGoodIdx + 1;              // drop provisional coast tail
-  spot.keys = [...beforeKeys, ...thinSamples(samples, 0.004), ...afterKeys];
+  let followedTo = t0;
+  for (const x of st){
+    x.samples.length = x.lastGoodIdx + 1;        // drop provisional coast tail
+    x.spot.keys = [...x.beforeKeys, ...thinSamples(x.samples, 0.004), ...x.afterKeys];
+    // the ring has to stay on screen for as long as it now follows him
+    if (x.lastGoodT > x.spot.tEnd) x.spot.tEnd = Math.min(x.lastGoodT, video.duration || x.lastGoodT);
+    followedTo = Math.max(followedTo, x.lastGoodT);
+  }
   ui.tracking = false;
   $('#trackPill').style.display = 'none';
   persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
 
-  await seekTo(lost ? lastGoodT : (ui.trackCancel ? video.currentTime : t0));
-  if (ui.trackCancel) toast('Stopped following him. What it worked out so far was kept — press ⌘Z if you would rather undo it.', 5000);
-  else if (lost) toast('Lost him at ' + fmtT(lastGoodT) + '. Drag the ring back onto him there and press Auto-track again.', 6000);
-  else toast('Followed him to ' + fmtT(T_END) + '. Press play to check it — you can still drag the ring anywhere it is not quite right.', 5500);
+  const anyLost = st.some(x => x.lost);
+  await seekTo(ui.trackCancel ? video.currentTime : t0);
+  const secs = Math.max(0, followedTo - t0);
+  if (ui.trackCancel)
+    toast('Stopped following. What it worked out so far was kept — press ⌘Z if you would rather undo it.', 5000);
+  else if (anyLost && st.length > 1)
+    toast('Followed them for ' + secs.toFixed(1) + ' seconds. It lost one of them along the way — scrub to where the ring drifts off, drag it back on him and press Auto-track again.', 7000);
+  else if (anyLost)
+    toast('Followed him for ' + secs.toFixed(1) + ' seconds, up to ' + fmtT(followedTo) + ', then lost him. Scrub there, drag the ring back onto him and press Auto-track again.', 7000);
+  else
+    toast('Followed ' + (st.length > 1 ? 'all ' + st.length + ' of them' : 'him') + ' for ' +
+      secs.toFixed(1) + ' seconds. Press play to check it — you can still drag a ring anywhere it is not quite right.', 6000);
 }
 
 $('#selTrack').onclick = () => {
   const sel = project.annotations.find(a => a.id === ui.selectedId);
   if (sel && sel.type === 'spot') autoTrack(sel);
 };
+/* every ring that is on screen right now, followed in one pass */
+function spotsHere(){
+  const t = video.currentTime;
+  return project.annotations.filter(a =>
+    a.type === 'spot' && t >= a.tStart - 0.01 && t <= a.tEnd + 0.5);
+}
+$('#btnTrackAll').onclick = () => {
+  const spots = spotsHere();
+  if (spots.length < 2)
+    return toast('Put a ring on each player you want followed first — this follows all of them at once.', 5500);
+  autoTrack(spots);
+};
+function updateTrackAll(){
+  $('#btnTrackAll').style.display = spotsHere().length > 1 ? '' : 'none';
+}
 $('#trackCancelBtn').onclick = () => { ui.trackCancel = true; };
 
 /* ---------------- annotation list ---------------- */
