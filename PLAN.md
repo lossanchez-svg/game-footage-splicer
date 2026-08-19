@@ -624,6 +624,27 @@ camera**, where the grass streams past while the player drifts slowly in frame �
 where a grass-heavy template would follow the field. The v2.9 tracker holds it at err
 0.005, so panning is not a remaining failure mode.
 
+### ✅ v2.9.2 — measure it instead of guessing (shipped)
+A third report, with the build stamp confirming `v2.9` was actually running, said the ring
+still leaves the player. Three rounds have now been spent inferring the cause from frames
+of a cropped screen recording, and each round produced a plausible hypothesis that the
+reproduction fixture then refused to confirm. That is the wrong instrument.
+- **🩺 Save tracking report** on the spotlight panel writes
+  `filmroom-tracking-report.json` after any auto-track run: build stamp, video dimensions
+  and duration, the working resolution the pass actually used, direction and start time,
+  and per spotlight the ring radius, the chosen patch half-size, the distinctiveness score
+  that choice was based on, the search radius, and where the pass was bounded. The result
+  block adds, per sample, the match score, whether it was coasting through an occlusion,
+  the drift from prediction, the position, and the velocity.
+- Nothing about the footage leaves the machine — the report is numbers about the pass, and
+  it downloads like any other file.
+- The build stamp is `v2.9.2`, so a report identifies itself.
+Also `tests/fixtures/trees.webm` (a high-contrast canopy above a small player, the case
+the frames suggested) and five checks in `smalltrack.js` — four on the tree line, one that
+a report is offered after a run. The tree-line case **passes** at err 0.005–0.010, which is
+why the shape-mismatch hypothesis was not shipped as a fix: it is unconfirmed, and a
+speculative change to the matcher would make the next report harder to read, not easier.
+
 ## Roadmap
 
 ### Next (in order)
@@ -777,6 +798,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | The tracker ships a diagnostics report rather than a fourth speculative fix | Three rounds of inferring from a cropped screen recording produced three hypotheses and two fixture reproductions that passed. A patch-shape mismatch is still a live suspect, but shipping a matcher change on an unconfirmed theory would move the numbers before anyone had read them |
+| 2026-08-19 | The report carries numbers about the pass, never frames | Match scores, patch sizes and positions are enough to tell a lost template from a bad search radius, and they keep the promise that footage never leaves the machine |
 | 2026-08-19 | Entries are stored, and file blobs enter the zip by reference | Everything packed is already compressed, so deflate would cost CPU for nothing; passing Blobs rather than bytes keeps peak memory at one file, which is what makes a multi-gigabyte season bundle possible at all |
 | 2026-08-19 | Clip videos are opt-in, with the cost stated in minutes | It is the difference between a 200KB file and a 2GB one, and between five seconds and twenty minutes — not a choice to make silently on someone's behalf |
 | 2026-08-19 | Backwards tracking is the same pass with `dir = -1`, not a second code path | The matcher is time-symmetric; duplicating it would have doubled the surface where the v1.4 tuning could drift apart. Only the bounds, the kept-key split, the sample ordering and which end of the ring's lifetime stretches differ |
