@@ -180,6 +180,17 @@ or he can watch solo on a phone, iPad, or the TV):
 - **📸 Photo** — saves the current annotated frame as an image; the fastest way to send
   one teaching picture.
 
+### 📈 Progress — the season, not just the game
+**📈 Progress** in the top bar reads every game you've broken down (including work done
+on another computer, via the Games folder) and shows how he's doing across the season:
+how many games and moments, what share are strengths, a bar for every game in date order,
+the labels that come up most — and, once there are four games, **what is changing**:
+*"Heavy / poor touch — coming up less often: about 2 a game early on, 0 a game lately."*
+
+That last part is the bit no highlight service can tell you, because it comes from the
+things **you** chose to name. Filter by position or format, and **⬇ Spreadsheet** exports
+every saved moment as a CSV for Numbers, Excel or Sheets.
+
 ### 🧑‍🏫 Coach tab
 Built-in cheat sheets for **attacking mid** and **winger** in 9v9 (scanning, receiving
 half-turned, playing between lines, 1v1 green lights, tracking runners, goal-side

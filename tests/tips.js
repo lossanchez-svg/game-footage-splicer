@@ -41,7 +41,7 @@ const tipText = page => page.textContent('#tipBubble');
       if (el.closest('#tourBubble') || el.closest('#helpModal') || el.closest('#busyOverlay')) continue;
       if (el.closest('#panel-coach') || el.closest('#decisionOverlay')) continue;
       if (['tourSkip', 'clipCancel', 'clipSave', 'libClose', 'tagDone', 'helpClose',
-           'helpTour', 'busyCancel'].includes(el.id)) continue;
+           'helpTour', 'busyCancel', 'trendClose'].includes(el.id)) continue;
       if (!visible(el) && !el.closest('#selSection') && !el.closest('#clipModal')) continue;
       const tip = el.closest('[data-tip]') && el.closest('[data-tip]').getAttribute('data-tip');
       if (!tip) { bad.missing.push(label(el)); continue; }

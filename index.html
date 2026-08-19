@@ -233,6 +233,53 @@
   #panel-coach .body .dimhead{color:var(--dim); font-size:11px; text-transform:uppercase;
     letter-spacing:.6px; margin-top:10px;}
 
+  /* ---------- progress dashboard ---------- */
+  #trendModal .box{width:min(940px, 96vw);}
+  .trendHead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px;}
+  .trendFilters{display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    padding:10px 0 14px; border-bottom:1px solid var(--line); margin-bottom:14px;}
+  .kpiRow{display:grid; grid-template-columns:repeat(auto-fit, minmax(132px, 1fr)); gap:10px;}
+  .kpi{background:var(--bg3); border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px;}
+  .kpi .fig{font-size:30px; font-weight:700; line-height:1.1;}   /* proportional figures, same sans */
+  .kpi .cap{color:var(--dim); font-size:12px; margin-top:3px;}
+  body.bigText .kpi .fig{font-size:34px;}
+  body.bigText .kpi .cap{font-size:14px;}
+
+  .trendSection{margin-top:22px;}
+  .trendSection h4{font-size:11px; text-transform:uppercase; letter-spacing:.8px;
+    color:var(--dim); margin-bottom:2px;}
+  .trendSection .why{color:var(--dim); font-size:12px; margin-bottom:10px;}
+  body.bigText .trendSection h4, body.bigText .trendSection .why{font-size:14px;}
+
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin:10px 0 2px;}
+  .legend span{display:flex; align-items:center; gap:6px; color:var(--dim); font-size:12px;}
+  .legend i{width:11px; height:11px; border-radius:3px; display:inline-block;}
+  body.bigText .legend span{font-size:14px;}
+
+  .barRow{display:grid; grid-template-columns:minmax(96px, 190px) 1fr auto;
+    gap:10px; align-items:center; padding:5px 0;}
+  .barRow .rowLbl{font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .barRow .rowLbl small{color:var(--dim); display:block; font-size:11px;}
+  .barRow .rowVal{font-size:12px; color:var(--dim); font-variant-numeric:tabular-nums;
+    min-width:26px; text-align:right;}
+  body.bigText .barRow .rowLbl{font-size:14px;}
+  body.bigText .barRow .rowLbl small, body.bigText .barRow .rowVal{font-size:13px;}
+  /* the 2px surface gaps between segments do the separating — never a border */
+  .barTrack{display:flex; gap:2px; height:18px; align-items:stretch;}
+  .barTrack .seg:first-child{border-radius:3px 0 0 3px;}
+  .barTrack .seg:last-child{border-radius:0 4px 4px 0;}
+  .barTrack .seg:only-child{border-radius:3px 4px 4px 3px;}
+  .barTrack .seg{min-width:3px;}
+
+  .trendList{display:flex; flex-direction:column; gap:8px;}
+  .trendItem{display:flex; align-items:baseline; gap:10px; background:var(--bg3);
+    border:1px solid var(--line); border-radius:var(--radius); padding:9px 12px;}
+  .trendItem .dir{font-size:14px; flex:none;}
+  .trendItem .txt{font-size:13px;}
+  .trendItem .txt b{color:var(--text);}
+  body.bigText .trendItem .txt{font-size:15px;}
+  .trendEmpty{color:var(--dim); font-size:13px;}
+
   /* ---------- "this week's session is ready" front door ---------- */
   #watchBanner{display:none; align-items:center; gap:14px; flex-wrap:wrap;
     padding:14px 18px; background:linear-gradient(90deg,#15301d,#161b22);
@@ -367,6 +414,7 @@
   <button id="btnSaveProj" data-tip="Save all his clips and drawings into one small file you can back up or move to another computer. Your work is already saved automatically here.">💾 Save project</button>
   <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
   <div class="divider"></div>
+  <button id="btnTrends" data-tip="How he is doing across every game you have broken down — what he does well, what keeps coming up, and what is getting better.">📈 Progress</button>
   <button id="btnTextSize" data-tip="Make everything on screen bigger — text, buttons, everything. Press it again to go back to normal.">Aa</button>
   <button id="btnHelp" data-tip="How everything works, plus a button to run the walkthrough again.">❓ Help</button>
   <input type="file" id="fileVideo" accept="video/*,.mov,.mp4,.m4v,.webm" hidden>
@@ -789,6 +837,25 @@
   </div>
 </div>
 
+<!-- ======================= PROGRESS DASHBOARD ======================= -->
+<div class="modal" id="trendModal">
+  <div class="box">
+    <div class="trendHead">
+      <h3 style="margin:0">📈 His progress</h3>
+      <span class="hint" style="margin:0" id="trendScope"></span>
+    </div>
+    <div class="trendFilters" id="trendFilters">
+      <label style="color:var(--dim);font-size:12px">Showing</label>
+      <select id="trendPosition" data-tip="Narrow this to the games where he played one position, to see how he does there."><option value="">Every position</option></select>
+      <select id="trendFormat" data-tip="Narrow this to one size of game, such as 9v9."><option value="">Every size of game</option></select>
+      <div class="spacer" style="flex:1"></div>
+      <button class="miniBtn" id="trendCsv" data-tip="Save every saved moment as a spreadsheet file you can open in Numbers or Excel — one row per clip.">⬇ Spreadsheet</button>
+    </div>
+    <div id="trendBody"></div>
+    <div class="foot"><button class="primary" id="trendClose">Close</button></div>
+  </div>
+</div>
+
 <!-- ======================= SESSION MODAL ======================= -->
 <div class="modal" id="sessionModal" style="z-index:80">
   <div class="box" id="sessionBox"></div>
@@ -1100,6 +1167,8 @@ function loadVideo(file, cont){
     } else {
       project = { version:1, videoName:file.name, videoKey:key, fps: project.fps||30, annotations:[], clips:[] };
     }
+    /* the file's own date is the game's date — what the season should be read in */
+    if (!project.videoDate && file.lastModified) project.videoDate = file.lastModified;
     $('#fpsInput').value = project.fps || 30;
     $('#reelTitle').value = project.reelTitle || '';
     ui.selectedId = null; ui.tIn = null; ui.tOut = null; ui.loopClip = null;
@@ -4121,7 +4190,8 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 }
 
 /* debug/test hook (also handy in the console) */
-window.__filmroom = { getProject: () => project, spotPos, version: 1 };
+window.__filmroom = { getProject: () => project, spotPos, version: 1,
+  setGameDir: d => { gameDir = d; } };
 
 /* ---------------- "watch" front door ----------------
   Most of the family never edits anything — they watch. When the game already
@@ -4144,6 +4214,251 @@ function updateWatchBanner(){
 }
 $('#watchStart').onclick = () => { $('#watchBanner').style.display = 'none'; startSession(); };
 $('#watchLater').onclick = () => { watchDismissed = true; updateWatchBanner(); };
+
+/* ---------------- progress dashboard ----------------
+  Every game you break down leaves a project behind; this reads all of them at
+  once and answers the question a season actually raises — is he getting
+  better at the things you keep talking about? Nothing new is recorded: it is
+  the clips and tags you already saved, counted.
+
+  Charts here follow the app's existing meaning of colour (strength / work-on /
+  teachable), separate segments with a 2px gap in the surface colour rather than
+  borders, and print every number as text beside its bar — the hover tip adds
+  detail, it never holds the only copy of a value.
+------------------------------------------------- */
+const RATING_META = [
+  ['positive', '👍 Strengths', 'var(--pos)'],
+  ['negative', '🔧 Work-ons',  'var(--neg)'],
+  ['neutral',  '💡 Teachable', 'var(--warn)'],
+];
+let trendGames = [];          // [{name, date, clips[], sessions}] newest last
+
+/* every project this browser knows about, plus anything in the Games folder */
+async function collectGames(){
+  const byName = new Map();
+  const take = p => {
+    if (!p || !Array.isArray(p.clips) || !Array.isArray(p.annotations)) return;
+    if (!p.videoName) return;
+    const prev = byName.get(p.videoName);
+    if (prev && savedAtOf(prev) >= savedAtOf(p)) return;   // keep the newer copy
+    byName.set(p.videoName, p);
+  };
+  for (let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith('filmroom:')) continue;
+    try { take(JSON.parse(localStorage.getItem(k))); } catch(e){}
+  }
+  /* the Games folder may hold work done on another computer */
+  try {
+    if (gameDir && gameDir.queryPermission &&
+        await gameDir.queryPermission({ mode:'read' }) === 'granted'){
+      for await (const entry of gameDir.values()){
+        if (entry.kind !== 'file' || !entry.name.endsWith(SIDECAR_EXT)) continue;
+        try { take(JSON.parse(await (await entry.getFile()).text())); } catch(e){}
+      }
+    }
+  } catch(e){}
+
+  return [...byName.values()].map(p => ({
+    name: p.videoName,
+    date: p.videoDate || savedAtOf(p) || 0,
+    clips: p.clips || [],
+    sessions: (p.sessions || []).length,
+  })).sort((a, b) => a.date - b.date);
+}
+
+const trendFiltered = g => g.clips.filter(c =>
+  (!ui.trendPos || c.position === ui.trendPos) &&
+  (!ui.trendFmt || c.format === ui.trendFmt));
+
+function fillTrendFilter(sel, values, current){
+  const keep = sel.firstElementChild.outerHTML;
+  sel.innerHTML = keep + values.map(v =>
+    `<option ${v === current ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('');
+}
+
+async function openTrends(){
+  $('#trendModal').classList.add('open');
+  $('#trendBody').innerHTML = '<div class="hint">Reading your games…</div>';
+  trendGames = await collectGames();
+  const all = trendGames.flatMap(g => g.clips);
+  fillTrendFilter($('#trendPosition'), [...new Set(all.map(c => c.position).filter(Boolean))].sort(), ui.trendPos);
+  fillTrendFilter($('#trendFormat'), [...new Set(all.map(c => c.format).filter(Boolean))].sort(), ui.trendFmt);
+  renderTrends();
+}
+
+function barTrack(counts, scale, tip){
+  const segs = RATING_META.map(([key, , color]) => counts[key]
+    ? `<span class="seg" style="background:${color}; flex:${counts[key]}"></span>` : '').join('');
+  const total = RATING_META.reduce((n, [k]) => n + (counts[k] || 0), 0);
+  const pad = scale > total ? `<span style="flex:${scale - total}"></span>` : '';
+  return `<div class="barTrack" data-tip="${escapeHtml(tip)}">${segs}${pad}</div>`;
+}
+
+const countBy = clips => {
+  const c = { positive:0, negative:0, neutral:0 };
+  for (const cl of clips) if (c[cl.rating] !== undefined) c[cl.rating]++;
+  return c;
+};
+const totalOf = c => c.positive + c.negative + c.neutral;
+const ratingSummary = c => RATING_META.filter(([k]) => c[k])
+  .map(([k, label]) => c[k] + ' ' + label.replace(/^\S+ /, '').toLowerCase()).join(', ') || 'nothing saved yet';
+
+function renderTrends(){
+  const host = $('#trendBody');
+  const games = trendGames.map(g => ({ ...g, clips: trendFiltered(g) })).filter(g => g.clips.length);
+  const clips = games.flatMap(g => g.clips);
+
+  if (!clips.length){
+    $('#trendScope').textContent = '';
+    host.innerHTML = `<div class="trendEmpty">Nothing to show yet. Break down a game — save a few moments as clips and mark each one 👍 Strength, 🔧 Work-on or 💡 Teachable — and this page starts showing how he is doing across the season.${
+      (ui.trendPos || ui.trendFmt) ? '<br><br>(You are also filtering this list — try “Every position” and “Every size of game”.)' : ''}</div>`;
+    return;
+  }
+
+  const counts = countBy(clips);
+  const sessions = games.reduce((n, g) => n + g.sessions, 0);
+  const strengthPct = Math.round(counts.positive / clips.length * 100);
+  const when = d => d ? new Date(d).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : '';
+  $('#trendScope').textContent = games.length > 1
+    ? `${when(games[0].date)} – ${when(games[games.length - 1].date)}`
+    : when(games[0].date);
+
+  const legend = `<div class="legend">${RATING_META.map(([, label, color]) =>
+    `<span><i style="background:${color}"></i>${label}</span>`).join('')}</div>`;
+
+  /* ---- headline numbers: stat tiles, not a chart ---- */
+  let html = `<div class="kpiRow">
+    <div class="kpi"><div class="fig">${games.length}</div><div class="cap">game${games.length === 1 ? '' : 's'} broken down</div></div>
+    <div class="kpi"><div class="fig">${clips.length}</div><div class="cap">moments saved</div></div>
+    <div class="kpi"><div class="fig">${strengthPct}%</div><div class="cap">of them strengths</div></div>
+    <div class="kpi"><div class="fig">${sessions}</div><div class="cap">session${sessions === 1 ? '' : 's'} watched together</div></div>
+  </div>${legend}`;
+
+  /* ---- each game, in date order ---- */
+  const gameMax = Math.max(...games.map(g => g.clips.length));
+  html += `<div class="trendSection"><h4>Game by game</h4>
+    <div class="why">Oldest first. A season going well grows more green over time.</div>`;
+  for (const g of games){
+    const c = countBy(g.clips);
+    html += `<div class="barRow">
+      <div class="rowLbl">${escapeHtml(g.name.replace(/\.[^.]+$/, ''))}<small>${when(g.date)}</small></div>
+      ${barTrack(c, gameMax, ratingSummary(c))}
+      <div class="rowVal">${totalOf(c)}</div></div>`;
+  }
+  html += '</div>';
+
+  /* ---- what comes up most ---- */
+  const tagCount = new Map();
+  for (const c of clips) for (const t of (c.tags || [])){
+    const e = tagCount.get(t) || { positive:0, negative:0, neutral:0, total:0 };
+    if (e[c.rating] !== undefined) e[c.rating]++;
+    e.total++; tagCount.set(t, e);
+  }
+  const top = [...tagCount.entries()].sort((a, b) => b[1].total - a[1].total).slice(0, 8);
+  if (top.length){
+    const tagMax = top[0][1].total;
+    html += `<div class="trendSection"><h4>What comes up most</h4>
+      <div class="why">The things you have named most often across every game${top.length === 8 ? ' (top 8)' : ''}.</div>`;
+    for (const [tag, c] of top){
+      html += `<div class="barRow">
+        <div class="rowLbl">${escapeHtml(tag)}</div>
+        ${barTrack(c, tagMax, escapeHtml(tag) + ': ' + ratingSummary(c))}
+        <div class="rowVal">${c.total}</div></div>`;
+    }
+    html += '</div>';
+  }
+
+  /* ---- the actual trend: early games vs recent ones ---- */
+  html += renderMovement(games);
+
+  host.innerHTML = html;
+}
+
+/* Split the games in half by date and compare how often each tag appears, per
+   game, in each half. Rate rather than raw count, because the two halves rarely
+   hold the same number of games. */
+function renderMovement(games){
+  if (games.length < 4)
+    return `<div class="trendSection"><h4>Getting better at</h4>
+      <div class="why">Break down at least four games and this starts comparing his early games with his recent ones, to show what is changing.</div></div>`;
+
+  const mid = Math.floor(games.length / 2);
+  const rate = list => {
+    const m = new Map();
+    for (const g of list) for (const c of g.clips) for (const t of (c.tags || [])){
+      const e = m.get(t) || { n:0, neg:0 };
+      e.n++; if (c.rating === 'negative') e.neg++;
+      m.set(t, e);
+    }
+    for (const e of m.values()) e.per = e.n / list.length;
+    return m;
+  };
+  const early = rate(games.slice(0, mid)), recent = rate(games.slice(mid));
+
+  const rows = [];
+  for (const tag of new Set([...early.keys(), ...recent.keys()])){
+    const e = early.get(tag) || { per:0, n:0, neg:0 }, r = recent.get(tag) || { per:0, n:0, neg:0 };
+    if (e.n + r.n < 3) continue;                       // too rare to call a trend
+    const workOn = (e.neg + r.neg) > (e.n + r.n) / 2;  // mostly a work-on, or mostly a strength
+    const delta = r.per - e.per;
+    if (Math.abs(delta) < 0.34) continue;              // needs a real move, not noise
+    rows.push({ tag, e, r, workOn, delta, good: workOn ? delta < 0 : delta > 0 });
+  }
+  rows.sort((a, b) => (b.good - a.good) || Math.abs(b.delta) - Math.abs(a.delta));
+
+  if (!rows.length)
+    return `<div class="trendSection"><h4>What is changing</h4>
+      <div class="why">Nothing has moved much yet — keep breaking down games and changes will show up here.</div></div>`;
+
+  /* "about 0 a game" is not how anyone says it */
+  const per = v => v === 0 ? 'none' : 'about ' + v.toFixed(1).replace(/\.0$/, '') + ' a game';
+  const body = rows.slice(0, 6).map(r => {
+    const dir = r.good ? '▲' : '▼';
+    const color = r.good ? 'var(--pos)' : 'var(--warn)';
+    const lead = r.good
+      ? (r.workOn ? 'Coming up less often' : 'Showing up more often')
+      : (r.workOn ? 'Still coming up' : 'Showing up less often');
+    return `<div class="trendItem">
+      <span class="dir" style="color:${color}">${dir}</span>
+      <span class="txt"><b>${escapeHtml(r.tag)}</b> — ${lead}: ${per(r.e.per)} early on, ${per(r.r.per)} lately.</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="trendSection"><h4>What is changing</h4>
+    <div class="why">His first ${mid} game${mid === 1 ? '' : 's'} compared with the ${games.length - mid} most recent, counted per game. This is the part no highlight reel can tell you.</div>
+    <div class="trendList">${body}</div></div>`;
+}
+
+/* one row per saved moment — open it in Numbers, Excel or Sheets */
+function trendCsvText(){
+  const cell = v => {
+    const t = String(v == null ? '' : v);
+    return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  };
+  const rows = [['Game', 'Game date', 'Moment', 'This is', 'Position', 'Format',
+                 'Labels', 'Starts', 'Ends', 'Coaching note', 'Question to ask']];
+  const say = { positive:'Strength', negative:'Work-on', neutral:'Teachable' };
+  for (const g of trendGames){
+    for (const c of trendFiltered(g)){
+      rows.push([g.name, g.date ? new Date(g.date).toISOString().slice(0, 10) : '',
+        c.title, say[c.rating] || c.rating, c.position || '', c.format || '',
+        (c.tags || []).join('; '), fmtT(c.tIn), fmtT(c.tOut), c.notes || '', c.ask || '']);
+    }
+  }
+  return rows.map(r => r.map(cell).join(',')).join('\r\n');
+}
+
+$('#btnTrends').onclick = openTrends;
+$('#trendClose').onclick = () => $('#trendModal').classList.remove('open');
+$('#trendPosition').onchange = () => { ui.trendPos = $('#trendPosition').value; renderTrends(); };
+$('#trendFormat').onchange   = () => { ui.trendFmt = $('#trendFormat').value; renderTrends(); };
+$('#trendCsv').onclick = () => {
+  if (!trendGames.length) return toast('There is nothing to save yet — break down a game first.');
+  downloadBlob(new Blob([trendCsvText()], { type:'text/csv' }),
+    'film-room-moments.csv');
+  toast('Spreadsheet saved — check your Downloads folder.');
+};
 
 /* ---------------- tooltips + one-time hints ----------------
   Native `title` tooltips never show on an iPad and take ~1.5s on a desktop —

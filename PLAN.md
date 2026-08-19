@@ -420,6 +420,31 @@ Verified by `tests/continuity.js` (22 checks) with a writable stub folder that s
 across browser contexts, so "another device" is a fresh browser with empty storage
 looking at the same folder.
 
+### ✅ v2.2 — progress dashboard (shipped)
+**📈 Progress** in the top bar reads *every* project this browser knows about — plus any
+`.filmroom.json` sidecars in the Games folder, so work done on another computer counts —
+and answers the question a season actually raises: is he getting better at the things you
+keep talking about? Nothing new is recorded; it is the clips and tags already saved,
+counted.
+- **Headline numbers** as stat tiles (games broken down, moments saved, share that are
+  strengths, sessions watched together) — not a chart, because the story is four numbers.
+- **Game by game**: one stacked bar per game in *game-date* order (`videoDate`, captured
+  from the file's own timestamp on open, so the season reads chronologically rather than
+  in the order you happened to edit).
+- **What comes up most**: the top 8 labels, stacked by strength / work-on / teachable.
+- **What is changing**: the real trend — his early games vs his recent ones, compared as
+  *per-game rates* (the halves rarely hold the same number of games), filtered to tags
+  with enough occurrences to mean something and a move big enough not to be noise. Stated
+  in plain sentences rather than a chart, since that is what a parent actually reads.
+- **Filters** (position, format) in one row scoping everything at once, and a **⬇
+  Spreadsheet** CSV export — one row per moment, ratings spelled out, RFC-correct quoting.
+- Charting discipline: the app's existing status colours (strength/work-on/teachable),
+  a legend with icons so identity is never colour-alone, every value printed as text
+  beside its bar (the tooltip adds detail, it never holds the only copy), 2px surface
+  gaps instead of borders, bars capped at 18px.
+Verified by `tests/trends.js` (28 checks) over a synthetic six-game season; the dashboard
+is also now part of the WCAG AA contrast sweep in `tests/comfort.js`.
+
 ## Roadmap
 
 ### Next (in order)
@@ -437,7 +462,7 @@ looking at the same folder.
 
 ### Later (unbuilt features)
 - [ ] Track multiple spotlights in one pass; track backwards from an anchor.
-- [ ] Per-player trend dashboard: tag counts across games/projects, CSV export.
+- [x] Per-player trend dashboard — shipped, see v2.2 below.
 - [ ] Project bundles: zip of project JSON + exported clips for archiving a season.
 - [ ] Voice-over recording on exports (mic + AAC mux — the audio pipeline exists).
 - [ ] Reel export straight to the reel from compare/board content (title cards already
@@ -457,6 +482,29 @@ looking at the same folder.
       the iPad "Add to Home Screen" path, and nobody has confirmed it deploys.
 - [ ] Tag editor renames update the current project only — decide whether that's enough
       or renames should also rewrite other stored projects when opened (migration note).
+
+## Where this sits against Trace's paid tiers
+
+The user's footage comes from a Trace camera, and the standing question is whether this
+app can displace what Trace charges for. Checked August 2026 — Trace sells **Basic**
+($180/yr, 2 seats) and **Pro** ($300/yr, 4 seats).
+
+| Trace charges for | Film Room |
+| --- | --- |
+| Unlimited playlists; "download playlist as one video" (**Pro**) | ✅ The reel + **Save as one video**, with coaching cards, question freezes and game audio burned in — Trace's playlists are bare clips |
+| Downloading highlights (**Pro**) | ✅ Every export is a local file; nothing is gated |
+| Auto-spotlight on your player during playback | ✅ Spotlight + auto-track, rebuilt in v1.4 specifically for zoomed-out Trace footage — plus arrows, zones and questions Trace has no equivalent for |
+| Per-seat family access | ✅ No accounts at all; AirDrop the file |
+| Individual/team analytics (**Pro**) | ✅ **v2.2 progress dashboard** — and on a different axis: game-IQ tags (scanning, decisions, touch, positioning) across a season, which Trace structurally cannot derive |
+| **Auto-capture**: every player's moments cut automatically hours after the whistle | ❌ Not replaceable — hardware + cloud. Film Room needs a human to choose the moment (which is the point, but it is not the same product) |
+| **Heatmaps / physical stats** (**Pro**) | ❌ Comes from their worn sensor; no positional data here |
+| **Trace iD** sharing profiles | ❌ Cloud service, and against the no-accounts principle |
+
+**Position:** *Basic + Film Room replaces Pro* — about $120/yr saved, with better film
+sessions. Some subscription stays necessary because the footage has to come out of their
+system at all. Unverified (their site is blocked from this environment): whether Basic's
+"last 5 matches" limit and full-game **download** (vs. watch) are workable — worth
+checking on the real account, and it overlaps the standing Trace-footage question below.
 
 ## Open questions (check before building the next feature)
 
@@ -541,6 +589,9 @@ looking at the same folder.
 | 2026-08-18 | Project JSON is mirrored next to the video as `<video>.filmroom.json`, keyed off the Games folder | The folder is already the thing the user syncs (iCloud); writing beside the video means continuity needs no accounts, no server, and no new concept — and a plain JSON file next to the film is self-explanatory if anyone finds it |
 | 2026-08-18 | Newest `savedAt` wins on open, and the toast names the source | Two devices will diverge eventually; silently preferring either one can destroy an evening's work, so the rule is simple, stated, and visible when it fires |
 | 2026-08-18 | Write permission is requested when a game is opened, not when the folder is chosen | Browsers only grant readwrite from a user gesture, and the open click is the one that reliably exists — asking at folder-choose time would strand anyone whose folder was connected before this feature existed |
+| 2026-08-18 | The trend view compares early vs recent games as per-game rates, not raw counts | The two halves of a season rarely hold the same number of games, so raw counts would report "more heavy touches" purely because you broke down more film in October |
+| 2026-08-18 | "What is changing" is prose, not a chart | It is the one insight a parent acts on, and a sentence ("about 2 a game early on, 0 a game lately") is read where a dumbbell chart is decoded; the bars above already carry the magnitudes |
+| 2026-08-18 | The dashboard reads localStorage *and* the Games folder sidecars | v2.1 made the folder the cross-device source of truth; a season view that ignored it would under-report every game broken down on the other computer |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
 
 ## Working agreements for future sessions
