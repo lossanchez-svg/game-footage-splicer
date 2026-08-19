@@ -52,6 +52,18 @@ mkdir -p fixtures
 [c]noise=alls=7:allf=t" \
   -c:v libvpx-vp9 -b:v 900k fixtures/small.webm
 
+# 8s PANNING-camera fixture: the world is wider than the frame and the window
+# sweeps across it, so the grass streams past while the player drifts only
+# slowly within the frame — the case where a grass-heavy template would happily
+# follow the field instead of the player.
+"$FFMPEG" -y -f lavfi -i "nullsrc=s=1800x420:r=30:d=8,geq=r='38+9*sin(X/23)+6*sin(Y/7)':g='118+16*sin(X/23)+18*sin(Y/7)':b='48+6*sin(X/23)+6*sin(Y/7)'" \
+  -f lavfi -i "color=c=0xc02828:s=8x20:r=30:d=8" \
+  -f lavfi -i "color=c=0xd8d8d8:s=8x20:r=30:d=8" \
+  -filter_complex "[0][1]overlay=x='260+70*t':y='200+15*sin(2*t)'[a];\
+[a][2]overlay=x='420+64*t':y='250+12*cos(1.7*t)'[b];\
+[b]noise=alls=7:allf=t,crop=640:360:x='120+55*t':y=30" \
+  -c:v libvpx-vp9 -b:v 1000k fixtures/pan.webm
+
 # 4s of real AAC (ADTS) for the muxer/demuxer audio suite
 "$FFMPEG" -y -f lavfi -i sine=frequency=600:duration=4 -c:a aac -b:a 96k \
   -f adts fixtures/clip.aac

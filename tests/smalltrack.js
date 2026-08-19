@@ -72,6 +72,46 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
   check(`it travelled with him, not against him (x ${early.x.toFixed(2)} → ${later.x.toFixed(2)})`,
     later.x > early.x + 0.3);
 
+  /* ---- and again with the camera panning ----
+     Real sideline footage pans constantly. The world is wider than the frame
+     here, so the grass streams past while the player drifts only slowly within
+     it: a template made mostly of grass would follow the FIELD, which is moving
+     with the camera, rather than the player. */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'pan.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const pbox = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(300);
+
+  // player world x = 264+70t, camera left edge = 120+55t, crop y offset 30
+  const panned = t => ({ x: (264 + 70 * t - (120 + 55 * t)) / 640,
+                         y: (210 + 15 * Math.sin(2 * t) - 30) / 360 });
+  await page.click('#toolGrid button[data-tool=spot]');
+  const q0 = panned(0);
+  await page.mouse.move(pbox.x + pbox.width * q0.x, pbox.y + pbox.height * q0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  await page.waitForTimeout(300);
+
+  for (const t of [1, 3, 5, 7]){
+    const got = await page.evaluate(t => {
+      const a = window.__filmroom.getProject().annotations[0];
+      return window.__filmroom.spotPos(a, t);
+    }, t);
+    const want = panned(t);
+    const err = Math.hypot(got.x - want.x, got.y - want.y);
+    check(`stays on him while the camera pans, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
+  }
+
   console.log('\n--- errors collected:', errors.length);
   errors.forEach(e => console.log('  ', e));
   await browser.close();
