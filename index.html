@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v2.9</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v2.9.2</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -670,6 +670,7 @@
           <button class="miniBtn" id="selTrackBack" style="display:none" data-tip="Works backwards instead: put the ring on him at the moment that matters, press this, and it shows where he came from — the run he made before the ball arrived.">⏪ Where he came from</button>
           <button class="miniBtn" id="selSizeDown" style="display:none" data-tip="Make the ring smaller. Use it when the camera is far away and the players are tiny.">Ring −</button>
           <button class="miniBtn" id="selSizeUp" style="display:none" data-tip="Make the ring bigger, for close-up video.">Ring ＋</button>
+          <button class="miniBtn" id="selTrackReport" style="display:none" data-tip="Saves a small text file describing exactly what the last Auto-track did — how big the ring was, how sure it was of the player at every step, and where it went. Send it along if the ring is not following him.">🩺 Save tracking report</button>
         </div>
         <div class="chipRow">
           <button class="miniBtn danger" id="selDelete" data-tip="Remove this drawing. If it was a mistake you can undo it straight away.">🗑 Delete</button>
@@ -1064,6 +1065,7 @@ let ui = {
   exporting:false, exportCancel:false, tracking:false, trackCancel:false,
 };
 let undoStack = [];
+let lastTrackReport = null;      // what the most recent Auto-track actually did
 let lastT = 0;
 let dpr = window.devicePixelRatio || 1;
 
@@ -2054,6 +2056,7 @@ function updateSelPanel(){
   $('#selKeyHere').style.display = isSpot;
   $('#selTrack').style.display = isSpot;
   $('#selTrackBack').style.display = isSpot;
+  $('#selTrackReport').style.display = (isSpot === '' && lastTrackReport) ? '' : 'none';
   $('#selSizeDown').style.display = isSpot;
   $('#selSizeUp').style.display = isSpot;
 }
@@ -2352,6 +2355,19 @@ async function autoTrack(arg, dir = 1){
   }
   window.__trackTrace = st[0].trace;             // per-sample diagnostics (console/tests)
   window.__trackTraces = st.map(x => x.trace);
+  lastTrackReport = {
+    build: APP_BUILD,
+    video: { name: project.videoName, w: video.videoWidth, h: video.videoHeight,
+             duration: +(video.duration || 0).toFixed(2) },
+    working: { W, H },
+    direction: dir > 0 ? 'forward' : 'backward',
+    startedAt: +t0.toFixed(3),
+    spots: st.map(x => ({
+      label: x.spot.label || '', ringR: x.spot.r || 0.035,
+      patchHalf: x.ph, distinct: x.distinct == null ? null : +x.distinct.toFixed(3),
+      searchRadius: x.baseSearch, stopAt: +x.tEnd.toFixed(3),
+    })),
+  };
 
   let t = t0;
   const more = () => dir > 0 ? t < T_LAST - 1e-3 : t > T_LAST + 1e-3;
@@ -2431,6 +2447,14 @@ async function autoTrack(arg, dir = 1){
   }
   ui.tracking = false;
   $('#trackPill').style.display = 'none';
+  if (lastTrackReport){
+    lastTrackReport.result = st.map(x => ({
+      label: x.spot.label || '', lost: x.lost, lastGoodAt: +x.lastGoodT.toFixed(3),
+      keys: x.spot.keys.length,
+      samples: x.trace,                       // t, lock, coast, drift, position, velocity
+    }));
+    lastTrackReport.cancelled = !!ui.trackCancel;
+  }
   persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
 
   const anyLost = st.some(x => x.lost);
@@ -2463,6 +2487,12 @@ $('#selTrack').onclick = () => {
 $('#selTrackBack').onclick = () => {
   const sel = project.annotations.find(a => a.id === ui.selectedId);
   if (sel && sel.type === 'spot') autoTrack(sel, -1);
+};
+$('#selTrackReport').onclick = () => {
+  if (!lastTrackReport) return toast('Run Auto-track first, then this saves what it did.');
+  downloadBlob(new Blob([JSON.stringify(lastTrackReport, null, 1)], { type:'application/json' }),
+    'filmroom-tracking-report.json');
+  toast('Tracking report saved — check your Downloads folder. Send it over and it will show exactly where the ring went wrong.', 6500);
 };
 /* every ring that is on screen right now, followed in one pass */
 function spotsHere(){
@@ -4637,7 +4667,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v2.9';
+const APP_BUILD = 'v2.9.2';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),

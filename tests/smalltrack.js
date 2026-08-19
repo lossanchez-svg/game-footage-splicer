@@ -112,6 +112,53 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
     check(`stays on him while the camera pans, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
   }
 
+  /* ---- and with a high-contrast tree line right above him ----
+     Park pitches have canopy directly above the players, and the tracking patch
+     is sampled as a SQUARE while the ring is drawn as a flat ellipse — so the
+     template reaches further above his head than the ring suggests. Canopy has
+     far more contrast than grass or a small player, so it can dominate the
+     match. This guards that it does not. */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'trees.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const tbox = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(300);
+
+  const underTrees = t => ({ x: (84 + 60 * t) / 640, y: (146 + 6 * Math.sin(2 * t)) / 360 });
+  await page.click('#toolGrid button[data-tool=spot]');
+  const r0 = underTrees(0);
+  await page.mouse.move(tbox.x + tbox.width * r0.x, tbox.y + tbox.height * r0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  await page.waitForTimeout(300);
+
+  for (const t of [1, 3, 5, 7]){
+    const got = await page.evaluate(t => {
+      const a = window.__filmroom.getProject().annotations[0];
+      return window.__filmroom.spotPos(a, t);
+    }, t);
+    const want = underTrees(t);
+    const err = Math.hypot(got.x - want.x, got.y - want.y);
+    check(`stays on him under a tree line, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
+  }
+
+  // and the run must leave a report behind, since that is how a real failure
+  // gets diagnosed rather than guessed at
+  const rep = await page.evaluate(() => {
+    const el = document.querySelector('#selTrackReport');
+    return el && el.style.display !== 'none';
+  });
+  check('a tracking report is offered after a run', rep);
+
   console.log('\n--- errors collected:', errors.length);
   errors.forEach(e => console.log('  ', e));
   await browser.close();

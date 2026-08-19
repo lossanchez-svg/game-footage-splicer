@@ -64,6 +64,18 @@ mkdir -p fixtures
 [b]noise=alls=7:allf=t,crop=640:360:x='120+55*t':y=30" \
   -c:v libvpx-vp9 -b:v 1000k fixtures/pan.webm
 
+# 8s "tree line" fixture: a high-contrast canopy sits directly ABOVE the players,
+# as on a real park pitch. The tracking patch is square while the ring is drawn
+# flat, so a patch centred on a player near that line reaches up into the canopy
+# — and canopy has far more contrast than the player or the grass.
+"$FFMPEG" -y -f lavfi -i "nullsrc=s=640x360:r=30:d=8,geq=\
+r='if(lt(Y,130), 18+34*sin(X/5)*sin(Y/4), 38+9*sin(Y/7))':\
+g='if(lt(Y,130), 42+46*sin(X/7)*cos(Y/5), 118+20*sin(Y/7))':\
+b='if(lt(Y,130), 16+24*sin(X/3)*sin(Y/6), 48+7*sin(Y/7))'" \
+  -f lavfi -i "color=c=0xc02828:s=8x20:r=30:d=8" \
+  -filter_complex "[0][1]overlay=x='80+60*t':y='136+6*sin(2*t)'[a];[a]noise=alls=6:allf=t" \
+  -c:v libvpx-vp9 -b:v 900k fixtures/trees.webm
+
 # 4s of real AAC (ADTS) for the muxer/demuxer audio suite
 "$FFMPEG" -y -f lavfi -i sine=frequency=600:duration=4 -c:a aac -b:a 96k \
   -f adts fixtures/clip.aac

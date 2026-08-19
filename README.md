@@ -97,6 +97,10 @@ The best path depends on the device — each one leads with its strongest option
   crossings** — when another player runs across him, it keeps moving on his predicted
   path and re-locks on the other side. On far footage, use **Ring −/＋** to fit the ring
   to the player — the tracker automatically works at higher resolution for small rings.
+  If it still leaves the player on your footage, hit **🩺 Save tracking report** on the
+  spotlight panel right after a run and send the JSON file — it records what the tracker
+  saw (match scores, patch sizes, positions) so the failure can be read as numbers. It
+  contains no video and no frames.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.
