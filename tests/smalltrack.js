@@ -332,6 +332,54 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
   check(`and the template is his shape, not a square ` +
     `(${bShape.w * 2 + 1}x${bShape.h * 2 + 1}px)`, bShape.h > bShape.w * 1.5);
 
+  /* ---- a clip mark must not silently cut the run short ----
+     Reported as "the ring follows him only for a second, then it abruptly
+     stops". A clip out-point marked at any earlier moment used to bound every
+     auto-track run, and the finish message said "Followed him for 1.0 seconds"
+     either way — the same sentence whether he was tracked to a boundary nobody
+     could see or the tracker gave up. Nothing about it was discoverable.
+     "Follow him from here" means follow him; only an end set on this spotlight
+     may stop it early, and when one does the message now says so. */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'small.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const mbox = await (await page.$('#overlay')).boundingBox();
+
+  // mark a one-second clip early on, the way anyone saving a moment would
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(200);
+  await page.click('#btnMarkIn');
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 1; });
+  await page.waitForTimeout(200);
+  await page.click('#btnMarkOut');
+  const marked = await page.evaluate(() => window.__filmroom.build && document.querySelector('#btnMarkOut') !== null);
+  check('a clip end is marked one second in', marked);
+
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(200);
+  await page.click('#toolGrid button[data-tool=spot]');
+  const m0 = him(0);
+  await page.mouse.move(mbox.x + mbox.width * m0.x, mbox.y + mbox.height * m0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  await page.waitForTimeout(300);
+
+  const ran = await page.evaluate(() => {
+    const r = window.__filmroom.trackReport;
+    return { stopAt: r.spots[0].stopAt, because: r.spots[0].stopBecause, to: r.result[0].lastGoodAt };
+  });
+  check(`the marked clip end does not bound the run (ran to ${ran.stopAt}s, not 1s)`, ran.stopAt > 6);
+  check(`and it actually followed him well past the mark (${ran.to}s)`, ran.to > 6);
+  check(`the run says what bounded it (${ran.because})`, !!ran.because);
+
   // and the run must leave a report behind, since that is how a real failure
   // gets diagnosed rather than guessed at
   const rep = await page.evaluate(() => {
