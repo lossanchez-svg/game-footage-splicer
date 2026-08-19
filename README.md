@@ -95,8 +95,9 @@ The best path depends on the device — each one leads with its strongest option
   screen-recorded YouTube): it's immune to auto-exposure/brightness drift, predicts
   where the player is heading through camera pans, and **coasts through brief
   crossings** — when another player runs across him, it keeps moving on his predicted
-  path and re-locks on the other side. On far footage, use **Ring −/＋** to fit the ring
-  to the player — the tracker automatically works at higher resolution for small rings.
+  path and re-locks on the other side. On far footage it measures how big he actually is
+  and **pulls the ring in to fit him by itself** — no setting to find. If you want to
+  adjust it, select the spotlight and use **🔽 Smaller ring** / **🔼 Bigger ring**.
   If it still leaves the player on your footage, hit **🩺 Save tracking report** on the
   spotlight panel right after a run and send the JSON file — it records what the tracker
   saw (match scores, patch sizes, positions) so the failure can be read as numbers. It

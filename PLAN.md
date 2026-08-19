@@ -940,6 +940,29 @@ goes 0.163 → **0.006**, back under the strict bound, and the tests are strict 
 
 Suite: 446 checks green.
 
+### ✅ v3.4 — the ring fits itself to him (shipped)
+*"I tested it, but didn't know how to create a smaller ring."* That is the correct answer,
+and the bug was the instruction. **Ring −** is a small chip, in a row of eight, that only
+appears once a spotlight is selected — and for four reports running the standing advice
+was to go and find it. On a project whose stated bar is that an 88-year-old should succeed
+unaided, telling the user to hunt for a control is not a fix.
+
+The app had already measured which template size works. So it uses it: after choosing the
+ensemble, the ring is **pulled in to fit whatever is actually being tracked** — only ever
+smaller, never bigger, floored so it stays big enough to grab, and stated plainly
+afterwards ("the ring was much bigger than he is, so it has been pulled in to fit him").
+On `small.webm` a default 0.035 ring becomes 0.0177 with nobody touching anything.
+
+The manual controls stay, and now say what they are: **🔽 Smaller ring** / **🔼 Bigger
+ring** rather than `Ring −` / `Ring ＋`. The finish message no longer sends anyone looking
+for a button; when it genuinely cannot hold him it says so and suggests a closer moment
+instead.
+
+Four new checks in `smalltrack.js`, and `ringWas`/`ringNow` in the report so the next one
+shows whether it fitted itself.
+
+Suite: 450 checks green.
+
 ## Roadmap
 
 ### Next (in order)
@@ -1093,6 +1116,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | The ring sizes itself to the player rather than asking the user to | The app measures which template size works before it starts; telling someone to find a small chip in a row of eight is not a fix, and four reports in a row came back with a 90px ring around a 13px player because of it |
 | 2026-08-19 | A template must be substantially on the picture for its match to count | nccAt clamps its reads, so a patch hanging off the edge re-reads the last column and correlates with its own smear at 0.98. The search window was clipped to the frame long ago; the patch never was, and the ring finished a real run pinned to x = 0.000 |
 | 2026-08-19 | Multi-edit scripts are verified by their effect, not their exit line | An AssertionError on a later substitution aborted a script before it wrote the file, so a change that was described in a commit message, a PLAN entry and a PR simply did not exist. The report caught it two builds later |
 | 2026-08-19 | A spotlight lasts a play; arrows and scribbles keep the four-second default | They are different kinds of object. One marks a moment, the other follows a player through one, and sharing a lifetime meant the ring stopped being drawn while the player was still running |
