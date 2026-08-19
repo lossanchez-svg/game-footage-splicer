@@ -175,6 +175,58 @@ async function hasRealSupport(page){
     check(`reel duration ≈ 15.3s (${dur.toFixed(2)}s)`, dur > 14.3 && dur < 16.3);
   }
 
+  /* ---- a clip with a tactics board gets it as a card after the play ---- */
+  // Measure the SAME clip before and after attaching a board, so the assertion
+  // is the board's own contribution rather than arithmetic about card lengths.
+  await page.click('#tabs button[data-tab=clips]');
+  if (stubbed) await page.evaluate(() => { window.__fakeEnc.frames = 0; window.__fakeEnc.keys = 0; });
+  const [dlBefore] = await Promise.all([
+    page.waitForEvent('download', { timeout: 180000 }),
+    page.click('#clipList .clipItem >> nth=0 >> [data-act=export]'),
+  ]);
+  await dlBefore.saveAs(path.join(OUT, 'noboard_' + dlBefore.suggestedFilename()));
+  const framesBefore = stubbed ? await page.evaluate(() => window.__fakeEnc.frames) : 0;
+
+  await page.click('#clipList .clipItem >> nth=0 >> [data-act=board]');   // creates + opens it
+  await page.waitForTimeout(700);
+  await page.click('#boardClose');
+  await page.waitForTimeout(300);
+  check('the clip now carries a board', await page.evaluate(() => {
+    const p = window.__filmroom.getProject();
+    const c = p.clips[0];
+    return !!c.boardId && (p.boards || []).some(b => b.id === c.boardId);
+  }));
+
+  if (stubbed) await page.evaluate(() => { window.__fakeEnc.frames = 0; window.__fakeEnc.keys = 0; });
+  const [dl4] = await Promise.all([
+    page.waitForEvent('download', { timeout: 180000 }),
+    page.click('#clipList .clipItem >> nth=0 >> [data-act=export]'),
+  ]);
+  const boardOut = path.join(OUT, 'board_' + dl4.suggestedFilename());
+  await dl4.saveAs(boardOut);
+  check('a clip with a board still exports one file', dl4.suggestedFilename().endsWith('.mp4'));
+
+  if (stubbed){
+    const framesAfter = await page.evaluate(() => window.__fakeEnc.frames);
+    const added = framesAfter - framesBefore;
+    // one 3.2s card at 30fps = 96 frames, and nothing else should change
+    check(`the board adds exactly its own card (${framesBefore} → ${framesAfter}, +${added} ≈ 96)`,
+      added >= 90 && added <= 102);
+  } else if (process.env.FFMPEG){
+    let probe = '';
+    try { execFileSync(process.env.FFMPEG, ['-i', boardOut], { stdio: ['ignore', 'pipe', 'pipe'] }); }
+    catch (e) { probe = e.stderr.toString(); }
+    const m = probe.match(/Duration: (\d+):(\d+):([\d.]+)/);
+    const dur = m ? (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) : 0;
+    check(`the export grew by about the board card (${dur.toFixed(2)}s)`, dur > 3.2);
+  }
+
+  // The board card is drawn by the same pushCardFrames() helper as the title
+  // cards, so its stretch of the audio timeline is a silence segment by
+  // construction — that silence is already proven in voice.js against a
+  // timeline that actually has audio in it. This fixture has none at all, so
+  // asserting it here would only re-check that a silent video stays silent.
+
   console.log('\n--- errors collected:', errors.length);
   errors.forEach(e => console.log('  ', e));
   await browser.close();

@@ -30,3 +30,4 @@ quietly breaks a step is visible.
 | 13 | Undo | Deleting is never a dead end |
 | 14 | Progress | The season across every game — regenerate with `node trends.js` |
 | 15 | His words | The same question, two sessions apart — regenerate with `node insights.js` |
+| 16 | Board card | How a clip's tactics board appears inside the exported video |

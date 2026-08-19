@@ -120,7 +120,9 @@ Hit **Board** in the top bar for a top-down pitch with both teams lined up in fo
 use the same arrow/zone/pen/text tools to draw the rotation, the press, the run he
 should make. Keep several named boards per game, attach one to any clip with the clip's
 **🗒** button ("here's the shape behind that moment"), and export any board as a PNG to
-text to him. **⟲ Line up** resets the players without losing your drawings.
+text to him. A clip with a board attached **shows it as a card in the video** — right
+after the clip, so the idea lands while the moment is still fresh, and after he has had
+his own go at the answer. **⟲ Line up** resets the players without losing your drawings.
 
 ### 🧠 Questions mid-clip (the self-awareness tool)
 Add a **question** just before a key moment. On playback the video freezes and

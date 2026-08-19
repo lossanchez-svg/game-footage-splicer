@@ -25,6 +25,9 @@ node hardtrack.js      # hard-mode tracking: small target on a noisy field with
 node multitrack.js     # multi-spotlight: two players followed in ONE pass on two.webm,
                        # each staying on its own through a crossing — plus the regression
                        # that auto-track no longer stops after four seconds
+node smalltrack.js     # the real-world failure: a tiny player, a default ring, mown
+                       # grass and look-alike team-mates — the ring must stay on HIM and
+                       # not swap onto the team-mate crossing the other way
 node touch.js          # touch/iPad suite: responsive layout + tap interactions
 node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise
