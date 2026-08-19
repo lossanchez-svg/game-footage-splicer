@@ -661,7 +661,8 @@
           <button class="miniBtn" id="selStartHere" data-tip="Make this drawing appear from the moment you are stopped on, instead of earlier.">Appears here</button>
           <button class="miniBtn" id="selEndHere" data-tip="Make this drawing disappear at the moment you are stopped on. Set this to the end of the play before using Auto-track.">Disappears here</button>
           <button class="miniBtn" id="selKeyHere" style="display:none" data-tip="Pin the ring to where he is standing right now. Do that a few times through a play and the ring glides along with him.">📍 Pin him here</button>
-          <button class="miniBtn" id="selTrack" style="display:none" data-tip="Follows the player you spotlighted for the rest of the play, so you do not have to move the ring by hand. Press Escape to stop it.">🎯 Auto-track</button>
+          <button class="miniBtn" id="selTrack" style="display:none" data-tip="Follows the player you spotlighted onwards from this moment, until it loses him. Nothing to set up first. Press Escape to stop it.">🎯 Follow him from here</button>
+          <button class="miniBtn" id="selTrackBack" style="display:none" data-tip="Works backwards instead: put the ring on him at the moment that matters, press this, and it shows where he came from — the run he made before the ball arrived.">⏪ Where he came from</button>
           <button class="miniBtn" id="selSizeDown" style="display:none" data-tip="Make the ring smaller. Use it when the camera is far away and the players are tiny.">Ring −</button>
           <button class="miniBtn" id="selSizeUp" style="display:none" data-tip="Make the ring bigger, for close-up video.">Ring ＋</button>
         </div>
@@ -2030,6 +2031,7 @@ function updateSelPanel(){
   const isSpot = sel.type === 'spot' ? '' : 'none';
   $('#selKeyHere').style.display = isSpot;
   $('#selTrack').style.display = isSpot;
+  $('#selTrackBack').style.display = isSpot;
   $('#selSizeDown').style.display = isSpot;
   $('#selSizeUp').style.display = isSpot;
 }
@@ -2046,7 +2048,10 @@ $('#selStartHere').onclick = () => {
 };
 $('#selEndHere').onclick = () => {
   const sel = project.annotations.find(a => a.id === ui.selectedId);
-  if (sel) mutate(() => { sel.tEnd = Math.max(video.currentTime, sel.tStart + 0.2); });
+  if (sel) mutate(() => {
+    sel.tEnd = Math.max(video.currentTime, sel.tStart + 0.2);
+    sel.endSet = true;          // "stop there" is a choice, not something to infer
+  });
 };
 $('#selKeyHere').onclick = () => {
   const sel = project.annotations.find(a => a.id === ui.selectedId);
@@ -2119,28 +2124,38 @@ function thinSamples(pts, eps){
    which defaults to 4 seconds after the ring was placed — so pressing Track on a
    fresh spotlight followed the player for four seconds and stopped, and pressing
    it after scrubbing past that point did nothing but show a toast. Neither reads
-   as anything but "the tracker is broken". Now it follows until it loses him. */
-function trackEndFor(spot, t0){
+   as anything but "the tracker is broken". Now it follows until it loses him.
+   Going backwards is the mirror image: back to the marked clip's start, or 25
+   seconds, or the beginning of the video. */
+function trackLimitFor(spot, t0, dir){
   const D = video.duration || 0;
-  const explicit = Math.abs((spot.tEnd - spot.tStart) - DEFAULT_DUR) > 0.05;
-  if (explicit && spot.tEnd > t0 + 0.2) return Math.min(spot.tEnd, D || spot.tEnd);
+  if (dir < 0){
+    if (ui.tIn != null && ui.tIn < t0 - 0.2) return Math.max(0, ui.tIn);
+    return Math.max(0, t0 - 25);
+  }
+  if (spot.endSet && spot.tEnd > t0 + 0.2) return Math.min(spot.tEnd, D || spot.tEnd);
   if (ui.tOut != null && ui.tOut > t0 + 0.2) return Math.min(ui.tOut, D || ui.tOut);
   return Math.min(t0 + 25, D || t0 + 25);
 }
 
 /* Tracks one spotlight, or several in a single pass: seeking and decoding the
-   frame is what costs, so N players cost barely more than one. */
-async function autoTrack(arg){
+   frame is what costs, so N players cost barely more than one.
+   dir = +1 follows him on from here; dir = -1 works backwards from here, for
+   "he ends up in this space — show me the run that got him there". The matcher
+   does not care which way time runs; only the bookkeeping does. */
+async function autoTrack(arg, dir = 1){
   const spots = (Array.isArray(arg) ? arg : [arg]).filter(a => a && a.type === 'spot');
   if (!spots.length || ui.tracking || ui.exporting) return;
   const t0 = video.currentTime;
 
   const st = spots.map(spot => {
-    const tEnd = trackEndFor(spot, t0);
-    return { spot, tEnd, ok: tEnd > t0 + 0.15 };
+    const tEnd = trackLimitFor(spot, t0, dir);
+    return { spot, tEnd, ok: dir > 0 ? tEnd > t0 + 0.15 : tEnd < t0 - 0.15 };
   }).filter(x => x.ok);
   if (!st.length)
-    return toast('Move to where the play starts, then press Auto-track — it follows him from there.', 5500);
+    return toast(dir > 0
+      ? 'Move to where the play starts, then press Auto-track — it follows him from there.'
+      : 'There is nothing before this point to work back through — move further into the game first.', 5500);
 
   ui.tracking = true; ui.trackCancel = false;
   video.pause(); hideDecision();
@@ -2217,7 +2232,7 @@ async function autoTrack(arg){
 
   const ACCEPT = 0.45, ADAPT = 0.65, MAX_COAST = 5;
   const dt = 1/8;
-  const T_LAST = Math.max(...st.map(x => x.tEnd));
+  const T_LAST = dir > 0 ? Math.max(...st.map(x => x.tEnd)) : Math.min(...st.map(x => x.tEnd));
 
   for (const x of st){
     const spot = x.spot;
@@ -2225,8 +2240,9 @@ async function autoTrack(arg){
     x.ph = clamp(Math.round((spot.r || 0.035) * W * 1.15), 8, 28);
     x.baseSearch = Math.max(12, Math.round(x.ph * 1.6));
     // keys outside the tracked range are kept; everything inside is rewritten
-    x.beforeKeys = spot.keys.filter(k => k.t < t0 - 0.001);
-    x.afterKeys  = spot.keys.filter(k => k.t > x.tEnd + 0.001);
+    x.lo = Math.min(t0, x.tEnd); x.hi = Math.max(t0, x.tEnd);
+    x.beforeKeys = spot.keys.filter(k => k.t < x.lo - 0.001);
+    x.afterKeys  = spot.keys.filter(k => k.t > x.hi + 0.001);
     x.samples = [{ t: t0, x: startPos.x, y: startPos.y }];
     x.px = cx0(startPos.x * W); x.py = cy0(startPos.y * H);
     x.spread = 1; x.vx = 0; x.vy = 0; x.coast = 0; x.drift = 0;
@@ -2240,15 +2256,16 @@ async function autoTrack(arg){
   window.__trackTraces = st.map(x => x.trace);
 
   let t = t0;
-  while (t < T_LAST - 1e-3 && !ui.trackCancel && st.some(x => !x.done)){
-    t = Math.min(t + dt, T_LAST);
+  const more = () => dir > 0 ? t < T_LAST - 1e-3 : t > T_LAST + 1e-3;
+  while (more() && !ui.trackCancel && st.some(x => !x.done)){
+    t = dir > 0 ? Math.min(t + dt, T_LAST) : Math.max(t - dt, T_LAST);
     await seekTo(t);
     img = grab();
     let worst = 1;
 
     for (const x of st){
       if (x.done) continue;
-      if (t > x.tEnd + 1e-3){ x.done = true; continue; }
+      if (dir > 0 ? t > x.tEnd + 1e-3 : t < x.tEnd - 1e-3){ x.done = true; continue; }
       const predX = clamp(x.px + x.vx, 0, W-1), predY = clamp(x.py + x.vy, 0, H-1);
       const radius = x.coast ? x.baseSearch * 2 : x.baseSearch;
       const m = bestMatch(img, x.T, Math.round(predX), Math.round(predY), radius, x.spread, x.ph);
@@ -2302,10 +2319,17 @@ async function autoTrack(arg){
   let followedTo = t0;
   for (const x of st){
     x.samples.length = x.lastGoodIdx + 1;        // drop provisional coast tail
-    x.spot.keys = [...x.beforeKeys, ...thinSamples(x.samples, 0.004), ...x.afterKeys];
-    // the ring has to stay on screen for as long as it now follows him
-    if (x.lastGoodT > x.spot.tEnd) x.spot.tEnd = Math.min(x.lastGoodT, video.duration || x.lastGoodT);
-    followedTo = Math.max(followedTo, x.lastGoodT);
+    // keys must run in time order for the ring to glide between them
+    const path = dir > 0 ? x.samples : [...x.samples].reverse();
+    x.spot.keys = [...x.beforeKeys, ...thinSamples(path, 0.004), ...x.afterKeys];
+    // the ring has to be on screen for the whole path it now follows
+    if (dir > 0){
+      if (x.lastGoodT > x.spot.tEnd) x.spot.tEnd = Math.min(x.lastGoodT, video.duration || x.lastGoodT);
+      followedTo = Math.max(followedTo, x.lastGoodT);
+    } else {
+      if (x.lastGoodT < x.spot.tStart) x.spot.tStart = Math.max(0, x.lastGoodT);
+      followedTo = Math.min(followedTo === t0 ? t0 : followedTo, x.lastGoodT);
+    }
   }
   ui.tracking = false;
   $('#trackPill').style.display = 'none';
@@ -2313,13 +2337,16 @@ async function autoTrack(arg){
 
   const anyLost = st.some(x => x.lost);
   await seekTo(ui.trackCancel ? video.currentTime : t0);
-  const secs = Math.max(0, followedTo - t0);
+  const secs = Math.abs(followedTo - t0);
+  const way = dir > 0 ? 'Followed' : 'Worked back';
   if (ui.trackCancel)
     toast('Stopped following. What it worked out so far was kept — press ⌘Z if you would rather undo it.', 5000);
   else if (anyLost && st.length > 1)
-    toast('Followed them for ' + secs.toFixed(1) + ' seconds. It lost one of them along the way — scrub to where the ring drifts off, drag it back on him and press Auto-track again.', 7000);
+    toast(way + ' ' + secs.toFixed(1) + ' seconds. It lost one of them along the way — scrub to where the ring drifts off, drag it back on him and press Auto-track again.', 7000);
   else if (anyLost)
-    toast('Followed him for ' + secs.toFixed(1) + ' seconds, up to ' + fmtT(followedTo) + ', then lost him. Scrub there, drag the ring back onto him and press Auto-track again.', 7000);
+    toast(way + ' ' + secs.toFixed(1) + ' seconds, to ' + fmtT(followedTo) + ', then lost him. Scrub there, drag the ring back onto him and try again from there.', 7000);
+  else if (dir < 0)
+    toast('Worked back ' + secs.toFixed(1) + ' seconds, to ' + fmtT(followedTo) + ' — the ring now shows the run that got him here. Press play from there to watch it.', 6500);
   else
     toast('Followed ' + (st.length > 1 ? 'all ' + st.length + ' of them' : 'him') + ' for ' +
       secs.toFixed(1) + ' seconds. Press play to check it — you can still drag a ring anywhere it is not quite right.', 6000);
@@ -2327,7 +2354,11 @@ async function autoTrack(arg){
 
 $('#selTrack').onclick = () => {
   const sel = project.annotations.find(a => a.id === ui.selectedId);
-  if (sel && sel.type === 'spot') autoTrack(sel);
+  if (sel && sel.type === 'spot') autoTrack(sel, 1);
+};
+$('#selTrackBack').onclick = () => {
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  if (sel && sel.type === 'spot') autoTrack(sel, -1);
 };
 /* every ring that is on screen right now, followed in one pass */
 function spotsHere(){

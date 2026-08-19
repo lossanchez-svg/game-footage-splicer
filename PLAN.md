@@ -512,6 +512,26 @@ first — a textbook case of a suite testing the path its author already knew.
   several at once costs nothing in accuracy. `tracking.js` and `hardtrack.js` report the
   same errors as before the refactor (0.004–0.005), confirming matching is untouched.
 
+### ✅ v2.6 — tracking backwards from an anchor (shipped)
+**⏪ Where he came from** works the tracker backwards. The moment you can *find* in the
+film is usually the moment the ball arrives; the moment worth coaching is the run he made
+to get there. Put the ring on him at the obvious moment and this fills in the run behind
+it.
+- `autoTrack(spots, dir)` — the matcher never cared which way time runs, only the
+  bookkeeping did. Backwards steps `t -= dt`, bounds at the marked clip's **In** point,
+  else 25 seconds, else the start of the video; the kept-keys split works from
+  `min/max(t0, limit)` in either direction; the path is reversed before thinning so keys
+  stay in time order and the ring glides; and it stretches the spotlight's **tStart**
+  backwards rather than its `tEnd`, so the ring is on screen for the run it now shows.
+- Fixed a latent trap while here: whether an end was "explicitly set" was inferred from
+  `(tEnd - tStart) !== DEFAULT_DUR`, which a backwards track would silently invalidate —
+  stretching tStart made the arithmetic read as deliberate. Pressing **Disappears here**
+  now records `endSet` on the spotlight, so intent is stored rather than guessed.
+- Verified in `tests/multitrack.js`: works back from an anchor at 6s to the start of the
+  video, lands within 0.001–0.005 of the ball at three checkpoints, stores keys in time
+  order, never runs past the anchor, and explains itself when there is nothing behind the
+  anchor to work through.
+
 ## Roadmap
 
 ### Next (in order)
@@ -528,8 +548,8 @@ first — a textbook case of a suite testing the path its author already knew.
       iPhone film.
 
 ### Later (unbuilt features)
-- [x] Track multiple spotlights in one pass — shipped, see v2.5 below. (Tracking
-      *backwards* from an anchor is still unbuilt.)
+- [x] Track multiple spotlights in one pass; track backwards from an anchor — both
+      shipped, see v2.5 and v2.6 below.
 - [x] Per-player trend dashboard — shipped, see v2.2 below.
 - [ ] Project bundles: zip of project JSON + exported clips for archiving a season.
 - [x] Voice-over recording on exports — shipped, see v2.4 below.
@@ -659,6 +679,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-18 | The trend view compares early vs recent games as per-game rates, not raw counts | The two halves of a season rarely hold the same number of games, so raw counts would report "more heavy touches" purely because you broke down more film in October |
 | 2026-08-18 | "What is changing" is prose, not a chart | It is the one insight a parent acts on, and a sentence ("about 2 a game early on, 0 a game lately") is read where a dumbbell chart is decoded; the bars above already carry the magnitudes |
 | 2026-08-18 | The dashboard reads localStorage *and* the Games folder sidecars | v2.1 made the folder the cross-device source of truth; a season view that ignored it would under-report every game broken down on the other computer |
+| 2026-08-19 | Backwards tracking is the same pass with `dir = -1`, not a second code path | The matcher is time-symmetric; duplicating it would have doubled the surface where the v1.4 tuning could drift apart. Only the bounds, the kept-key split, the sample ordering and which end of the ring's lifetime stretches differ |
+| 2026-08-19 | "The user set an end" is stored as a flag, not inferred from durations | The inference was already fragile and backwards tracking broke it outright: stretching `tStart` made an untouched end look deliberate, which would have quietly reintroduced the four-second trap for anyone who used both directions |
 | 2026-08-19 | Auto-track follows until it loses him, rather than to a pre-declared end time | Requiring the end to be set first made the common case ("follow him from here") fail silently after 4s, which reads as a broken tracker. The ritual was never discoverable and no test caught it because every test performed it |
 | 2026-08-19 | Multi-spotlight shares one pass and one working resolution, sized by the smallest ring | The seek+decode per frame dominates the cost, so the second player is nearly free; sizing the frame for the smallest ring keeps a far-away player matchable, and larger rings simply get larger patches |
 | 2026-08-19 | Voice-overs live in IndexedDB keyed by clip id, never in the project JSON | Even a short recording is ~100KB; a few would push the project past the localStorage quota and autosave would start failing silently, losing clips and drawings. Keeping audio out of the JSON also keeps the Games-folder sidecar small |
