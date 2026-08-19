@@ -233,6 +233,22 @@
   #panel-coach .body .dimhead{color:var(--dim); font-size:11px; text-transform:uppercase;
     letter-spacing:.6px; margin-top:10px;}
 
+  /* ---------- voice-over recorder ---------- */
+  #voiceModal .box{width:min(520px, 94vw); text-align:center;}
+  #voiceModal h3{margin-bottom:6px;}
+  .voiceClip{color:var(--dim); font-size:13px; margin-bottom:16px;}
+  .voiceBig{font-size:18px; padding:16px 28px; min-height:60px;}
+  .voiceDot{display:inline-block; width:12px; height:12px; border-radius:50%;
+    background:var(--neg); margin-right:8px; vertical-align:middle;}
+  .recording .voiceDot{animation:recPulse 1s ease-in-out infinite;}
+  @keyframes recPulse{0%,100%{opacity:1}50%{opacity:.25}}
+  #voiceTime{font-size:34px; font-weight:700; font-variant-numeric:tabular-nums;
+    margin:14px 0 6px; letter-spacing:1px;}
+  #voiceState{color:var(--dim); font-size:13px; min-height:20px;}
+  .voiceBtns{display:flex; gap:10px; justify-content:center; margin-top:18px; flex-wrap:wrap;}
+  body.bigText #voiceTime{font-size:40px;}
+  body.bigText .voiceClip, body.bigText #voiceState{font-size:15px;}
+
   /* ---------- progress dashboard ---------- */
   #trendModal .box{width:min(940px, 96vw);}
   .trendHead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px;}
@@ -853,6 +869,18 @@
   </div>
 </div>
 
+<!-- ======================= VOICE-OVER RECORDER ======================= -->
+<div class="modal" id="voiceModal">
+  <div class="box">
+    <h3>🎤 Talk over this clip</h3>
+    <div class="voiceClip" id="voiceClipName"></div>
+    <div id="voiceTime">0:00</div>
+    <div id="voiceState"></div>
+    <div class="voiceBtns" id="voiceBtns"></div>
+    <div class="hint" style="margin-top:18px" id="voiceHint">Press record and the clip plays from the start — just say what you'd say sitting next to him. Your voice goes into the video when you save it, with the game sound turned down underneath.</div>
+  </div>
+</div>
+
 <!-- ======================= PROGRESS DASHBOARD ======================= -->
 <div class="modal" id="trendModal">
   <div class="box">
@@ -1199,6 +1227,7 @@ function loadVideo(file, cont){
     renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel(); updateInOutUI();
     watchDismissed = false;                 // a newly opened game offers its session again
     updateWatchBanner();
+    refreshVoiceIds();
     updateContinuityUI();
     if (sidecarDir){
       hintOnce('continuity', 'This game now saves into your Games folder too, so your work follows you to your other devices.', 6500);
@@ -1241,6 +1270,14 @@ const libIdb = {
     this.db = this.db || await this.open();
     return new Promise((res, rej) => {
       const t = this.db.transaction('kv', 'readwrite').objectStore('kv').put(v, k);
+      t.onsuccess = () => res();
+      t.onerror = () => rej(t.error);
+    });
+  },
+  async del(k){
+    this.db = this.db || await this.open();
+    return new Promise((res, rej) => {
+      const t = this.db.transaction('kv', 'readwrite').objectStore('kv').delete(k);
       t.onsuccess = () => res();
       t.onerror = () => rej(t.error);
     });
@@ -2456,6 +2493,7 @@ function renderClipList(){
         <button class="miniBtn" data-act="reel" data-tip="Add this moment to this week's set, for one video or one guided session.">${(project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel'}</button>
         <button class="miniBtn" data-act="board" data-tip="Draw the idea behind this moment on a top-down pitch — shape, runs, where everyone should have been.">🗒${c.boardId ? '✓' : ''}</button>
         <button class="miniBtn" data-act="compare" data-tip="Put this moment next to another clip and play them side by side.">⚖</button>
+        <button class="miniBtn" data-act="voice" data-tip="Record yourself talking over this clip. Your voice goes into the video when you save it — so he hears the coaching even when you are not there.">🎤${voiceIds.has(c.id) ? '✓' : ''}</button>
         <button class="miniBtn" data-act="edit" data-tip="Change the name, the labels, the note or the question on this clip.">✏️ Edit</button>
         <button class="miniBtn danger" data-act="del" data-tip="Delete this clip.">🗑</button>
       </div>`;
@@ -2483,6 +2521,7 @@ function renderClipList(){
       openBoard(board.id);
     };
     el.querySelector('[data-act=compare]').onclick = () => openCompare(c.id);
+    el.querySelector('[data-act=voice]').onclick = () => openVoice(c);
     el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
     el.querySelector('[data-act=del]').onclick = () => {
       deleteWithUndo('“' + c.title + '”', () => {
@@ -3375,7 +3414,10 @@ let fastSupported = false;
   }
 })();
 function doExport(tIn, tOut, label, clip){
-  if (fastSupported && $('#exportMode').value === 'fast') exportFast(tIn, tOut, label, clip);
+  const fast = fastSupported && $('#exportMode').value === 'fast';
+  if (!fast && clip && voiceIds.has(clip.id))
+    toast('Your voice-over needs the “Best for iPhone” way of saving — switch the picker at the top to include it.', 6500);
+  if (fast) exportFast(tIn, tOut, label, clip);
   else exportRange(tIn, tOut, label, clip);
 }
 
@@ -3700,7 +3742,7 @@ async function exportProgram(items, label, opts = {}){
         await seekTo(Math.min(t, video.duration || t));
         ctx.drawImage(video, 0, 0, W, H);
         drawScene(ctx, W, H, t, {editing:false});
-        if (!curSeg){ curSeg = { type:'media', t, frames: 0 }; segments.push(curSeg); }
+        if (!curSeg){ curSeg = { type:'media', t, frames: 0, item }; segments.push(curSeg); }
         await pushFrame();
         curSeg.frames++;
         if (pi < pausePts.length && t >= pausePts[pi].t){
@@ -4029,27 +4071,64 @@ async function aacEncodeSupported(sampleRate, channels){
    Each media segment's audio is demuxed and decoded independently, so reels whose
    clips are scattered across a long game never decode more than one clip at a time.
    Returns an audio track for buildMp4, {silentReason} for a known fallback, or null. */
-async function buildFastAudio(segments, totalFrames, FPS){
+const VOICE_DUCK = 0.28;      // how far the game sound drops while you are talking
+
+/* opts.returnPcm hands back the assembled timeline instead of encoding it, so
+   the mixing can be checked directly — the browsers used for testing have no
+   AAC encoder, and the placement of a voice-over is the part worth proving */
+async function buildFastAudio(segments, totalFrames, FPS, opts = {}){
   try {
-    if (!currentFile || !totalFrames) return null;
-    const dmx = await demuxMp4Audio(currentFile);
-    if (!dmx || !dmx.samples.length) return null;
-    const rate = dmx.sampleRate;
-    const ch = Math.min(2, dmx.channels || 1);
+    if (!totalFrames) return null;
     const media = segments.filter(s => s.type === 'media');
     if (!media.length) return null;
+
+    /* any clip in this export with a recording on this computer? */
+    const voiceBlobs = new Map();
+    for (const seg of media){
+      const clip = seg.item && seg.item.clip;
+      if (!clip || voiceBlobs.has(clip.id)) continue;
+      const blob = voiceIds.has(clip.id) ? await voiceGet(clip.id) : null;
+      if (blob) voiceBlobs.set(clip.id, blob);
+    }
+    const haveVoice = voiceBlobs.size > 0;
+
+    const dmx = currentFile ? await demuxMp4Audio(currentFile).catch(() => null) : null;
+    const haveGame = !!(dmx && dmx.samples.length);
+    if (!haveGame && !haveVoice) return null;
+
+    const rate = haveGame ? dmx.sampleRate : 48000;
+    const ch = haveGame ? Math.min(2, dmx.channels || 1) : 1;
     const pureMedia = segments.length === 1 && segments[0].type === 'media';
     const mediaSecs = media.reduce((s, m) => s + m.frames / FPS, 0);
 
     // passthrough (bit-exact packet copy) covers a gapless timeline when the
-    // browser can't AAC-encode, and very long ranges regardless
-    if (mediaSecs > 600 || !(await aacEncodeSupported(rate, ch))){
+    // browser can't AAC-encode, and very long ranges regardless — but a
+    // voice-over has to be mixed, which means encoding
+    if (!haveVoice && haveGame && (mediaSecs > 600 || !(await aacEncodeSupported(rate, ch)))){
       if (!pureMedia) return { silentReason: mediaSecs > 600 ? 'long' : 'encoder' };
       const m = segments[0];
       const packets = await extractAudioPackets(dmx, m.t - 0.012, m.t + m.frames / FPS);
       if (!packets.length) return null;
       return { samples: packets.map(p => ({ data: p.data, dur: p.dur })),
                asc: dmx.asc, sampleRate: dmx.timescale, channels: dmx.channels };
+    }
+
+    if (haveVoice && !opts.returnPcm && !(await aacEncodeSupported(rate, ch)))
+      return { silentReason: 'encoder' };
+
+    /* decode each voice-over once, resampled to the export's rate by the
+       OfflineAudioContext we hand it */
+    const voicePcm = new Map();
+    for (const [id, blob] of voiceBlobs){
+      try {
+        const buf = await blob.arrayBuffer();
+        const oac = new OfflineAudioContext({ numberOfChannels: ch, length: 8, sampleRate: rate });
+        const ab = await new Promise((res, rej) => {
+          const p = oac.decodeAudioData(buf, res, rej);
+          if (p && p.then) p.then(res, rej);
+        });
+        voicePcm.set(id, ab);
+      } catch(e){ console.warn('voice-over decode failed', e); }
     }
 
     // assemble the export's PCM timeline, sample-exact; decode per media segment
@@ -4061,7 +4140,8 @@ async function buildFastAudio(segments, totalFrames, FPS){
       const n = Math.round(seg.frames / FPS * rate);
       if (seg.type === 'media'){
         const segEnd = seg.t + seg.frames / FPS;
-        const packets = await extractAudioPackets(dmx, Math.max(0, seg.t - 0.25), segEnd + 0.3);
+        const packets = haveGame
+          ? await extractAudioPackets(dmx, Math.max(0, seg.t - 0.25), segEnd + 0.3) : [];
         if (packets.length){
           const pcmStart = packets[0].t;
           const wrap = buildMp4(null, { samples: packets.map(p => ({ data: p.data, dur: p.dur })),
@@ -4078,9 +4158,28 @@ async function buildFastAudio(segments, totalFrames, FPS){
             planes[c].set(src.subarray(srcOff, srcOff + avail), w);
           }
         }
+        /* lay the voice-over over this stretch, measured from the clip's own
+           start — so a question freeze cuts the narration exactly where it cuts
+           the picture, and the two stay together on the other side */
+        const clip = seg.item && seg.item.clip;
+        const vb = clip && voicePcm.get(clip.id);
+        if (vb){
+          const vOff = Math.round((seg.t - seg.item.tIn) * rate);
+          for (let c = 0; c < ch; c++){
+            const vsrc = vb.getChannelData(Math.min(c, vb.numberOfChannels - 1));
+            const avail = Math.max(0, Math.min(n, vsrc.length - vOff, totalOut - w));
+            const plane = planes[c];
+            for (let i = 0; i < avail; i++){
+              const mixed = plane[w + i] * VOICE_DUCK + vsrc[vOff + i];
+              plane[w + i] = mixed > 1 ? 1 : mixed < -1 ? -1 : mixed;
+            }
+          }
+        }
       }
       w += n;
     }
+
+    if (opts.returnPcm) return { planes, rate, ch, totalOut };
 
     // AAC-encode the assembled timeline
     const outSamples = [];
@@ -4117,6 +4216,7 @@ $('#helpClose').onclick = () => $('#helpModal').classList.remove('open');
 $$('.modal').forEach(m => m.addEventListener('pointerdown', e => {
   if (e.target === m){
     if (m.id === 'sessionModal') return;      // sessions end via their buttons, not stray taps
+    if (m.id === 'voiceModal'){ closeVoice(); return; }   // ...and never leave the mic on
     m.classList.remove('open');
     if (m.id === 'tagModal'){ renderTagGroups(); renderClipList(); }
   }
@@ -4140,6 +4240,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === 'Escape'){
+    if ($('#voiceModal').classList.contains('open')){ closeVoice(); return; }
     if ($$('.modal.open').length === 0 && ui.compareMode){ setCompareMode(false); return; }
     if ($$('.modal.open').length === 0 && ui.boardMode){ setBoardMode(false); return; }
     $$('.modal').forEach(m => m.classList.remove('open')); hideDecision(); return;
@@ -4206,8 +4307,12 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 }
 
 /* debug/test hook (also handy in the console) */
+/* voiceIds is declared further down, so it is reached through a getter rather
+   than captured here — reading it eagerly would abort this whole script */
 window.__filmroom = { getProject: () => project, spotPos, version: 1,
-  setGameDir: d => { gameDir = d; } };
+  setGameDir: d => { gameDir = d; },
+  buildFastAudio, refreshVoiceIds,
+  get voiceIds(){ return voiceIds; } };
 
 /* ---------------- "watch" front door ----------------
   Most of the family never edits anything — they watch. When the game already
@@ -4230,6 +4335,173 @@ function updateWatchBanner(){
 }
 $('#watchStart').onclick = () => { $('#watchBanner').style.display = 'none'; startSession(); };
 $('#watchLater').onclick = () => { watchDismissed = true; updateWatchBanner(); };
+
+/* ---------------- voice-over ----------------
+  Record yourself talking over a clip; the recording is mixed into the exported
+  video with the game sound ducked underneath, so the clip coaches on its own
+  even when nobody is sitting next to him.
+
+  Recordings live in IndexedDB keyed by clip id, never in the project JSON:
+  audio would blow the localStorage quota, and a project file quietly failing to
+  save is the worst possible failure here. That does mean a voice-over stays on
+  the computer it was recorded on, which the UI says out loud.
+------------------------------------------------- */
+const voiceIds = new Set();          // clips that have a recording on THIS computer
+const VOICE_KEY = id => 'voice:' + id;
+const voiceMime = () => ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm']
+  .find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+
+async function voiceGet(id){
+  try { return await libIdb.get(VOICE_KEY(id)) || null; } catch(e){ return null; }
+}
+async function voiceSet(id, blob){
+  try { await libIdb.set(VOICE_KEY(id), blob); voiceIds.add(id); return true; }
+  catch(e){ console.warn('voice save failed', e); return false; }
+}
+async function voiceDelete(id){
+  try { await libIdb.del(VOICE_KEY(id)); } catch(e){}
+  voiceIds.delete(id);
+}
+/* which of this project's clips have a recording here */
+async function refreshVoiceIds(){
+  voiceIds.clear();
+  for (const c of project.clips || []){
+    if (await voiceGet(c.id)) voiceIds.add(c.id);
+  }
+  renderClipList();
+}
+
+let voiceRec = null;   // { clip, recorder, chunks, started, timer, blob, url }
+
+function openVoice(clip){
+  if (ui.exporting || ui.tracking) return;
+  if (!navigator.mediaDevices || !window.MediaRecorder || !voiceMime())
+    return toast('This browser cannot record sound. Chrome or Safari can.', 5000);
+  voiceRec = { clip, chunks: [], blob: null };
+  $('#voiceClipName').textContent = clip.title;
+  $('#voiceModal').classList.add('open');
+  renderVoice('idle');
+}
+
+function voiceStop(){
+  const v = voiceRec;
+  if (!v) return;
+  clearInterval(v.timer); v.timer = null;
+  if (v.recorder && v.recorder.state === 'recording') v.recorder.stop();
+  if (v.stream) v.stream.getTracks().forEach(t => t.stop());
+  video.pause();
+  ui.loopClip = null;
+}
+
+function closeVoice(){
+  voiceStop();
+  if (voiceRec && voiceRec.url) URL.revokeObjectURL(voiceRec.url);
+  voiceRec = null;
+  $('#voiceModal').classList.remove('open');
+}
+
+const voiceClock = ms => {
+  const t = Math.max(0, Math.round(ms / 1000));
+  return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+};
+
+function renderVoice(state, extra){
+  const v = voiceRec;
+  if (!v) return;
+  const box = $('#voiceModal .box');
+  box.classList.toggle('recording', state === 'recording');
+  const has = voiceIds.has(v.clip.id) || !!v.blob;
+  const btns = $('#voiceBtns');
+  const len = (v.clip.tOut - v.clip.tIn);
+
+  if (state === 'recording'){
+    $('#voiceState').textContent = 'Recording — say what you would say sitting next to him.';
+    btns.innerHTML = `<button class="primary voiceBig" data-v="stop"><span class="voiceDot"></span>Stop</button>`;
+  } else if (state === 'saving'){
+    $('#voiceState').textContent = 'Saving…';
+    btns.innerHTML = '';
+  } else {
+    $('#voiceTime').textContent = voiceClock(has ? (v.savedMs || v.clip.voiceMs || 0) : 0);
+    $('#voiceState').textContent = extra || (has
+      ? 'This clip has your voice on it. It will be in the video when you save it.'
+      : 'Nothing recorded yet — this clip is ' + Math.round(len) + ' seconds long.');
+    btns.innerHTML = `
+      <button class="primary voiceBig" data-v="rec"><span class="voiceDot"></span>${has ? 'Record again' : 'Start recording'}</button>
+      ${has ? '<button data-v="play">▶ Listen back</button><button class="danger" data-v="del">🗑 Remove</button>' : ''}
+      <button data-v="done">Done</button>`;
+  }
+  $$('#voiceBtns [data-v]').forEach(b => b.onclick = () => voiceAction(b.dataset.v));
+}
+
+async function voiceAction(act){
+  const v = voiceRec;
+  if (!v) return;
+  if (act === 'done') return closeVoice();
+
+  if (act === 'del'){
+    await voiceDelete(v.clip.id);
+    v.blob = null; v.savedMs = 0;
+    renderClipList();
+    return renderVoice('idle', 'Removed. The video will use just the game sound again.');
+  }
+
+  if (act === 'play'){
+    const blob = v.blob || await voiceGet(v.clip.id);
+    if (!blob) return renderVoice('idle', 'That recording could not be found.');
+    if (v.url) URL.revokeObjectURL(v.url);
+    v.url = URL.createObjectURL(blob);
+    const a = new Audio(v.url);
+    video.currentTime = v.clip.tIn;
+    ui.loopClip = null;
+    video.play().catch(() => {});
+    a.play().catch(() => {});
+    a.onended = () => video.pause();
+    return renderVoice('idle', 'Playing it back with the clip…');
+  }
+
+  if (act === 'stop'){
+    voiceStop();
+    return;                                   // the recorder's onstop finishes up
+  }
+
+  if (act === 'rec'){
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch(e){
+      return renderVoice('idle', 'This browser would not let Film Room use the microphone. Allow the microphone for this page and try again.');
+    }
+    v.stream = stream;
+    v.chunks = [];
+    const rec = new MediaRecorder(stream, { mimeType: voiceMime() });
+    v.recorder = rec;
+    rec.ondataavailable = e => { if (e.data && e.data.size) v.chunks.push(e.data); };
+    rec.onstop = async () => {
+      renderVoice('saving');
+      const blob = new Blob(v.chunks, { type: voiceMime() });
+      const ms = Date.now() - v.started;
+      if (blob.size > 0 && await voiceSet(v.clip.id, blob)){
+        v.blob = blob; v.savedMs = ms;
+        renderClipList();
+        renderVoice('idle', 'Saved. It goes into the video the next time you save this clip.');
+      } else {
+        renderVoice('idle', 'That recording could not be saved.');
+      }
+    };
+    v.started = Date.now();
+    rec.start();
+    /* play the clip from its start so what you say lines up with what he sees */
+    video.currentTime = v.clip.tIn;
+    ui.loopClip = null;
+    video.play().catch(() => {});
+    renderVoice('recording');
+    v.timer = setInterval(() => {
+      const ms = Date.now() - v.started;
+      $('#voiceTime').textContent = voiceClock(ms);
+      if (video.currentTime >= v.clip.tOut - 0.05 || ms > 10 * 60 * 1000) voiceStop();
+    }, 200);
+  }
+}
 
 /* ---------------- progress dashboard ----------------
   Every game you break down leaves a project behind; this reads all of them at

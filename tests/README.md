@@ -55,6 +55,10 @@ node trends.js         # progress dashboard: cross-game totals from localStorage
 node insights.js       # session insights: "asked before / sees it now" grouping of his
                        # answers across sessions, the work-on thread, escaping of his
                        # free text, and the position filter scoping his answers too
+node voice.js          # voice-over: recording over a clip (stubbed mic emitting a real
+                       # WAV), storage in IndexedDB rather than the project file, and the
+                       # export timeline inspected as PCM — the narration plays, goes
+                       # quiet under a question freeze, and resumes after it
 FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264 + AAC:
                           # ffmpeg-encoded samples through buildMp4(), round-tripped
                           # through the app's demuxMp4Audio(), probe + full decode

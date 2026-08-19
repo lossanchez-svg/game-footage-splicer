@@ -465,6 +465,28 @@ back. **📈 Progress** now ends with two sections built from them:
 Verified by `tests/insights.js` (17 checks), including that his free text is escaped
 rather than rendered, and the styling is inside the WCAG AA sweep in `tests/comfort.js`.
 
+### ✅ v2.4 — voice-over on exports (shipped)
+**🎤** on any clip records you talking over it; the recording is mixed into the exported
+mp4 with the game sound ducked to 28% underneath, so a clip coaches on its own when
+nobody is sitting next to him.
+- Recording plays the clip from its start while it captures, so what you say lines up
+  with what he sees; it stops itself at the end of the clip.
+- **Where it lives:** IndexedDB, keyed by clip id — deliberately *not* the project JSON.
+  Audio would blow the localStorage quota, and an autosave silently failing is the worst
+  outcome available here. The trade-off is that a voice-over stays on the computer it was
+  recorded on, which the UI states rather than hides.
+- **Alignment:** the voice is laid against the clip's own timeline, so a decision-point
+  freeze cuts the narration exactly where it cuts the picture and the two resume together
+  on the other side — rather than the voice running on and desyncing for the rest of the
+  clip.
+- `buildFastAudio` now proceeds when the source has **no** audio at all (a voice-over on
+  silent footage still produces a soundtrack), skips the bit-exact passthrough path when a
+  voice-over is present (mixing requires encoding), and resamples each recording to the
+  export's rate via the OfflineAudioContext it is decoded with.
+- The slower "Keeps sound" exporter records a screen pass and cannot mix, so choosing it
+  with a voice-over present says so instead of quietly dropping it.
+Verified by `tests/voice.js` (22 checks) with a stubbed microphone emitting a real WAV.
+
 ## Roadmap
 
 ### Next (in order)
@@ -484,7 +506,7 @@ rather than rendered, and the styling is inside the WCAG AA sweep in `tests/comf
 - [ ] Track multiple spotlights in one pass; track backwards from an anchor.
 - [x] Per-player trend dashboard — shipped, see v2.2 below.
 - [ ] Project bundles: zip of project JSON + exported clips for archiving a season.
-- [ ] Voice-over recording on exports (mic + AAC mux — the audio pipeline exists).
+- [x] Voice-over recording on exports — shipped, see v2.4 below.
 - [ ] Reel export straight to the reel from compare/board content (title cards already
       exist; boards could render as interstitial cards).
 - [x] Session insights — shipped, see v2.3 below.
@@ -611,6 +633,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-18 | The trend view compares early vs recent games as per-game rates, not raw counts | The two halves of a season rarely hold the same number of games, so raw counts would report "more heavy touches" purely because you broke down more film in October |
 | 2026-08-18 | "What is changing" is prose, not a chart | It is the one insight a parent acts on, and a sentence ("about 2 a game early on, 0 a game lately") is read where a dumbbell chart is decoded; the bars above already carry the magnitudes |
 | 2026-08-18 | The dashboard reads localStorage *and* the Games folder sidecars | v2.1 made the folder the cross-device source of truth; a season view that ignored it would under-report every game broken down on the other computer |
+| 2026-08-19 | Voice-overs live in IndexedDB keyed by clip id, never in the project JSON | Even a short recording is ~100KB; a few would push the project past the localStorage quota and autosave would start failing silently, losing clips and drawings. Keeping audio out of the JSON also keeps the Games-folder sidecar small |
+| 2026-08-19 | The voice is cut by a decision-point freeze rather than playing through it | The freeze is a deliberate silence where he answers; narration continuing over it would both trample that moment and desync every word after it |
+| 2026-08-19 | `buildFastAudio` gained an internal `returnPcm` option | The test browsers have no AAC encoder, so "did it encode" is untestable here; handing back the assembled timeline lets the suite prove numerically that the narration plays, goes quiet under a freeze, and resumes — which is the logic that can actually be wrong |
 | 2026-08-19 | "Asked before / sees it now" groups by the question text, and needs two *answered* instances | The question is the stable key across games — clips differ every week. Requiring two answers keeps the section honest: one answer is a record, two is a comparison, and only the comparison tells you anything |
 | 2026-08-19 | Unanswered questions are reported as "talked out loud — not lost" | Most film-session answers are spoken, not typed. A bare "3 of 8 answered" would read as the kid failing to participate when in fact the app simply was not the place he said it |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
