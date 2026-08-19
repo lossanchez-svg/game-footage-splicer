@@ -22,6 +22,9 @@ node tracking.js       # auto-track suite: tracks a synthetic moving ball and as
 node hardtrack.js      # hard-mode tracking: small target on a noisy field with
                        # breathing exposure and an occluder crossing straight over it
                        # (coast-through-occlusion + reacquire)
+node multitrack.js     # multi-spotlight: two players followed in ONE pass on two.webm,
+                       # each staying on its own through a crossing — plus the regression
+                       # that auto-track no longer stops after four seconds
 node touch.js          # touch/iPad suite: responsive layout + tap interactions
 node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise

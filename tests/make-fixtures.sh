@@ -29,6 +29,15 @@ mkdir -p fixtures
   -filter_complex "[0][1]overlay=x='40+55*t':y='171+50*sin(1.3*t)'[a];[a][2]overlay=x='500-70*t':y=119[b];[b]noise=alls=8:allf=t,eq=brightness='0.12*sin(2*t)'" \
   -c:v libvpx-vp9 -b:v 700k fixtures/hard.webm
 
+# 8s two-player fixture for multi-spotlight tracking: a red 36px ball
+# (center x = 58+40t, y = 180+60*sin t) and a blue one going the other way
+# (center x = 578-45t, y = 108+50*cos 1.1t), on plain green.
+"$FFMPEG" -y -f lavfi -i color=c=0x2f7d31:s=640x360:r=30:d=8 \
+  -f lavfi -i color=c=0xd03030:s=36x36:r=30:d=8 \
+  -f lavfi -i color=c=0x3050d0:s=36x36:r=30:d=8 \
+  -filter_complex "[0][1]overlay=x='40+40*t':y='162+60*sin(t)'[a];[a][2]overlay=x='560-45*t':y='90+50*cos(1.1*t)'" \
+  -c:v libvpx-vp9 -b:v 500k fixtures/two.webm
+
 # 4s of real AAC (ADTS) for the muxer/demuxer audio suite
 "$FFMPEG" -y -f lavfi -i sine=frequency=600:duration=4 -c:a aac -b:a 96k \
   -f adts fixtures/clip.aac

@@ -487,6 +487,31 @@ nobody is sitting next to him.
   with a voice-over present says so instead of quietly dropping it.
 Verified by `tests/voice.js` (22 checks) with a stubbed microphone emitting a real WAV.
 
+### ✅ v2.5 — multi-spotlight tracking, and the four-second trap (shipped)
+**Reported from real use: "I was trying to use the auto-tracking feature, but it wasn't
+following the player."** The cause was not the matcher — it was how far it was told to go.
+`autoTrack` ran from the playhead to the spotlight's `tEnd`, and a freshly placed ring
+defaults to `tStart + 4s`. So pressing Auto-track on a new ring followed the player for
+**four seconds and stopped**, and pressing it after scrubbing past that point did nothing
+but flash a toast describing a four-step ritual. Both are indistinguishable from a broken
+tracker. Every tracking test passed throughout, because every test performed the ritual
+first — a textbook case of a suite testing the path its author already knew.
+- **Fixed:** auto-track now follows from the playhead *until it loses him*, bounded by the
+  marked clip's out-point if there is one, else 25 seconds, and it extends the spotlight's
+  end to wherever it actually got — so the ring stays on screen for the path it followed.
+  An explicitly-set end (the user pressed "Disappears here") is still respected.
+- **Multi-spotlight:** `autoTrack` now takes a list. Seeking and decoding each frame is
+  what costs, so N players cost barely more than one; matching state (template, anchor,
+  velocity, coast/drift counters, patch size) is per-spot, and the working resolution is
+  driven by the *smallest* ring so the furthest player still has pixels. **🎯 Follow
+  everyone on screen** appears once two or more rings are live at the playhead.
+- Verified by `tests/multitrack.js` (21 checks) on a new `two.webm` fixture whose two
+  balls run straight through each other. Both are tracked in one pass, each stays on its
+  own player through the crossing, and neither collapses onto the other. Tracking one of
+  them *alone* in the same fixture gives the identical error at the crossing, so following
+  several at once costs nothing in accuracy. `tracking.js` and `hardtrack.js` report the
+  same errors as before the refactor (0.004–0.005), confirming matching is untouched.
+
 ## Roadmap
 
 ### Next (in order)
@@ -503,7 +528,8 @@ Verified by `tests/voice.js` (22 checks) with a stubbed microphone emitting a re
       iPhone film.
 
 ### Later (unbuilt features)
-- [ ] Track multiple spotlights in one pass; track backwards from an anchor.
+- [x] Track multiple spotlights in one pass — shipped, see v2.5 below. (Tracking
+      *backwards* from an anchor is still unbuilt.)
 - [x] Per-player trend dashboard — shipped, see v2.2 below.
 - [ ] Project bundles: zip of project JSON + exported clips for archiving a season.
 - [x] Voice-over recording on exports — shipped, see v2.4 below.
@@ -633,6 +659,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-18 | The trend view compares early vs recent games as per-game rates, not raw counts | The two halves of a season rarely hold the same number of games, so raw counts would report "more heavy touches" purely because you broke down more film in October |
 | 2026-08-18 | "What is changing" is prose, not a chart | It is the one insight a parent acts on, and a sentence ("about 2 a game early on, 0 a game lately") is read where a dumbbell chart is decoded; the bars above already carry the magnitudes |
 | 2026-08-18 | The dashboard reads localStorage *and* the Games folder sidecars | v2.1 made the folder the cross-device source of truth; a season view that ignored it would under-report every game broken down on the other computer |
+| 2026-08-19 | Auto-track follows until it loses him, rather than to a pre-declared end time | Requiring the end to be set first made the common case ("follow him from here") fail silently after 4s, which reads as a broken tracker. The ritual was never discoverable and no test caught it because every test performed it |
+| 2026-08-19 | Multi-spotlight shares one pass and one working resolution, sized by the smallest ring | The seek+decode per frame dominates the cost, so the second player is nearly free; sizing the frame for the smallest ring keeps a far-away player matchable, and larger rings simply get larger patches |
 | 2026-08-19 | Voice-overs live in IndexedDB keyed by clip id, never in the project JSON | Even a short recording is ~100KB; a few would push the project past the localStorage quota and autosave would start failing silently, losing clips and drawings. Keeping audio out of the JSON also keeps the Games-folder sidecar small |
 | 2026-08-19 | The voice is cut by a decision-point freeze rather than playing through it | The freeze is a deliberate silence where he answers; narration continuing over it would both trample that moment and desync every word after it |
 | 2026-08-19 | `buildFastAudio` gained an internal `returnPcm` option | The test browsers have no AAC encoder, so "did it encode" is untestable here; handing back the assembled timeline lets the suite prove numerically that the narration plays, goes quiet under a freeze, and resumes — which is the logic that can actually be wrong |
