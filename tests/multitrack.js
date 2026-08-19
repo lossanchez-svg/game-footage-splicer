@@ -100,6 +100,10 @@ const placeSpot = async (page, box, pos, label) => {
   const t0 = Date.now();
   await page.click('#btnTrackAll');
   await page.waitForSelector('#trackPill', { state: 'visible', timeout: 5000 });
+  // the pill starts at a placeholder "0%" and is rewritten once the first sample
+  // lands — wait for that rather than racing it
+  await page.waitForFunction(() => /lock/.test(document.querySelector('#trackPct').textContent),
+    { timeout: 20000 }).catch(() => {});
   const pill = await page.textContent('#trackPill');
   check('the pill says how many it is following (' + pill.replace(/\s+/g, ' ').trim() + ')',
     /2 players/.test(pill));

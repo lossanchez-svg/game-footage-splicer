@@ -532,6 +532,29 @@ it.
   order, never runs past the anchor, and explains itself when there is nothing behind the
   anchor to work through.
 
+### ✅ v2.7 — season bundles (shipped)
+**📦 Keep this game** packs everything one game produced into a single zip: the project
+itself, `moments.csv`, the session notes as plain text, the tactics boards as PNGs, your
+**voice-overs** — which otherwise exist only in the browser that recorded them, so the
+bundle is the only way to move or keep them — and, if asked for, a video of every clip.
+A `README.txt` explains each folder and how to get the work back, because an archive
+found in three years has to explain itself.
+- **Hand-rolled zip writer**, in the same spirit as the mp4 muxer: entries are **stored**
+  (never deflated — mp4/png/webm are already compressed and the text is a rounding error),
+  CRC-32 per entry, UTF-8 names. File blobs go into the final `Blob` **by reference**, so
+  only the file being checksummed is ever in memory and a bundle of a season's clips does
+  not have to fit in RAM at once.
+- No ZIP64, so the archive is capped just under 4GB and **says so** rather than writing
+  something that unzips as garbage.
+- `exportProgram` gained `opts.collect`: it hands back the mp4 instead of downloading it,
+  and leaves the busy overlay to the bundle so progress reads as one job rather than
+  flashing per clip.
+- Videos are **opt-in** and the offer states the cost in minutes — the difference between
+  a file you can email and one that takes twenty minutes to build.
+Verified by `tests/bundle.js` (22 checks), which opens the result with the **real `unzip`
+binary** (`-l` and `-t`, so listing *and* every checksum), extracts it, and loads the
+packed project back into the app. A zip only this app could read would be worthless.
+
 ## Roadmap
 
 ### Next (in order)
@@ -551,7 +574,7 @@ it.
 - [x] Track multiple spotlights in one pass; track backwards from an anchor — both
       shipped, see v2.5 and v2.6 below.
 - [x] Per-player trend dashboard — shipped, see v2.2 below.
-- [ ] Project bundles: zip of project JSON + exported clips for archiving a season.
+- [x] Project bundles — shipped, see v2.7 below.
 - [x] Voice-over recording on exports — shipped, see v2.4 below.
 - [ ] Reel export straight to the reel from compare/board content (title cards already
       exist; boards could render as interstitial cards).
@@ -679,6 +702,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-18 | The trend view compares early vs recent games as per-game rates, not raw counts | The two halves of a season rarely hold the same number of games, so raw counts would report "more heavy touches" purely because you broke down more film in October |
 | 2026-08-18 | "What is changing" is prose, not a chart | It is the one insight a parent acts on, and a sentence ("about 2 a game early on, 0 a game lately") is read where a dumbbell chart is decoded; the bars above already carry the magnitudes |
 | 2026-08-18 | The dashboard reads localStorage *and* the Games folder sidecars | v2.1 made the folder the cross-device source of truth; a season view that ignored it would under-report every game broken down on the other computer |
+| 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | Entries are stored, and file blobs enter the zip by reference | Everything packed is already compressed, so deflate would cost CPU for nothing; passing Blobs rather than bytes keeps peak memory at one file, which is what makes a multi-gigabyte season bundle possible at all |
+| 2026-08-19 | Clip videos are opt-in, with the cost stated in minutes | It is the difference between a 200KB file and a 2GB one, and between five seconds and twenty minutes — not a choice to make silently on someone's behalf |
 | 2026-08-19 | Backwards tracking is the same pass with `dir = -1`, not a second code path | The matcher is time-symmetric; duplicating it would have doubled the surface where the v1.4 tuning could drift apart. Only the bounds, the kept-key split, the sample ordering and which end of the ring's lifetime stretches differ |
 | 2026-08-19 | "The user set an end" is stored as a flag, not inferred from durations | The inference was already fragile and backwards tracking broke it outright: stretching `tStart` made an untouched end look deliberate, which would have quietly reintroduced the four-second trap for anyone who used both directions |
 | 2026-08-19 | Auto-track follows until it loses him, rather than to a pre-declared end time | Requiring the end to be set first made the common case ("follow him from here") fail silently after 4s, which reads as a broken tracker. The ritual was never discoverable and no test caught it because every test performed it |

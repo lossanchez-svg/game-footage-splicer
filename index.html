@@ -445,6 +445,7 @@
   <div class="divider"></div>
   <button id="btnSaveProj" data-tip="Save all his clips and drawings into one small file you can back up or move to another computer. Your work is already saved automatically here.">💾 Save project</button>
   <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
+  <button id="btnBundle" data-tip="Pack everything from this game into one file to keep — the project, a spreadsheet of the moments, his answers, the boards and your voice-overs, and optionally a video of every moment.">📦 Keep this game</button>
   <div class="divider"></div>
   <button id="btnTrends" data-tip="How he is doing across every game you have broken down — what he does well, what keeps coming up, and what is getting better.">📈 Progress</button>
   <button id="btnTextSize" data-tip="Make everything on screen bigger — text, buttons, everything. Press it again to go back to normal.">Aa</button>
@@ -867,6 +868,23 @@
     <div class="foot" style="justify-content:space-between">
       <button id="libChoose" data-tip="Pick the folder where you keep game films. Film Room remembers it, so every game is one click away after this.">📂 Choose folder…</button>
       <button class="primary" id="libClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= SEASON BUNDLE ======================= -->
+<div class="modal" id="bundleModal">
+  <div class="box">
+    <h3>📦 Keep this game</h3>
+    <div class="hint" id="bundleWhat" style="margin-bottom:14px"></div>
+    <label style="display:flex; gap:10px; align-items:flex-start; cursor:pointer">
+      <input type="checkbox" id="bundleVideos" style="margin-top:3px">
+      <span>Also put a video of every moment in it<br>
+        <span class="hint" id="bundleVideosNote" style="margin:0"></span></span>
+    </label>
+    <div class="foot">
+      <button id="bundleCancel">Cancel</button>
+      <button class="primary" id="bundleSave">📦 Save the bundle</button>
     </div>
   </div>
 </div>
@@ -3773,6 +3791,7 @@ async function exportProgram(items, label, opts = {}){
   const codec = await pickAvcCodec(W, H, bitrate);
   if (!codec){
     ui.exporting = false; ui.loopClip = wasLoop;
+    if (opts.collect) return null;
     if (opts.fallback){
       toast('That size needs the slower way of saving, so this one will keep its sound and take about as long as the clip.', 6000);
       return opts.fallback();
@@ -3862,36 +3881,118 @@ async function exportProgram(items, label, opts = {}){
   } catch(e){ encError = e; }
   try { enc.close(); } catch(e){}
 
-  $('#busyOverlay').style.display = 'none';
+  if (!opts.collect) $('#busyOverlay').style.display = 'none';
   video.playbackRate = prevRate; video.currentTime = prevT;
   ui.loopClip = wasLoop;
   ui.exporting = false;
 
-  if (ui.exportCancel){ toast('Stopped — no video file was made.'); return; }
+  if (ui.exportCancel){ if (!opts.collect) toast('Stopped — no video file was made.'); return null; }
   if (encError || !samples.length || !description){
     console.warn('fast export failed', encError);
     if (opts.fallback){
       toast('The quick way did not work on this video, so it is being saved the slower way instead — it will take about as long as the clip.', 6000);
       return opts.fallback();
     }
-    return toast('That did not work. Try again, or save the clips one at a time.', 5000);
+    toast('That did not work. Try again, or save the clips one at a time.', 5000);
+    return null;
   }
   $('#busyOverlay').style.display = 'flex';
-  $('#busyMsg').textContent = '🔊 Adding audio…';
+  if (!opts.collect) $('#busyMsg').textContent = '🔊 Adding audio…';
   const audio = await buildFastAudio(segments, n, FPS);
-  $('#busyOverlay').style.display = 'none';
+  if (!opts.collect) $('#busyOverlay').style.display = 'none';
 
   const mp4 = buildMp4({ samples, avcC: description, W, H, fps: FPS },
                        audio && audio.samples ? audio : null);
   const base = (project.videoName || 'clip').replace(/\.[^.]+$/, '');
   const safe = (label || 'clip').replace(/[^\w\- ]+/g, '').slice(0, 40).trim().replace(/ +/g, '_') || 'clip';
-  downloadBlob(new Blob([mp4], {type:'video/mp4'}), `${base}__${safe}.mp4`);
+  const outBlob = new Blob([mp4], {type:'video/mp4'});
+  if (opts.collect) return { blob: outBlob, name: `${base}__${safe}.mp4` };   // bundling
+  downloadBlob(outBlob, `${base}__${safe}.mp4`);
   if (audio && audio.samples) toast('Video saved with the game sound — check your Downloads folder. It plays on any iPhone or iPad.', 5000);
   else if (audio && audio.silentReason === 'encoder')
     toast('Video saved, but silent — this browser cannot carry sound over. Switch the picker to “Keeps sound, slower” when the sound matters.', 6500);
   else if (audio && audio.silentReason === 'long')
     toast('Video saved, but silent — sound is not carried over on exports this long yet.', 5500);
   else toast('Video saved — check your Downloads folder. It is silent because this footage has no sound in it.', 5500);
+}
+
+/* ---------------- minimal zip writer ----------------
+  Entries are STORED, never deflated: everything going in (mp4, png, webm) is
+  already compressed, and the text files are a rounding error — so compression
+  would cost CPU and buy nothing. The file blobs are handed to the final Blob
+  by reference, so a bundle of a season's clips never has to sit in memory all
+  at once; only the file being checksummed does.
+  No ZIP64, so the archive is capped below 4GB and says so rather than writing
+  something that unzips as garbage.
+------------------------------------------------- */
+const ZIP_MAX = 3.9 * 1024 * 1024 * 1024;
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++){
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8){
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+async function buildZip(files){
+  const enc = new TextEncoder();
+  const now = new Date();
+  const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
+  const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+  const parts = [], dir = [];
+  let offset = 0;
+
+  for (const f of files){
+    const nameBytes = enc.encode(f.name);
+    const bytes = new Uint8Array(await f.blob.arrayBuffer());
+    const crc = crc32(bytes), size = bytes.length;
+
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);            // version needed to extract
+    lv.setUint16(6, 0x0800, true);        // names are UTF-8
+    lv.setUint16(8, 0, true);             // stored
+    lv.setUint16(10, dosTime, true); lv.setUint16(12, dosDate, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true); lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    local.set(nameBytes, 30);
+
+    const cen = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(cen.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, dosTime, true); cv.setUint16(14, dosDate, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true); cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint32(42, offset, true);
+    cen.set(nameBytes, 46);
+
+    parts.push(local, f.blob);            // the blob itself, not its bytes
+    dir.push(cen);
+    offset += local.length + size;
+    if (offset > ZIP_MAX) throw new Error('bundle too big');
+  }
+
+  const dirSize = dir.reduce((n, d) => n + d.length, 0);
+  const end = new Uint8Array(22);
+  const ev = new DataView(end.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+  ev.setUint32(12, dirSize, true);
+  ev.setUint32(16, offset, true);
+  return new Blob([...parts, ...dir, end], { type: 'application/zip' });
 }
 
 /* minimal ISO-BMFF writer: ftyp + mdat + moov.
@@ -4411,7 +4512,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
    than captured here — reading it eagerly would abort this whole script */
 window.__filmroom = { getProject: () => project, spotPos, version: 1,
   setGameDir: d => { gameDir = d; },
-  buildFastAudio, refreshVoiceIds,
+  buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
   get voiceIds(){ return voiceIds; } };
 
 /* ---------------- "watch" front door ----------------
@@ -4435,6 +4536,156 @@ function updateWatchBanner(){
 }
 $('#watchStart').onclick = () => { $('#watchBanner').style.display = 'none'; startSession(); };
 $('#watchLater').onclick = () => { watchDismissed = true; updateWatchBanner(); };
+
+/* ---------------- season bundle ----------------
+  One zip holding everything this game produced: the project itself, a plain
+  spreadsheet of the moments, the session notes, the tactics boards, and the
+  voice-overs — which otherwise live only in the browser that recorded them, so
+  a bundle is the only way to move them or keep them. Videos of every clip are
+  offered as a choice, because that is the difference between a file you can
+  email and one that takes twenty minutes to build.
+------------------------------------------------- */
+const bundleSafe = s => (s || '').replace(/[^\w\- ]+/g, '').trim().replace(/ +/g, '_').slice(0, 48) || 'untitled';
+
+function bundleReadme(clips, withVideos){
+  const name = project.videoName || 'this game';
+  return [
+    'FILM ROOM — ' + name,
+    'Packed ' + new Date().toLocaleString(),
+    '',
+    'WHAT IS IN HERE',
+    '  project.filmroom.json   Everything: the clips, the drawings, the notes, the',
+    '                          questions and the sessions. Open Film Room, open the',
+    '                          same video, then press "Load project" and pick this',
+    '                          file to get it all back exactly as it was.',
+    '  moments.csv             One row per saved moment. Opens in Numbers or Excel.',
+    '  sessions/               What he said, session by session, as plain text.',
+    '  boards/                 The tactics boards, as pictures.',
+    '  voice/                  Your voice-overs. These live only in the browser you',
+    '                          recorded them in, so this folder is the only copy',
+    '                          that travels.',
+    withVideos
+      ? '  clips/                  A video of every moment, with the drawings burned in.'
+      : '  (no clips/ folder — this bundle was saved without the videos)',
+    '',
+    'THE VIDEO ITSELF IS NOT IN HERE',
+    '  Game films are large, and you already have it. Keep this bundle next to it.',
+    '',
+    clips.length + ' moment' + (clips.length === 1 ? '' : 's') + ' saved from this game.',
+  ].join('\n');
+}
+
+function bundleCsv(clips){
+  const cell = v => {
+    const t = String(v == null ? '' : v);
+    return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+  };
+  const say = { positive:'Strength', negative:'Work-on', neutral:'Teachable' };
+  const rows = [['Moment', 'This is', 'Position', 'Format', 'Labels', 'Starts', 'Ends',
+                 'Coaching note', 'Question to ask']];
+  for (const c of clips)
+    rows.push([c.title, say[c.rating] || c.rating, c.position || '', c.format || '',
+      (c.tags || []).join('; '), fmtT(c.tIn), fmtT(c.tOut), c.notes || '', c.ask || '']);
+  return rows.map(r => r.map(cell).join(',')).join('\r\n');
+}
+
+function boardBlob(b){
+  return new Promise(res => {
+    const W = 1600, H = Math.round(W * 68 / 105);
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    renderBoardTo(c.getContext('2d'), W, H, b, false);
+    c.toBlob(res, 'image/png');
+  });
+}
+
+async function makeBundle(withVideos){
+  const clips = project.clips || [];
+  const files = [
+    { name: 'README.txt', blob: new Blob([bundleReadme(clips, withVideos)], { type:'text/plain' }) },
+    { name: 'project.filmroom.json',
+      blob: new Blob([JSON.stringify({ ...project, taxonomy: TAG_GROUPS }, null, 1)],
+                     { type:'application/json' }) },
+  ];
+  if (clips.length)
+    files.push({ name: 'moments.csv', blob: new Blob([bundleCsv(clips)], { type:'text/csv' }) });
+
+  (project.sessions || []).forEach((sess, i) => {
+    files.push({ name: `sessions/${String(i + 1).padStart(2, '0')}_${bundleSafe(sess.when)}.txt`,
+      blob: new Blob([sessionNotesText(sess)], { type:'text/plain' }) });
+  });
+
+  for (const b of project.boards || []){
+    const blob = await boardBlob(b);
+    if (blob) files.push({ name: `boards/${bundleSafe(b.name)}.png`, blob });
+  }
+
+  for (const c of clips){
+    const v = voiceIds.has(c.id) ? await voiceGet(c.id) : null;
+    if (!v) continue;
+    const ext = /mp4/.test(v.type) ? 'm4a' : 'webm';
+    files.push({ name: `voice/${bundleSafe(c.title)}.${ext}`, blob: v });
+  }
+
+  if (withVideos){
+    let n = 0;
+    for (const c of clips){
+      if (ui.exportCancel) break;
+      n++;
+      $('#busyMsg').textContent = `Packing video ${n} of ${clips.length}…`;
+      const made = await exportProgram([{ clip: c, tIn: c.tIn, tOut: c.tOut }], c.title,
+        { collect: true });
+      if (made && made.blob)
+        files.push({ name: `clips/${String(n).padStart(2, '0')}_${bundleSafe(c.title)}.mp4`,
+                     blob: made.blob });
+    }
+  }
+  return files;
+}
+
+function openBundle(){
+  if (!video.src) return needVideo();
+  const clips = project.clips || [];
+  const mins = Math.max(1, Math.round(clips.reduce((s, c) => s + (c.tOut - c.tIn), 0) / 12));
+  $('#bundleWhat').innerHTML =
+    `Everything you have made from <b>${escapeHtml(project.videoName || 'this game')}</b>, in one file to keep: ` +
+    `the project itself, ${clips.length} moment${clips.length === 1 ? '' : 's'} as a spreadsheet, ` +
+    `${(project.sessions || []).length} session${(project.sessions || []).length === 1 ? '' : 's'} of his answers, ` +
+    `${(project.boards || []).length} board${(project.boards || []).length === 1 ? '' : 's'}, and your voice-overs — ` +
+    `which live nowhere else, so this is the only way to keep them.`;
+  $('#bundleVideosNote').textContent = clips.length
+    ? `Adds a video of each moment. Takes roughly ${mins} minute${mins === 1 ? '' : 's'} and makes a much larger file.`
+    : 'No moments saved yet, so there are no videos to add.';
+  $('#bundleVideos').checked = false;
+  $('#bundleVideos').disabled = !clips.length || !fastSupported;
+  $('#bundleModal').classList.add('open');
+}
+
+async function saveBundle(){
+  const withVideos = $('#bundleVideos').checked && !$('#bundleVideos').disabled;
+  $('#bundleModal').classList.remove('open');
+  ui.exportCancel = false;
+  $('#busyOverlay').style.display = 'flex';
+  $('#busyMsg').textContent = 'Packing this game up…';
+  $('#busyBarFill').style.width = '30%';
+  try {
+    const files = await makeBundle(withVideos);
+    $('#busyMsg').textContent = 'Writing the file…';
+    $('#busyBarFill').style.width = '80%';
+    const zip = await buildZip(files);
+    downloadBlob(zip, bundleSafe((project.videoName || 'game').replace(/\.[^.]+$/, '')) + '_filmroom.zip');
+    toast('Bundle saved — check your Downloads folder. Keep it next to the game video.', 6000);
+  } catch(e){
+    console.warn('bundle failed', e);
+    toast(/too big/.test(e.message)
+      ? 'That is too much for one bundle. Save it again without the videos, or export the clips you want separately.'
+      : 'The bundle could not be made. Try again without the videos.', 7000);
+  }
+  $('#busyOverlay').style.display = 'none';
+}
+
+$('#btnBundle').onclick = openBundle;
+$('#bundleCancel').onclick = () => $('#bundleModal').classList.remove('open');
+$('#bundleSave').onclick = saveBundle;
 
 /* ---------------- voice-over ----------------
   Record yourself talking over a clip; the recording is mixed into the exported

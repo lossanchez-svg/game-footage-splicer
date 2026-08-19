@@ -252,6 +252,19 @@ control shows a clear focus ring when you move through the app with the keyboard
 4. Watch together — him talking, you asking the Coach-tab questions.
 5. Export 1–2 clips to his phone as the week's visual reminder.
 
+## 📦 Keeping a season
+
+**📦 Keep this game** packs everything from a game into one zip you can archive next to
+the film: the project file, a spreadsheet of every moment, his answers from each session,
+the tactics boards as pictures, and your voice-overs — those live only in the browser you
+recorded them in, so this is the only way to keep them or move them to another computer.
+Tick the box and it adds a video of every moment too (slower, and much bigger — it tells
+you roughly how long).
+
+Inside there's a `README.txt` explaining what each folder is and how to get the work back,
+so the bundle still makes sense to whoever opens it years later. The game video itself is
+deliberately left out — you already have it, and it's the big part.
+
 ## Mistakes are cheap
 
 Nothing asks *"are you sure?"* where the answer can simply be taken back. Delete a clip,
