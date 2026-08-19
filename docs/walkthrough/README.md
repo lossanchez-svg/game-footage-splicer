@@ -4,7 +4,8 @@ Screenshots of the whole first-time journey through Film Room, in order. They ar
 generated, not hand-taken — regenerate them any time with:
 
 ```sh
-cd tests && node walkthrough.js     # writes tests/out/walk_*.png
+cd tests && node walkthrough.js     # writes tests/out/walk_*.png  (01-13)
+cd tests && node trends.js          # writes tests/out/trends_dashboard.png  (14)
 ```
 
 The images here are those files, colour-quantised to keep the repo light. They exist so
@@ -26,3 +27,4 @@ quietly breaks a step is visible.
 | 11 | Session question | The question, before the clip, in XL type |
 | 12 | Large text | Comfort mode on |
 | 13 | Undo | Deleting is never a dead end |
+| 14 | Progress | The season across every game — regenerate with `node trends.js` |

@@ -4411,7 +4411,8 @@ function renderMovement(games){
     return `<div class="trendSection"><h4>What is changing</h4>
       <div class="why">Nothing has moved much yet — keep breaking down games and changes will show up here.</div></div>`;
 
-  const per = v => v.toFixed(1).replace(/\.0$/, '');
+  /* "about 0 a game" is not how anyone says it */
+  const per = v => v === 0 ? 'none' : 'about ' + v.toFixed(1).replace(/\.0$/, '') + ' a game';
   const body = rows.slice(0, 6).map(r => {
     const dir = r.good ? '▲' : '▼';
     const color = r.good ? 'var(--pos)' : 'var(--warn)';
@@ -4420,7 +4421,7 @@ function renderMovement(games){
       : (r.workOn ? 'Still coming up' : 'Showing up less often');
     return `<div class="trendItem">
       <span class="dir" style="color:${color}">${dir}</span>
-      <span class="txt"><b>${escapeHtml(r.tag)}</b> — ${lead}: about ${per(r.e.per)} a game early on, ${per(r.r.per)} a game lately.</span>
+      <span class="txt"><b>${escapeHtml(r.tag)}</b> — ${lead}: ${per(r.e.per)} early on, ${per(r.r.per)} lately.</span>
     </div>`;
   }).join('');
 

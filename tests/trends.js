@@ -148,7 +148,12 @@ const openDash = async page => {
   check('with real per-game numbers, not just an arrow',
     moving.some(t => /about \d/.test(t) && /a game/.test(t)));
 
+  // tall viewport so the whole dashboard, "what is changing" included, is in frame
+  await page.setViewportSize({ width: 1180, height: 1180 });
+  await page.waitForTimeout(300);
   await page.screenshot({ path: path.join(OUT, 'trends_dashboard.png') });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.waitForTimeout(200);
 
   // ---- filters scope everything at once ----
   await page.selectOption('#trendPosition', 'Striker');
