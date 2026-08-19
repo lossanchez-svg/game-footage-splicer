@@ -1,5 +1,6 @@
 /*
-  Multi-spotlight tracking, and the reason it was worth doing: auto-track used
+  Tracking beyond the basics: several players in one pass, working BACKWARDS
+  from an anchor, and the reason both were worth doing — auto-track used
   to follow a player only as far as the spotlight's End time, which defaults to
   four seconds after the ring is placed. Pressing Track on a fresh ring
   therefore followed the player for four seconds and stopped — indistinguishable
@@ -149,6 +150,74 @@ const placeSpot = async (page, box, pos, label) => {
       .filter(a => a.type === 'spot').map(a => a.keys.length);
     return before.every(n => n > 2) && after.every(n => n <= 2);
   }));
+
+  // ============ backwards, from an anchor ============
+  // The real use: you notice the moment the ball arrives, but the coaching
+  // point is the run he made to get there. Put the ring on him at the moment
+  // that matters and work back.
+  // clear the autosave first: this fixture was already tracked earlier in this
+  // suite, and restoring that work would leave two spotlights in the list
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', BALL);
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  box = await (await page.$('#overlay')).boundingBox();
+
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 6; });
+  await page.waitForTimeout(300);
+  const backId = await placeSpot(page, box, ballA(6), 'Marco');
+  check('the anchor is the only ring in play',
+    await page.evaluate(() => window.__filmroom.getProject().annotations.length) === 1);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+
+  check('a spotlight offers both directions',
+    await page.isVisible('#selTrack') && await page.isVisible('#selTrackBack'));
+
+  const beforeStart = await page.evaluate(id => {
+    const a = window.__filmroom.getProject().annotations.find(x => x.id === id);
+    return a.tStart;
+  }, backId);
+
+  await page.click('#selTrackBack');
+  await page.waitForSelector('#trackPill', { state: 'visible', timeout: 5000 }).catch(() => {});
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 120000 });
+  await page.waitForTimeout(300);
+
+  const back = await page.evaluate(id => {
+    const a = window.__filmroom.getProject().annotations.find(x => x.id === id);
+    const ts = a.keys.map(k => k.t);
+    return { tStart: a.tStart, first: Math.min(...ts), last: Math.max(...ts),
+             ordered: ts.every((t, i) => i === 0 || t >= ts[i - 1]), keys: ts.length };
+  }, backId);
+
+  check('it works back well before the anchor (from ' + beforeStart.toFixed(1) +
+    's to ' + back.first.toFixed(1) + 's)', back.first < 2);
+  check('the ring becomes visible from where he came from (starts ' +
+    back.tStart.toFixed(1) + 's)', back.tStart <= back.first + 0.01);
+  check('it does not run past the anchor', back.last <= 6.05);
+  check('the path is stored in time order, so the ring glides rather than jumps',
+    back.ordered && back.keys > 4);
+
+  for (const t of [2, 4, 5.5]){
+    const got = await spotAt(page, backId, t);
+    const want = ballA(t);
+    const err = Math.hypot(got.x - want.x, got.y - want.y);
+    check(`on the ball going backwards at t=${t} (err ${err.toFixed(3)})`, err < 0.03);
+  }
+
+  // an anchor at the very start has nothing behind it, and says so
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0.05; });
+  await page.waitForTimeout(200);
+  await page.evaluate(() => [...document.querySelectorAll('.toast')].forEach(t => t.remove()));
+  await page.click('#selTrackBack');
+  await page.waitForTimeout(400);
+  check('working back from the very start explains itself instead of doing nothing',
+    /nothing before this point/i.test(await page.evaluate(() =>
+      [...document.querySelectorAll('.toast')].map(t => t.textContent).join(' '))));
 
   console.log('\n--- errors collected:', errors.length);
   errors.forEach(e => console.log('  ', e));

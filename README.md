@@ -84,7 +84,10 @@ The best path depends on the device — each one leads with its strongest option
   pick him up again if it does lose him in a crowd). Want it to stop at a particular
   moment? Set *Disappears here* first and it respects that. Two players to follow — him
   and the defender? Put a ring on each and press **🎯 Follow everyone on screen**: they
-  are tracked in a single pass, which is barely slower than doing one. You can also do it by hand: move ahead and drag the
+  are tracked in a single pass, which is barely slower than doing one. And when the moment
+  you can find is the moment the ball *arrives*, put the ring on him there and press
+  **⏪ Where he came from** — it works backwards and fills in the run that got him there,
+  which is usually the thing actually worth talking about. You can also do it by hand: move ahead and drag the
   ring, or press **📍 Pin him here**; the ring glides between the spots you set, and an
   auto-tracked path stays just as editable. Add a
   second spotlight in another color for the defender or the open teammate. The tracker
