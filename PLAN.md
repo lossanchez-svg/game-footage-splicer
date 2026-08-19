@@ -645,6 +645,89 @@ a report is offered after a run. The tree-line case **passes** at err 0.005–0.
 why the shape-mismatch hypothesis was not shipped as a fix: it is unconfirmed, and a
 speculative change to the matcher would make the next report harder to read, not easier.
 
+### ✅ v2.9.4 — what the report said, and what it cost (shipped)
+The report came back and settled it. `distinct: 0.489` — pickPatch had **measured**
+that the field around him could impersonate the template at **0.511** — and the loop
+went on accepting anything over a hardcoded `ACCEPT = 0.45`. The bar sat *below* the
+impostor. Everything after that follows: 126 samples, `lost: false`, a cheerful finish
+message, and the ring parked below the bottom edge of the picture (y up to **1.026**)
+for the last 2.6 seconds. Four things were wrong, each now fixed against a number:
+- **The accept bar is derived, not declared.** `x.accept = clamp(bg + 0.12, 0.45, 0.80)`
+  where `bg` is the impostor score pickPatch already measured. On this footage the bar
+  becomes 0.631; on easy footage `bg` is small and it stays at the old floor, which is
+  why every existing fixture is unmoved.
+- **The anchor guard was asleep.** It is the one check meant to catch "this is a
+  different player", and across all 126 samples the drift counter never left **0** — it
+  fires below a fixed 0.1, and a template made mostly of grass beats 0.1 on any grass.
+  Its floor now comes from `bg` too.
+- **A coast was a licence to teleport.** Coasting doubles the search window, correctly;
+  one frame later the ring jumped **99px** onto someone else at a healthy-looking 0.854
+  and the adaptive template simply became that player. A leap past the normal window now
+  has to satisfy the frozen anchor *there and then*.
+- **Off the frame is not a place he can be.** `nccAt` clamps its reads, so sampling past
+  the edge re-reads the last row of pixels — a smear that correlates with itself
+  beautifully. The search window is now clipped to the picture.
+Also, replaying the report against the new bar showed the bar **alone** would not have
+saved that run (only 15 of 126 samples fall below it, never 6 in a row) — which is why
+the anchor and teleport guards are here rather than a single tuning change.
+
+**And the fixtures were the reason three rounds failed.** Measured: `small` 0.812,
+`pan` 0.869, `trees` 0.742, `exit` 0.799, all matching at 0.96+. The real footage was
+0.489, matching in the 0.6-0.8 band. Every reproduction attempt had been built to a
+guess about the mechanism instead of to the measurement. `tests/fixtures/faint.webm` is
+built to the number — muddy 5x13 smudges on noisy textured grass, largest candidate
+patch scoring **0.43** — and it reproduced the failure on the first run: err 0.172 at
+t=5, 0.446 at t=7, reported as a clean run. Strengthening the motion prior (the
+near-bias goes linear in distance, so motion has a say near the centre of the window,
+not only at its rim) and slowing velocity adaptation (0.75/0.25, so a crossing player
+cannot overturn seconds of held direction in two frames) takes that to **0.005 at t=5**
+and 0.162 at t=7, with every other suite error unchanged or better.
+
+**Known gap, recorded rather than hidden:** in `faint.webm` a third look-alike drifting
+at walking pace crosses at ~t=5.2, and the ring can settle on the slow one and stop —
+err 0.162 at t=7, down from 0.446 but not right. Fixing it needs the tracker to
+distrust a match whose motion contradicts a velocity held for seconds. `smalltrack.js`
+holds the current bound so a regression is visible and a real fix just passes.
+
+The report now also carries the anchor score, the bar each sample was held to, any
+rejection reason, and the **full patch-candidate sweep** — the one number still missing
+from the first report was what the smaller patches would have scored.
+
+### ✅ v2.9.5 — match his shape, not a square of ground (shipped)
+From the user, and correct: *"there will always be look-alikes since teams wear the
+same uniforms and players will have similar characteristics — you may want to look at
+the entire body of the player."* Colour cannot separate two players in the same kit, so
+shape is the only thing left, and the tracker was sampling a **square** centred on the
+ring. A square is wrong twice over: fit his width and it misses his body, fit his height
+and it fills with the ground either side of him. On the footage that failed, a 57x57
+square around a player roughly 10x26 pixels was **92% field**.
+- The patch is now a **box** — half-width, half-height and a vertical offset — and it is
+  **fitted to him**, not guessed. Field colour is taken from a ring of ground well
+  outside him, every nearby pixel that differs from it is marked, and his extent is
+  grown from where the ring was dropped, tolerating a gap or two (shorts and socks in a
+  lighter colour break a player in half). If nothing coherent is there, the old square
+  ladder still decides.
+- The box carries **twice his measured size**. This was the part that mattered and it was
+  not obvious: a skin-tight body box lost the player exactly as a square did (err 0.405
+  at t=7), because a template holding only the player has nothing around it to hold
+  position with and slides onto the next player in the same kit. The same shape with room
+  around it held to **0.002**. Margin x2.5 breaks two other clips, so 2.0 is a measured
+  optimum rather than a trend.
+- **Distinctiveness is not what chooses it.** That measure is size-biased — a smaller
+  patch always separates from grass better — so it would veto any box cut to a whole
+  player. It still sets the accept bar; it no longer picks the shape.
+
+New `tests/fixtures/body.webm`: a player with a head, a torso and two legs that scissor
+as he runs, plus a look-alike in the same kit crossing him at the same depth. Every other
+fixture's player is a solid rectangle, which has no stance, no legs and no gap — the
+wrong instrument entirely for this question. With a square template it fails at err 0.142
+(t=5) and 0.403 (t=7); with the fitted box, **0.005 and 0.002**.
+
+This also closed the gap left open one build earlier: the walking-pace look-alike in
+`faint.webm` went from err 0.446 to **0.004**. Suite: 428 checks green. The two
+`multitrack` crossing errors moved from 0.003/0.001 to 0.019/0.019 — still well inside
+tolerance, and the only numbers anywhere that got worse.
+
 ## Roadmap
 
 ### Next (in order)
@@ -798,6 +881,12 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | The template is a box fitted to the player, not a square centred on the ring | Same-kit team-mates are identical in colour, so shape is the only thing left to match on, and a square either misses his body or fills with the ground beside him — 92% field on the clip that failed. Fitting his actual extent is measurable per clip; guessing an aspect ratio is not |
+| 2026-08-19 | The fitted box carries twice his measured size | A skin-tight body box failed exactly as the square did (err 0.405): a template holding only the player has no surroundings to hold position with and slides onto the next player in the same kit. x2.5 breaks other clips, so the margin is a measured optimum, not a direction to push |
+| 2026-08-19 | Distinctiveness sets the accept bar but no longer picks the patch shape | It is size-biased — smaller always separates from grass better — so it scored a whole-body box below a torso-sized square that tracked far worse. A proxy metric that disagrees with the outcome it is proxying for should not be the one deciding |
+| 2026-08-19 | Match thresholds are derived from the measured impostor score, not hardcoded | pickPatch already computes how well the field impersonates the template; `ACCEPT = 0.45` sat below that measurement (0.511) on real footage, so the tracker was accepting grass by its own arithmetic. A constant cannot know how hard the footage is; the measurement already does |
+| 2026-08-19 | Fixtures are built to a measurement, not to a hypothesised mechanism | Three rounds of reproductions passed because every fixture scored 0.74-0.87 distinctiveness against real footage's 0.489. Building `faint.webm` to that number reproduced the failure on the first run, after three mechanism-guesses had failed |
+| 2026-08-19 | The late-clip look-alike swap is recorded as a known gap with a bounding test | It is a real remaining failure and needs motion-consistency logic that is a bigger change than this pass; a test that holds the current bound keeps it visible instead of letting a passing suite imply it is solved |
 | 2026-08-19 | The tracker ships a diagnostics report rather than a fourth speculative fix | Three rounds of inferring from a cropped screen recording produced three hypotheses and two fixture reproductions that passed. A patch-shape mismatch is still a live suspect, but shipping a matcher change on an unconfirmed theory would move the numbers before anyone had read them |
 | 2026-08-19 | The report carries numbers about the pass, never frames | Match scores, patch sizes and positions are enough to tell a lost template from a bad search radius, and they keep the promise that footage never leaves the machine |
 | 2026-08-19 | Entries are stored, and file blobs enter the zip by reference | Everything packed is already compressed, so deflate would cost CPU for nothing; passing Blobs rather than bytes keeps peak memory at one file, which is what makes a multi-gigabyte season bundle possible at all |

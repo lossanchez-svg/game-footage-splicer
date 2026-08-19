@@ -151,6 +151,187 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
     check(`stays on him under a tree line, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
   }
 
+  /* ---- and when he simply runs out of shot ----
+     Straight from a real tracking report: the ring spent the last 2.6 seconds
+     of a 15.7s clip BELOW the bottom edge of the picture (y up to 1.026),
+     scoring 0.6-0.87 the whole way, and the run finished reporting lost:false.
+     nccAt clamps its reads, so sampling past the edge re-reads the last row of
+     pixels — a smear that correlates with itself very convincingly. The player
+     here leaves the frame at about t=4.7; after that the only honest answers
+     are "inside the picture" and "lost him". */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'exit.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const ebox = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(300);
+
+  const leaving = t => ({ x: (90 + 118 * t) / 640, y: (170 + 10 * Math.sin(1.8 * t)) / 360 });
+  await page.click('#toolGrid button[data-tool=spot]');
+  const e0 = leaving(0);
+  await page.mouse.move(ebox.x + ebox.width * e0.x, ebox.y + ebox.height * e0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  await page.waitForTimeout(300);
+
+  for (const t of [1, 3]){
+    const got = await page.evaluate(t => {
+      const a = window.__filmroom.getProject().annotations[0];
+      return window.__filmroom.spotPos(a, t);
+    }, t);
+    const want = leaving(t);
+    const err = Math.hypot(got.x - want.x, got.y - want.y);
+    check(`on him while he is still in shot, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
+  }
+
+  const strayed = await page.evaluate(() => {
+    const a = window.__filmroom.getProject().annotations[0];
+    let worst = null;
+    for (let t = 0; t <= 8; t += 0.1){
+      const p = window.__filmroom.spotPos(a, t);
+      const out = Math.max(-p.x, p.x - 1, -p.y, p.y - 1);
+      if (!worst || out > worst.out) worst = { t: +t.toFixed(1), x: +p.x.toFixed(3), y: +p.y.toFixed(3), out };
+    }
+    return worst;
+  });
+  check(`the ring never leaves the picture (worst: x ${strayed.x}, y ${strayed.y} at t=${strayed.t})`,
+    strayed.out <= 0.001);
+
+  const exitRep = await page.evaluate(() => {
+    const r = window.__filmroom.trackReport;
+    return r && r.result && r.result[0]
+      ? { lost: r.result[0].lost, lastGoodAt: r.result[0].lastGoodAt,
+          offFrame: r.result[0].samples.filter(s => s.x < 0 || s.x > 1 || s.y < 0 || s.y > 1).length }
+      : null;
+  });
+  check('it says it lost him rather than claiming a clean run', exitRep && exitRep.lost === true);
+  check(`and it stopped near where he left the picture (${exitRep && exitRep.lastGoodAt}s, he goes at 4.7s)`,
+    exitRep && exitRep.lastGoodAt > 3.5 && exitRep.lastGoodAt < 6.5);
+  check(`no sample sits outside the picture (${exitRep && exitRep.offFrame} strayed; the real report had 18)`,
+    exitRep && exitRep.offFrame === 0);
+
+  /* ---- and the case the real report finally pinned down ----
+     Every fixture above is easier than real film. Measured: they score a
+     distinctiveness of 0.74-0.87 with match scores over 0.96, while the user's
+     own footage measured 0.489 and matched in the 0.6-0.8 range. That gap is
+     why three rounds of fixture-building failed to reproduce anything. This
+     clip is built to the measurement instead of to a guess — muddy smudges on
+     noisy, textured grass, crossing each other at the same depth. */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'faint.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const fbox = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(300);
+
+  const faint = t => ({ x: (100 + 42 * t + 2.5) / 640, y: (190 + 9 * Math.sin(1.6 * t) + 6.5) / 360 });
+  const crosser = t => ({ x: (430 - 46 * t + 2.5) / 640, y: (196 + 7 * Math.cos(1.3 * t) + 6.5) / 360 });
+  await page.click('#toolGrid button[data-tool=spot]');
+  const f0 = faint(0);
+  await page.mouse.move(fbox.x + fbox.width * f0.x, fbox.y + fbox.height * f0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  await page.waitForTimeout(300);
+
+  const faintAt = t => page.evaluate(t => {
+    const a = window.__filmroom.getProject().annotations[0];
+    return window.__filmroom.spotPos(a, t);
+  }, t);
+
+  // this is the patch-picking measurement the real report is compared against
+  const fr = await page.evaluate(() => window.__filmroom.trackReport.spots[0]);
+  check(`a default square on this footage is as unhelpful as the real thing ` +
+    `(largest square scores ${fr.patchTried[0].distinct})`, fr.patchTried[0].distinct < 0.55);
+  check('and his outline was found, so the square ladder is not what decides',
+    fr.patchTried.some(c => c.shape === 'his actual outline'));
+  check(`and the bar it is held to clears what the field itself scores ` +
+    `(bar ${fr.acceptBar} vs field ${(1 - fr.distinct).toFixed(3)})`,
+    fr.acceptBar > 1 - fr.distinct);
+
+  for (const t of [1, 3, 5]){
+    const got = await faintAt(t), want = faint(t);
+    const err = Math.hypot(got.x - want.x, got.y - want.y);
+    // before the motion prior was strengthened this read 0.007 / 0.007 / 0.172
+    check(`holds the faint player through the crossing, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
+  }
+  // and the template is cut to his outline rather than to a square of ground
+  const fShape = await page.evaluate(() => window.__filmroom.trackReport.spots[0]);
+  check(`the template is cut to his shape, not to a square ` +
+    `(${fShape.patch.w * 2 + 1}x${fShape.patch.h * 2 + 1}px, taller than wide)`,
+    fShape.patch.h > fShape.patch.w);
+
+  const fLate = await faintAt(7), fImp = crosser(7);
+  check(`and has not been carried off by the player crossing the other way ` +
+    `(${Math.hypot(fLate.x - fImp.x, fLate.y - fImp.y).toFixed(3)} away from him)`,
+    Math.hypot(fLate.x - fImp.x, fLate.y - fImp.y) > 0.2);
+  /* This was a documented open gap one build ago: a third look-alike drifting at
+     walking pace crossed his path around t=5.2 and the ring settled on the slow
+     one, err 0.446 at t=7. Cutting the template to his measured outline with
+     room around it closed it. */
+  const fEnd = await faintAt(7), fWant = faint(7);
+  const endErr = Math.hypot(fEnd.x - fWant.x, fEnd.y - fWant.y);
+  check(`and still on him at the end, past the walking-pace look-alike ` +
+    `(err ${endErr.toFixed(3)} at t=7, was 0.446)`, endErr < 0.03);
+
+  /* ---- and a player with an actual body ----
+     Every other fixture's "player" is a solid rectangle, which is exactly the
+     wrong shape for testing whether looking at his whole body helps: a solid
+     block has no stance, no legs and no gap between them. This one has a head, a
+     torso and two legs that scissor as he runs, and a look-alike in the same kit
+     crosses him around t=5 — the case where colour cannot help at all.
+     Measured with a square template: err 0.142 at t=5 and 0.403 at t=7. */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'body.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const bbox = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(300);
+
+  const runner = t => ({ x: (100 + 40 * t + 4) / 640, y: (172 + 6 * Math.sin(1.5 * t) + 9) / 360 });
+  await page.click('#toolGrid button[data-tool=spot]');
+  const b0 = runner(0);
+  await page.mouse.move(bbox.x + bbox.width * b0.x, bbox.y + bbox.height * b0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  await page.waitForTimeout(300);
+
+  for (const t of [1, 3, 5, 7]){
+    const got = await page.evaluate(t => {
+      const a = window.__filmroom.getProject().annotations[0];
+      return window.__filmroom.spotPos(a, t);
+    }, t);
+    const want = runner(t);
+    const err = Math.hypot(got.x - want.x, got.y - want.y);
+    check(`holds him past a same-kit look-alike, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
+  }
+  const bShape = await page.evaluate(() => window.__filmroom.trackReport.spots[0].patch);
+  check(`and the template is his shape, not a square ` +
+    `(${bShape.w * 2 + 1}x${bShape.h * 2 + 1}px)`, bShape.h > bShape.w * 1.5);
+
   // and the run must leave a report behind, since that is how a real failure
   // gets diagnosed rather than guessed at
   const rep = await page.evaluate(() => {
