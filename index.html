@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v2.9.6</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.0</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2427,43 +2427,34 @@ async function autoTrack(arg, dir = 1){
     }
     if (!best) return { P: { w: base(ringR || 0.035), h: base(ringR || 0.035), oy: 0 }, distinct: 0, cand };
 
-    /* Stage 2 — what shape? Everyone on the pitch wears the same kit, so colour
-       cannot tell team-mates apart and the tracker swaps players. Shape can: a
-       person is upright, and his outline against the grass, his stance and the
-       gap between his legs are a far more specific thing to match than a square
-       of torso. A square either fits his width and misses his body, or fits his
-       height and fills up with the ground either side of him — on the footage
-       that failed, a 57x57 square around a player about 10x26 pixels was 92%
-       field. So the body boxes are sized to his HEIGHT, which is taller than the
-       ring is wide, rather than to whichever small square won above. Both
-       offsets are tried, because the ring may sit at his feet or across his
-       middle depending on where it was dropped, and guessing which is how the
-       square ended up mostly grass in the first place. */
+    /* His measured outline, if it could be found — the one shape on the list that
+       came from this footage rather than from an assumption. */
     const fitted = fitPlayer(img, cx, cy, ringR);
     if (fitted){
       const d = rate(fitted);
       if (d != null){
         note(fitted, d, 'his actual outline');
-        /* This one is not judged on distinctiveness, which is a size-biased
-           measure — a smaller patch always separates from grass better, so it
-           would veto any box cut to a whole player. It was measured directly
-           instead: on the silhouette clip it takes err at t=7 from 0.403 to
-           0.004, and where it is wrong it does not fire at all. */
-        best = { P: fitted, distinct: d, fitted: true };
+        /* Not judged on distinctiveness, which is size-biased and rewards
+           whatever holds the most contrast — it would veto a box cut to a whole
+           player in favour of a scrap of torso, and on real footage it preferred
+           a boxful of tree canopy to both. The next-frame probe decides whether
+           this one can really track. */
+        best = { P: fitted, distinct: d };
       }
     }
-    const k0 = base(ringR || 0.035);
-    if (!best.fitted) for (const hf of [1.4, 1.0, 0.7])
-      for (const oyf of [0, -0.45]){
-        const h = Math.round(k0 * hf);
-        const P = { w: Math.max(3, Math.round(h * 0.42)), h, oy: Math.round(h * oyf) };
-        const distinct = rate(P);
-        if (distinct == null) continue;
-        note(P, distinct, oyf ? 'body, reaching up' : 'body');
-        // the square is the incumbent: a body-shaped box takes over only if it
-        // is clearly better, never on a coin toss
-        if (distinct > best.distinct + 0.08) best = { P, distinct };
-      }
+
+    /* There used to be a ladder of GUESSED body shapes here — upright boxes at
+       assumed proportions — used when the outline fit found nothing. On real
+       footage it chose a box 33x79px centred 18px ABOVE the ring, for a player
+       about 10x26px, which on a park pitch is mostly tree canopy. It won because
+       distinctiveness rewarded it: canopy stands out from grass far better than a
+       player does. It then matched nothing at all (scores 0.32-0.54 against a bar
+       of 0.45), lost him at 0.5s and gave up — which is what "it follows him for
+       a second and stops" was.
+
+       So there is no guessing. Either his outline was measured, or a square. A
+       shape that has not been measured on this footage does not get to compete
+       against one that has. */
     return { P: best.P, distinct: best.distinct, cand };
   }
 
@@ -2520,6 +2511,60 @@ async function autoTrack(arg, dir = 1){
     x.T = prepTemplate(x.tplRaw);
     x.trace = [];
   }
+  /* ---- build the ensemble ----
+     Several templates cut differently from the same player, so that no single
+     way of framing him has to be right. They cost little: seeking and decoding
+     the frame is what the pass spends its time on, which is the same reason a
+     second spotlight is nearly free. Diversity is the point — the measured
+     outline, a tight square, a wider square that carries his surroundings — so
+     that whatever this footage does to one of them, the others still hold.
+     Each keeps its own bar, since each is a different thing to match.
+
+     Then one honest question of them all: step a frame and see which can
+     actually find him again. Any that cannot are dropped before the run rather
+     than carried through it, and the strongest leads. */
+  {
+    const tProbe = clamp(t0 + dir * (1/8), 0, video.duration || t0);
+    const probe = Math.abs(tProbe - t0) > 1e-3 ? (await seekTo(tProbe), grab()) : null;
+    for (const x of st){
+      const seen = [], picks = [];
+      const add = (P, distinct, how) => {
+        const k = P.w + 'x' + P.h + '@' + P.oy;
+        if (seen.includes(k) || picks.length >= 3) return;
+        seen.push(k);
+        const raw = extractPatch(img, x.px, x.py, 1, P);
+        const T = prepTemplate(raw);
+        if (T.norm / Math.sqrt(Math.max(1, T.z.length)) < 5) return;   // featureless
+        const bg = distinct > 0 ? 1 - distinct : 0.15;
+        picks.push({ P, raw, T, anchor: prepTemplate(raw), how, bg, out: 0,
+                     px: x.px, py: x.py, vx: 0, vy: 0,
+                     trust: how === 'his actual outline' ? 1.3 : 1,
+                     accept: distinct > 0 ? clamp(bg + 0.12, ACCEPT, 0.80) : ACCEPT });
+      };
+      const cand = (x.cand || []).slice();
+      const fit = cand.find(c => c.shape === 'his actual outline');
+      const squares = cand.filter(c => c.shape === 'square').sort((p, q) => q.distinct - p.distinct);
+      if (fit) add({ w: fit.w, h: fit.h, oy: fit.oy }, fit.distinct, fit.shape);
+      if (squares[0]) add({ w: squares[0].w, h: squares[0].h, oy: 0 }, squares[0].distinct, 'square');
+      // a second square of a clearly different size, for scale diversity
+      const other = squares.find(c => squares[0] && Math.abs(c.w - squares[0].w) >= 4);
+      if (other) add({ w: other.w, h: other.h, oy: 0 }, other.distinct, 'square');
+      if (!picks.length) add(x.P, x.distinct, 'fallback');
+
+      if (probe){
+        for (const c of picks) c.probe = bestMatch(probe, c.T, x.px, x.py, x.baseSearch, 1, c.P).ncc;
+        const live = picks.filter(c => c.probe >= 0.5);
+        if (live.length) picks.length = 0, picks.push(...live.sort((p, q) => q.probe - p.probe));
+        else picks.sort((p, q) => q.probe - p.probe);
+      }
+      x.cs = picks;
+      x.P = picks[0].P; x.bg = picks[0].bg; x.accept = picks[0].accept;
+      x.ensemble = picks.map(c => ({ patch: c.P, how: c.how,
+        nextFrame: c.probe == null ? null : +c.probe.toFixed(3), bar: +c.accept.toFixed(3) }));
+    }
+    if (probe){ await seekTo(t0); img = grab(); }
+  }
+
   window.__trackTrace = st[0].trace;             // per-sample diagnostics (console/tests)
   window.__trackTraces = st.map(x => x.trace);
   lastTrackReport = {
@@ -2532,7 +2577,8 @@ async function autoTrack(arg, dir = 1){
     spots: st.map(x => ({
       label: x.spot.label || '', ringR: x.spot.r || 0.035,
       patch: x.P, distinct: x.distinct == null ? null : +x.distinct.toFixed(3),
-      acceptBar: +x.accept.toFixed(3), stopBecause: x.why, patchTried: x.cand, searchRadius: x.baseSearch, stopAt: +x.tEnd.toFixed(3),
+      acceptBar: +x.accept.toFixed(3), stopBecause: x.why,
+      ensemble: x.ensemble, patchTried: x.cand, searchRadius: x.baseSearch, stopAt: +x.tEnd.toFixed(3),
     })),
   };
 
@@ -2549,82 +2595,155 @@ async function autoTrack(arg, dir = 1){
       if (dir > 0 ? t > x.tEnd + 1e-3 : t < x.tEnd - 1e-3){ x.done = true; continue; }
       const predX = clamp(x.px + x.vx, 0, W-1), predY = clamp(x.py + x.vy, 0, H-1);
       const radius = x.coast ? x.baseSearch * 2 : x.baseSearch;
-      const m = bestMatch(img, x.T, Math.round(predX), Math.round(predY), radius, x.spread, x.P);
+
+      /* ---- track by agreement, not by one chosen template ----
+         Every failure reported on this tracker had the same shape: a template
+         was picked once, up front, by a measure that stood in for "will this
+         work", and then the whole clip was committed to it. When the pick was
+         wrong — a square that was 92% grass, a box full of tree canopy — there
+         was no way back, and the run reported confidence all the way into a
+         hedge. No single measure of a patch predicts how it will track, and
+         three separate attempts to find one were each wrong on real footage.
+
+         So nothing is picked. Several templates cut differently from the same
+         player run together, each searches, and the ring goes where they AGREE.
+         A template that has wandered onto grass disagrees with the others and
+         is outvoted rather than followed; one that fails on this footage costs
+         a vote instead of the whole run. Agreement is also an honest confidence
+         measure — it is high when the shot is clear and low exactly when a
+         person watching would say "I am not sure that is still him", which is
+         what makes it usable across different footage, angles and subjects
+         rather than tuned to one clip. */
+      const votes = [];
+      for (const c of x.cs){
+        /* Each template keeps its OWN position and its own idea of where he is
+           going, and searches from there. Sharing one averaged position looked
+           tidier and was worse: when one template drifted the shared centre
+           moved, which dragged the others' next search after it, and all three
+           walked onto the same wrong player in perfect agreement. Independent
+           trackers can disagree — which is the entire value of having them. */
+        const pX = clamp(c.px + c.vx, 0, W-1), pY = clamp(c.py + c.vy, 0, H-1);
+        const m = bestMatch(img, c.T, Math.round(pX), Math.round(pY), radius, x.spread, c.P);
+        c.m = m;
+        /* Weighted by how far past its own bar it is AND by how reliable it has
+           proved so far. A plain head-count lets two weak templates outvote one
+           good one — which is not hypothetical: two squares outvoted the
+           template cut to the player's own outline at a crossing and took the
+           ring with them. A vote has to be earned. */
+        if (m.ncc >= c.accept) votes.push({ c, m, wgt: (m.ncc - c.accept + 0.02) * c.trust });
+      }
+      /* Where they agree — and when they split, the side that continues his
+         motion wins. A player carries on doing roughly what he was doing; a
+         look-alike crossing the other way does not, and that is a difference no
+         amount of appearance-matching can see. */
+      let clump = null;
+      for (const v of votes){
+        const near = votes.filter(u => Math.hypot(u.m.x - v.m.x, u.m.y - v.m.y) <= x.baseSearch * 0.5);
+        let cx2 = 0, cy2 = 0, sw2 = 0;
+        for (const u of near){ cx2 += u.m.x * u.wgt; cy2 += u.m.y * u.wgt; sw2 += u.wgt; }
+        const off = Math.hypot(cx2/sw2 - predX, cy2/sw2 - predY) / Math.max(1, x.baseSearch);
+        const wgt = sw2 * (1 - clamp(1.0 * off, 0, 0.8));
+        if (!clump || wgt > clump.wgt) clump = { near, wgt };
+      }
+      const agreed = !!clump;
+      let mx = predX, my = predY, top = null, aScore = null;
+      x.reject = null;
+      if (agreed){
+        let sw = 0;
+        mx = 0; my = 0;
+        for (const u of clump.near){ mx += u.m.x * u.wgt; my += u.m.y * u.wgt; sw += u.wgt; }
+        mx = Math.round(mx / sw); my = Math.round(my / sw);
+        top = clump.near.reduce((p, q) => q.m.ncc > p.m.ncc ? q : p);
+      }
+      const agree = clump ? clump.near.length / x.cs.length : 0;
+      const score = top ? top.m.ncc : (x.cs[0].m ? x.cs[0].m.ncc : 0);
 
       /* Coasting doubles the search window, which is right for a player who
          reappears from behind a team-mate — and wrong as a licence to teleport.
-         One frame after a coast the ring jumped 99px sideways onto a different
-         player and never came back. A leap further than the normal window is
-         only believable if it is decisively better than the field, so it has to
-         clear the bar by a clear margin rather than merely reach it. */
-      const jump = Math.hypot(m.x - x.px, m.y - x.py);
-      const bar = jump > x.baseSearch ? x.accept + 0.10 : x.accept;
-      let aScore = null; x.reject = null;
+         A leap further than the normal window has to be backed by the frozen
+         anchor there and then, not merely reach the bar. */
+      const jump = agreed ? Math.hypot(mx - x.px, my - x.py) : 0;
 
-      if (m.ncc >= bar){
-        // mild multi-scale: follow slow zoom changes
-        let bestSpread = x.spread, bestScore = m.ncc;
+      if (agreed){
+        // mild multi-scale: follow the zoom and the angle changing
+        const cT = top.c;
+        let bestSpread = x.spread, bestScore = top.m.ncc;
         for (const f of [0.94, 1.06]){
-          const s2 = nccAt(img, x.T, m.x, m.y, x.spread * f, x.P);
+          const s2 = nccAt(img, cT.T, mx, my, x.spread * f, cT.P);
           if (s2 > bestScore + 0.02){ bestScore = s2; bestSpread = x.spread * f; }
         }
         x.spread = clamp(x.spread*0.9 + bestSpread*0.1, 0.5, 2.2);
-        /* Anchor check: the frozen first-frame template is the only thing that
-           still knows what he looked like, since the adaptive one re-learns
-           whatever it is sitting on. It is the guard against locking onto a
-           different player — and it was asleep. Against a fixed floor of 0.1 it
-           never once objected across a 126-sample run that spent eight seconds
-           on grass, because a template made mostly of grass scores well over
-           0.1 on any grass. So the floor comes from the same measurement the
-           accept bar does: if the original picture of him matches here no
-           better than the FIELD does, this is not him. */
-        aScore = nccAt(img, x.anchor, m.x, m.y, x.spread, x.P);
+        /* The frozen first-frame templates are the only things that still know
+           what he looked like; the adaptive ones re-learn whatever they sit on.
+           Take the best of them — one cut may survive a turn or a scale change
+           that another does not, which is the point of having several. */
+        for (const c of x.cs){
+          const a = nccAt(img, c.anchor, mx, my, x.spread, c.P);
+          if (aScore == null || a > aScore) aScore = a;
+        }
         const aFloor = x.aFloor == null ? 0.1 : x.aFloor;
-        const aClear = aFloor;
-        /* A leap beyond the normal window has to prove itself against the
-           anchor there and then, not over the next five frames. This is exactly
-           how the ring left the player: one coasted frame, then a 99px jump
-           onto someone else at a healthy-looking 0.854, and from there the
-           adaptive template simply became the other player. */
-        if (jump > x.baseSearch && aScore < aClear){
-          x.reject = 'jumped ' + Math.round(jump) + 'px to someone the anchor does not recognise';
-        } else if (aScore < aFloor){ if (++x.drift >= DRIFT_MAX){ x.lost = true; x.done = true; } }
+        if (jump > x.baseSearch && aScore < aFloor)
+          x.reject = 'jumped ' + Math.round(jump) + 'px to someone no template recognises';
+        else if (aScore < aFloor){ if (++x.drift >= DRIFT_MAX){ x.lost = true; x.done = true; } }
         else x.drift = 0;
+
         if (!x.done && !x.reject){
-          x.vx = clamp(x.vx*0.75 + (m.x - x.px)*0.25, -x.baseSearch, x.baseSearch);
-          x.vy = clamp(x.vy*0.75 + (m.y - x.py)*0.25, -x.baseSearch, x.baseSearch);
-          x.px = m.x; x.py = m.y; x.coast = 0; x.lastGoodT = t;
-          x.samples.push({ t, x: x.px / W, y: x.py / H });
+          x.vx = clamp(x.vx*0.75 + (mx - x.px)*0.25, -x.baseSearch, x.baseSearch);
+          x.vy = clamp(x.vy*0.75 + (my - x.py)*0.25, -x.baseSearch, x.baseSearch);
+          x.px = mx; x.py = my; x.coast = 0; x.lastGoodT = t;
+          x.samples.push({ t, x: x.px / W, y: x.py / H, conf: +agree.toFixed(2) });
           x.lastGoodIdx = x.samples.length - 1;
-          if (m.ncc > ADAPT){
-            const cur = extractPatch(img, x.px, x.py, x.spread, x.P);
-            for (let i = 0; i < x.tplRaw.length; i++) x.tplRaw[i] = x.tplRaw[i]*0.9 + cur[i]*0.1;
-            x.T = prepTemplate(x.tplRaw);
+          x.agreeSum = (x.agreeSum || 0) + agree; x.agreeN = (x.agreeN || 0) + 1;
+          if (agree < 0.5) x.shaky = (x.shaky || 0) + 1;
+          for (const c of x.cs){
+            const inClump = clump.near.some(u => u.c === c);
+            c.trust = inClump ? Math.min(2, c.trust * 1.05) : Math.max(0.25, c.trust * 0.8);
+            if (inClump){
+              c.vx = clamp(c.vx*0.75 + (c.m.x - c.px)*0.25, -x.baseSearch, x.baseSearch);
+              c.vy = clamp(c.vy*0.75 + (c.m.y - c.py)*0.25, -x.baseSearch, x.baseSearch);
+              c.px = c.m.x; c.py = c.m.y; c.out = 0;
+              if (c.m.ncc > ADAPT){          // agreeing and sure: follow him changing
+                const cur = extractPatch(img, c.px, c.py, x.spread, c.P);
+                for (let i = 0; i < c.raw.length; i++) c.raw[i] = c.raw[i]*0.9 + cur[i]*0.1;
+                c.T = prepTemplate(c.raw);
+              }
+            } else if (++c.out >= 8){
+              /* Outvoted for a second solid: it has lost him, or the angle has
+                 moved past what it was cut for. Put it back where the others
+                 agree he is and re-cut it, so a template that falls behind
+                 rejoins instead of quietly voting wrong for the rest of the
+                 clip. This is also how the ensemble copes with the shot
+                 changing: templates that stop working get replaced by ones cut
+                 from how he looks now. */
+              c.px = mx; c.py = my; c.vx = x.vx; c.vy = x.vy;
+              c.raw = extractPatch(img, mx, my, x.spread, c.P);
+              c.T = prepTemplate(c.raw); c.out = 0; c.recut = (c.recut || 0) + 1;
+            }
           }
         }
       }
-      if (m.ncc < bar || x.reject){
+      if (!agreed || x.reject){
         // occluded, unmatchable, or refused as not-him: coast on predicted motion
         if (++x.coast > MAX_COAST){ x.lost = true; x.done = true; }
         else {
           x.px = predX; x.py = predY;
-          x.samples.push({ t, x: x.px / W, y: x.py / H }); // provisional — trimmed if never reacquired
+          x.samples.push({ t, x: x.px / W, y: x.py / H, conf: 0 }); // provisional
         }
       }
 
-      /* Warm-up: the first second is tracked on the permissive floor while the
-         scores it actually gets are recorded, then the operating thresholds are
-         set from those. The impostor-derived bar still applies as a ceiling, so
-         hard footage is still held to a higher standard — but never to one the
-         template has been shown to be incapable of meeting. */
+      /* Warm-up: the first second runs on the permissive floor while the anchor
+         scores it actually gets are recorded, then the floor is set from those.
+         The impostor-derived value still applies as a ceiling, so hard footage
+         is held to a higher standard — never to one nothing here can meet. */
       if (x.warmA && aScore != null && x.warmA.push(aScore) >= WARM){
-        const b = x.warmA.slice().sort((p, q) => p - q);
-        const aGood = b[b.length >> 1];
-        x.aFloor = Math.min(x.bg * 0.8, aGood - 0.25);
+        const bb = x.warmA.slice().sort((p, q) => p - q);
+        x.aFloor = Math.min(x.bg * 0.8, bb[bb.length >> 1] - 0.25);
         x.warmA = null;
       }
-
+      const m = { ncc: score };
+      const bar = x.cs[0].accept;
       x.trace.push({ t: +t.toFixed(3), ncc: +m.ncc.toFixed(3), bar: +bar.toFixed(3),
+        agree: +agree.toFixed(2), votes: votes.length,
         anchor: aScore == null ? null : +aScore.toFixed(3), reject: x.reject || undefined,
         coast: x.coast, drift: x.drift,
         x: +(x.px / W).toFixed(3), y: +(x.py / H).toFixed(3),
@@ -2660,6 +2779,9 @@ async function autoTrack(arg, dir = 1){
     lastTrackReport.result = st.map(x => ({
       label: x.spot.label || '', lost: x.lost, lastGoodAt: +x.lastGoodT.toFixed(3),
       barUsed: +x.accept.toFixed(3), anchorFloor: x.aFloor == null ? null : +x.aFloor.toFixed(3),
+      agreement: x.agreeN ? +(x.agreeSum / x.agreeN).toFixed(2) : null,
+      shakySamples: x.shaky || 0, recuts: x.cs.map(c => c.recut || 0),
+      trust: x.cs.map(c => +c.trust.toFixed(2)),
       keys: x.spot.keys.length,
       samples: x.trace,                       // t, lock, coast, drift, position, velocity
     }));
@@ -2693,7 +2815,14 @@ async function autoTrack(arg, dir = 1){
        what to do about it. */
     const stopped = st.find(x => x.why === 'spotEnd');
     const early = video.duration && followedTo < video.duration - 0.3;
+    /* Agreement between the templates is an honest confidence measure: it drops
+       exactly where a person watching would say "I am not sure that is still
+       him". Saying so is worth more than a number nobody sees. */
+    const shaky = st.reduce((n, x) => n + (x.shaky || 0), 0);
     let tail = ' Press play to check it — you can still drag a ring anywhere it is not quite right.';
+    if (shaky > 3)
+      tail = ' It was unsure of him for about ' + (shaky / 8).toFixed(1) + ' seconds of that' +
+             ' — play it through and drag the ring back on him wherever it looks wrong.';
     if (stopped && early)
       tail = ' It stopped there because that is where you set this spotlight to disappear' +
              ' — press <b>Disappears here</b> at the end of the play, or delete that end, then follow him again.';
@@ -4891,7 +5020,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v2.9.6';
+const APP_BUILD = 'v3.0';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),

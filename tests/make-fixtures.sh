@@ -172,3 +172,23 @@ b='56+20*sin(X/4)+16*sin(Y/3)'" \
 [a3][4]overlay=x='100+40*t+5-2*sin(9*t)':y='182+6*sin(1.5*t)'[a4];\
 [a4]noise=alls=13:allf=t" \
   -c:v libvpx-vp9 -b:v 1400k fixtures/dim.webm
+
+# 8s "canopy" fixture: built from a real tracking report. A high-contrast tree
+# line fills the top of the frame and four players in two kits run close
+# together beneath it — the scene the app is actually pointed at on a park
+# pitch. The outline fit gives up here (too much that is "not grass" runs
+# together), which is what used to hand the choice to a guessed body box; that
+# box reached up into the canopy, scored best of everything on distinctiveness,
+# then matched nothing at all and lost him half a second in.
+"$FFMPEG" -y -f lavfi -i "nullsrc=s=640x360:r=30:d=8,geq=\
+r='if(lt(Y,140), 20+40*sin(X/5)*sin(Y/4), 42+8*sin(X/11)+5*sin(Y/6))':\
+g='if(lt(Y,140), 46+52*sin(X/7)*cos(Y/5), 122+24*sin(X/11)+15*sin(Y/6))':\
+b='if(lt(Y,140), 18+28*sin(X/3)*sin(Y/6), 52+9*sin(X/11)+5*sin(Y/6))'" \
+  -f lavfi -i "color=c=0x8a2b2b:s=7x20:r=30:d=8" -f lavfi -i "color=c=0xdedede:s=7x20:r=30:d=8" \
+  -f lavfi -i "color=c=0x8a2b2b:s=7x20:r=30:d=8" -f lavfi -i "color=c=0xdedede:s=7x20:r=30:d=8" \
+  -filter_complex "[0][1]overlay=x='120+40*t':y='168+7*sin(1.5*t)'[a];\
+[a][2]overlay=x='152+36*t':y='176+6*cos(1.1*t)'[b];\
+[b][3]overlay=x='94+42*t':y='186+7*sin(1.9*t)'[c];\
+[c][4]overlay=x='170+32*t':y='158+5*sin(0.8*t)'[d];\
+[d]noise=alls=9:allf=t" \
+  -c:v libvpx-vp9 -b:v 1300k fixtures/canopy.webm
