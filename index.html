@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.1</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.2</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -1649,8 +1649,15 @@ $('#btnAddPause').onclick = () => {
 ------------------------------------------------- */
 const ANN_ICON = {spot:'🔦', arrow:'➡️', zone:'▨', pen:'✍️', text:'🔤', pause:'⏸'};
 const DEFAULT_DUR = 4;
+/* A spotlight is not a momentary mark like an arrow or a scribble — it is the
+   thing that follows him through the play, and plays run fifteen or twenty
+   seconds, not four. Inheriting the four-second default meant a ring dropped on
+   him simply stopped being drawn a few seconds later, which reads as the ring
+   "disappearing" and makes tracking him by hand impossible. */
+const SPOT_DUR = 20;
 
 function annEnd(t){ return clamp(t + DEFAULT_DUR, 0, video.duration || t + DEFAULT_DUR); }
+function spotEnd(t){ return clamp(t + SPOT_DUR, 0, video.duration || t + SPOT_DUR); }
 
 function spotPos(a, t){
   const k = a.keys;
@@ -1669,6 +1676,12 @@ function setSpotKey(a, t, x, y){
   const i = a.keys.findIndex(k => Math.abs(k.t - t) < 0.12);
   if (i >= 0){ a.keys[i].x = x; a.keys[i].y = y; }
   else { a.keys.push({t, x, y}); a.keys.sort((p,q)=>p.t-q.t); }
+  /* Placing him at a moment the ring is not shown at is incoherent, and it was
+     possible: pin him at eight seconds on a ring that stops being drawn at
+     four, and the pin was recorded while nothing appeared on screen. Marking
+     where he is says he is there, so the ring is shown there. */
+  if (t < a.tStart) a.tStart = Math.max(0, t);
+  if (t > a.tEnd) a.tEnd = Math.min(t, video.duration || t);
 }
 
 /* ---------------- rendering ---------------- */
@@ -1904,7 +1917,7 @@ overlay.addEventListener('pointerdown', e => {
   if (tool === 'spot'){
     pushUndo();
     const a = { id:uid(), type:'spot', keys:[{t, x:p.x, y:p.y}], r:0.035,
-      color:ui.color, label:$('#labelInput').value.trim(), tStart:t, tEnd:annEnd(t) };
+      color:ui.color, label:$('#labelInput').value.trim(), tStart:t, tEnd:spotEnd(t) };
     project.annotations.push(a);
     ui.selectedId = a.id;
     ui.drag = { mode:'spotkey', ann:a };
@@ -5086,7 +5099,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v3.1';
+const APP_BUILD = 'v3.2';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),

@@ -49,11 +49,20 @@ const placeSpot = async (page, box, pos, label) => {
   await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
   await page.waitForTimeout(200);
   const soloId = await placeSpot(page, box, ballA(0), 'Marco');
+  /* This used to assert the fresh window was exactly 4s, which was really a
+     stand-in for "auto-track is not bounded by how long the ring is shown for".
+     A spotlight now lasts a play rather than four seconds, so the stand-in no
+     longer says anything — the guarantee is tested directly instead: give the
+     ring a deliberately short window and require the run to ignore it. */
+  await page.evaluate(id => {
+    const a = window.__filmroom.getProject().annotations.find(x => x.id === id);
+    a.tEnd = a.tStart + 3;            // short window, not a declared end
+  }, soloId);
   const freshEnd = await page.evaluate(id => {
     const a = window.__filmroom.getProject().annotations.find(x => x.id === id);
     return a.tEnd - a.tStart;
   }, soloId);
-  check('a fresh ring still defaults to a short visible window (' + freshEnd + 's)', freshEnd === 4);
+  check('the ring is shown for a short window (' + freshEnd + 's)', freshEnd === 3);
 
   // press Track without any of the End-time ritual — the way a first-timer would
   await page.click('#toolGrid button[data-tool=select]');

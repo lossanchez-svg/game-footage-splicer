@@ -875,6 +875,37 @@ fixes their clip is not something the suite can answer.
 
 Suite: 442 checks green.
 
+### ✅ v3.2 — the ring has to still be there (shipped)
+Reported after v3.1: *"I try to manually move the ring to track with the player, but it
+disappears after a few seconds"* — and, separately, *"the auto-tracking stopped within a
+second or two"*. Both are the same thing, and neither is the matcher.
+- **A spotlight inherited the four-second lifetime meant for arrows and scribbles.**
+  `DEFAULT_DUR = 4` is right for a momentary mark and wrong for the object whose whole
+  job is to follow a player through a play. A ring dropped at 0:00 simply stopped being
+  drawn at 0:04. Spotlights now get `SPOT_DUR = 20`, capped at the clip.
+- **Following him by hand was impossible past that point.** Once the ring is not drawn it
+  cannot be grabbed, so there is no way to drag it back — and pinning him later recorded
+  the point while showing nothing. Marking where he is now says he is there:
+  `setSpotKey` stretches the ring's visible range to include any point put on it.
+- **And this is why auto-track looked like it "stopped after a second".** It was allowed
+  to run the whole clip both times (`stopBecause: clipEnd`, `stopAt: 15.713`) and did:
+  it lost him at 0.5s in v2.9.6 and 7.375s in v3.0. But the ring is only drawn to where
+  tracking last knew where he was, so on the bad run it vanished half a second in. The
+  run and the ring were telling the same story and it looked like the run had stopped.
+  With a spotlight lasting a play, a run that loses him leaves the ring in his last known
+  place instead of erasing it, and the finish message says it lost him.
+
+`multitrack.js`'s "a fresh ring still defaults to a short visible window (4s)" was really
+a stand-in for "auto-track is not bounded by how long the ring is shown for". The
+stand-in stopped meaning anything, so the guarantee is tested directly now: the window is
+set deliberately short and the run is required to ignore it.
+
+Four new checks in `smalltrack.js`, all of which fail on v3.1 — the fresh window is 4s,
+the drags at 5s and 7s do nothing because the ring is not on screen to grab, and it ends
+0.457 from where it was put.
+
+Suite: 446 checks green.
+
 ## Roadmap
 
 ### Next (in order)
@@ -1028,6 +1059,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | A spotlight lasts a play; arrows and scribbles keep the four-second default | They are different kinds of object. One marks a moment, the other follows a player through one, and sharing a lifetime meant the ring stopped being drawn while the player was still running |
+| 2026-08-19 | Putting a point on a spotlight stretches its visible range to include it | Marking where he is is a statement that he is there. Recording it while showing nothing is incoherent, and once the ring is not drawn it cannot be grabbed, so there was no way back |
 | 2026-08-19 | Patches are scored by peak-to-sidelobe margin on the next frame | Distinctiveness is biased toward contrast, raw next-frame score toward tiny crops, and each put a useless template in charge on real footage. What a tracker needs is a patch that matches him much better than it matches anything nearby, which is one subtraction and is the thing both proxies were failing to stand in for |
 | 2026-08-19 | The ensemble is chosen for spread of scale, not by ranking | Three candidates ranked by one number are three near-identical crops: they fail together and agree with each other while doing it, which is an ensemble in name only |
 | 2026-08-19 | The outline fit measures width and derives height from it | Sideways there is open grass either side of a player so the measurement terminates; upwards his head runs into tree lines and fences, and demanding open ground in every direction meant the fit never once succeeded on real footage |

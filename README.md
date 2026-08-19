@@ -118,6 +118,9 @@ The best path depends on the device — each one leads with its strongest option
   they disagree the one that continues his motion wins — because with both teams in the
   same kit, how he is moving is the only thing that tells him from a team-mate. If it was
   unsure of him for a stretch, it says so at the end instead of pretending.
+  A spotlight stays on screen for the length of a play, not a few seconds, and dragging
+  or pinning him anywhere stretches it to cover that moment — so following him by hand
+  works even where the tracker gives up.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.
