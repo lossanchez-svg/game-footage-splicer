@@ -111,6 +111,13 @@ The best path depends on the device — each one leads with its strongest option
   **Auto-track runs until it loses him, whatever you have marked.** Clip start/end marks
   do not cut it short. The only thing that stops it early is an end you set on that
   spotlight with **Disappears here** — and if that happens, it tells you so.
+  **It does not rely on one view of him.** Several templates cut differently from your
+  son — his measured outline, a tight crop, a wider one taking in his surroundings — track
+  him at once, and the ring goes where they agree. Each has to prove it can find him
+  before the run starts, one that fails costs a vote instead of the whole clip, and when
+  they disagree the one that continues his motion wins — because with both teams in the
+  same kit, how he is moving is the only thing that tells him from a team-mate. If it was
+  unsure of him for a stretch, it says so at the end instead of pretending.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.

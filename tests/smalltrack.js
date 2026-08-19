@@ -271,10 +271,10 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
     check(`holds the faint player through the crossing, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
   }
   // and the template is cut to his outline rather than to a square of ground
-  const fShape = await page.evaluate(() => window.__filmroom.trackReport.spots[0]);
-  check(`the template is cut to his shape, not to a square ` +
-    `(${fShape.patch.w * 2 + 1}x${fShape.patch.h * 2 + 1}px, taller than wide)`,
-    fShape.patch.h > fShape.patch.w);
+  const fEns = await page.evaluate(() => window.__filmroom.trackReport.spots[0].ensemble);
+  check(`more than one template is carrying him (${fEns.length})`, fEns.length >= 2);
+  check('and each was checked against the next frame before the run started',
+    fEns.every(e => typeof e.nextFrame === 'number'));
 
   const fLate = await faintAt(7), fImp = crosser(7);
   check(`and has not been carried off by the player crossing the other way ` +
@@ -328,9 +328,16 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
     const err = Math.hypot(got.x - want.x, got.y - want.y);
     check(`holds him past a same-kit look-alike, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
   }
-  const bShape = await page.evaluate(() => window.__filmroom.trackReport.spots[0].patch);
-  check(`and the template is his shape, not a square ` +
-    `(${bShape.w * 2 + 1}x${bShape.h * 2 + 1}px)`, bShape.h > bShape.w * 1.5);
+  /* There is no single chosen template any more — several run together and the
+     ring goes where they agree. What matters is that one of them is cut to his
+     measured outline rather than every one being a square of ground. */
+  const bEns = await page.evaluate(() => window.__filmroom.trackReport.spots[0].ensemble);
+  check(`several templates track him together (${bEns.length}: ` +
+    bEns.map(e => e.how).join(', ') + ')', bEns.length >= 2);
+  check('and one of them is cut to his measured outline',
+    bEns.some(e => e.how === 'his actual outline' && e.patch.h > e.patch.w));
+  const bConf = await page.evaluate(() => window.__filmroom.trackReport.result[0].agreement);
+  check(`the run reports how much they agreed (${bConf})`, bConf != null && bConf > 0.5);
 
   /* ---- a clip mark must not silently cut the run short ----
      Reported as "the ring follows him only for a second, then it abruptly
@@ -379,6 +386,62 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
   check(`the marked clip end does not bound the run (ran to ${ran.stopAt}s, not 1s)`, ran.stopAt > 6);
   check(`and it actually followed him well past the mark (${ran.to}s)`, ran.to > 6);
   check(`the run says what bounded it (${ran.because})`, !!ran.because);
+
+  /* ---- the scene the app is actually pointed at ----
+     Built from a real tracking report: a tree line across the top, four players
+     in two kits running close together beneath it. The outline fit gives up here
+     — too much that is "not grass" runs together — and that used to hand the
+     choice to a guessed body box, which reached up into the canopy, scored best
+     of all eleven candidates on distinctiveness (0.725), then matched nothing at
+     all (0.32-0.54 against a bar of 0.45) and lost him at 0.5s. That is what
+     "it follows him for a second and stops" was.
+
+     There is no single guessed choice any more: several templates run together
+     and each has to prove on the next frame that it can find him at all. */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'canopy.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const cbox = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(300);
+
+  const under = t => ({ x: (120 + 40 * t + 3.5) / 640, y: (168 + 7 * Math.sin(1.5 * t) + 10) / 360 });
+  await page.click('#toolGrid button[data-tool=spot]');
+  const c0 = under(0);
+  await page.mouse.move(cbox.x + cbox.width * c0.x, cbox.y + cbox.height * c0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  await page.waitForTimeout(300);
+
+  const cRep = await page.evaluate(() => {
+    const r = window.__filmroom.trackReport;
+    return { lost: r.result[0].lost, to: r.result[0].lastGoodAt,
+             ens: r.spots[0].ensemble, agree: r.result[0].agreement };
+  });
+  check(`it does not give up in the first second (followed to ${cRep.to}s)`,
+    !cRep.lost && cRep.to > 6);
+  check('no template reaches up into the canopy on a guess',
+    cRep.ens.every(e => e.patch.oy >= 0 || e.patch.h <= e.patch.w * 3));
+  check(`every template proved it could find him one frame on ` +
+    `(${cRep.ens.map(e => e.nextFrame).join(', ')})`,
+    cRep.ens.every(e => e.nextFrame >= 0.5));
+  for (const t of [1, 3, 5, 7]){
+    const got = await page.evaluate(t => {
+      const a = window.__filmroom.getProject().annotations[0];
+      return window.__filmroom.spotPos(a, t);
+    }, t);
+    const want = under(t);
+    const err = Math.hypot(got.x - want.x, got.y - want.y);
+    check(`stays with him under the tree line, t=${t} (err ${err.toFixed(3)})`, err < 0.10);
+  }
 
   // and the run must leave a report behind, since that is how a real failure
   // gets diagnosed rather than guessed at

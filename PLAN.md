@@ -765,6 +765,62 @@ bar keeps its impostor-derived value.
 
 Suite: 432 checks green.
 
+### ✅ v3.0 — track by agreement, not by one chosen template (shipped)
+The v2.9.6 report settled the immediate failure and condemned the whole approach. It
+chose a box **33x79px centred 18px above the ring** — for a player about 10x26px, on a
+park pitch, which makes it mostly tree canopy. It won because distinctiveness *rewarded*
+it: canopy stands out from grass far better than a player does, scoring **0.725** against
+the best square's 0.522. It then matched nothing at all (0.32–0.54 against a bar of 0.45),
+lost him at **0.5s** and gave up. That is what "it follows him for a second and stops"
+was, and it was a regression introduced by v2.9.5's guessed body shapes.
+
+That is three separate attempts to find a single measure that predicts whether a patch
+will track — patch size, then body shape, then distinctiveness — and each was wrong on
+real footage. The lesson is not that the fourth measure will be right. **No single
+template chosen up front can be relied on, so nothing is chosen.**
+
+- **An ensemble.** Up to three templates cut differently from the same player — his
+  measured outline, a tight square, a wider square carrying his surroundings — run
+  together. They cost little: seeking and decoding the frame is what the pass spends its
+  time on, the same reason a second spotlight is nearly free.
+- **Each proves itself before the run.** Step one frame and see which can actually find
+  him again; any that cannot are dropped, and the score is in the report. This is the
+  question distinctiveness was standing in for, asked directly.
+- **They track independently.** Each keeps its own position and velocity. Sharing an
+  averaged centre was tried and was worse — one drifting template moved the shared
+  centre, which dragged the others' next search after it, and all three walked onto the
+  same wrong player *in perfect agreement* (`body.webm`, err 0.403 at 98% agreement).
+- **The ring goes where they agree**, weighted by how far each is past its own bar and by
+  how reliable it has proved. A plain head-count let two weak squares outvote the
+  outline-cut template at a crossing.
+- **When they split, motion decides.** A player carries on doing roughly what he was
+  doing; a look-alike crossing the other way does not. That is the one difference no
+  amount of appearance-matching can see, and with identical kit it is all there is. The
+  continuity weight was swept: 1.0 beats 0.45 and 0.7 on every fixture.
+- **Templates that fall behind rejoin.** Outvoted for a second solid, one is put back
+  where the others agree he is and re-cut from how he looks now — which is also how the
+  ensemble copes with the angle, the scale or the light changing mid-clip.
+- **Agreement is reported, and said out loud.** It drops exactly where a person watching
+  would say "I am not sure that is still him", so the finish message now says how long it
+  was unsure, and the report carries per-sample confidence.
+
+Measured across every fixture (err at t=1/3/5/7):
+
+| clip | v2.9.6 | v3.0 |
+| --- | --- | --- |
+| `body` same-kit look-alike | 0.006 0.003 **0.141 0.403** | 0.006 0.003 **0.005 0.002** |
+| `faint` walking-pace decoy | 0.004 0.003 0.037 **0.162** | 0.004 0.003 **0.004 0.008** |
+| `crowd` five packed players | 0.062 0.134 0.108 **0.151** | 0.062 **0.008 0.047 0.088** |
+| `dim`, `small`, `trees`, `pan` | 0.001–0.009 | 0.002–0.007, unchanged or better |
+| `exit` runs out of shot | lost at 4.625s | lost at 4.625s |
+
+**Not proven:** `canopy.webm` was built from the real report to reproduce the guessed-box
+failure and does not — the outline fit succeeds there, so the guessed ladder never ran.
+The guessed ladder is gone entirely, so that failure cannot recur, but the fix for the
+user's clip is reasoned from their report rather than reproduced in a fixture.
+
+Suite: 442 checks green.
+
 ## Roadmap
 
 ### Next (in order)
@@ -918,6 +974,10 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-19 | No single template is chosen; several track together and the ring goes where they agree | Three separate measures were tried for predicting whether a patch would track — size, body shape, distinctiveness — and each was wrong on real footage, the last one preferring a boxful of tree canopy. The problem is not which measure but that anything is picked once and committed to for the whole clip |
+| 2026-08-19 | Ensemble members track independently rather than sharing an averaged position | Sharing one centre coupled them: a drifting template moved the centre, which dragged the others' next search, and all three followed the wrong player in perfect agreement. Trackers that cannot disagree are not an ensemble |
+| 2026-08-19 | When templates split, the side continuing his motion wins | With identical kit, appearance cannot separate two players. Motion can, and it is the only signal that stays valid across different footage, angles and subjects rather than being tuned to one clip |
+| 2026-08-19 | Every template must find him one frame on before the run starts | It is the question distinctiveness was standing in for, and asking it directly costs one seek instead of being wrong three times |
 | 2026-08-19 | Clip in/out marks no longer bound an auto-track run | "Follow him from here" means follow him. A clip end marked minutes earlier stopped every run at that point and reported it in the same words as a successful run, which is indistinguishable from a broken tracker — the four-second trap of v2.5 in a new form |
 | 2026-08-19 | A run that ends early names the boundary that ended it | The failure was never that the run was short; it was that "Followed him for 1.0 seconds" is the same sentence whether it hit a boundary or gave up. A duration alone is not a diagnosis |
 | 2026-08-19 | The accept bar is NOT warm-up calibrated, though the anchor floor is | Measured: lowering it to what the template achieves made hard footage markedly worse (err 0.004 → 0.190), because a high bar refuses bad matches and coasts on prediction instead. A change that looks symmetrical is not automatically right on both sides |
