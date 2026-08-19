@@ -701,7 +701,7 @@
           <button id="btnRunSession" data-tip="Watch the clips below together, right here. Each one asks its question first, he answers out loud, then you watch what really happened. Anyone can run it — no coaching needed.">🎓 Watch together</button>
           <button id="btnClearReel" data-tip="Empty this week's list. The clips themselves stay in his library.">Clear</button>
         </div>
-        <div class="hint">This is the set you watch together this week. Add moments with <b>➕ Reel</b> on any clip below, put them in order with ↑↓, then either save them as one video for the TV or press <b>🎓 Watch together</b> to go through them here.</div>
+        <div class="hint">Any clip with a 🗒 board shows it as a card straight after the clip, so the idea lands while the moment is fresh. This is the set you watch together this week. Add moments with <b>➕ Reel</b> on any clip below, put them in order with ↑↓, then either save them as one video for the TV or press <b>🎓 Watch together</b> to go through them here.</div>
       </div>
       <div class="section">
         <h4>Clips <span id="clipCount" style="color:var(--dim)"></span></h4>
@@ -2609,7 +2609,7 @@ function renderClipList(){
         <button class="miniBtn" data-act="play" data-tip="Play just this moment, over and over, so you can watch it a few times and talk about it.">▶ Play (loops)</button>
         <button class="miniBtn" data-act="export" data-tip="Turn this one moment into a video file with the drawings and your note burned in — ready to send to his phone.">🎬 Save video</button>
         <button class="miniBtn" data-act="reel" data-tip="Add this moment to this week's set, for one video or one guided session.">${(project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel'}</button>
-        <button class="miniBtn" data-act="board" data-tip="Draw the idea behind this moment on a top-down pitch — shape, runs, where everyone should have been.">🗒${c.boardId ? '✓' : ''}</button>
+        <button class="miniBtn" data-act="board" data-tip="Draw the idea behind this moment on a top-down pitch — shape, runs, where everyone should have been. It is shown right after this clip in any video you save.">🗒${c.boardId ? '✓' : ''}</button>
         <button class="miniBtn" data-act="compare" data-tip="Put this moment next to another clip and play them side by side.">⚖</button>
         <button class="miniBtn" data-act="voice" data-tip="Record yourself talking over this clip. Your voice goes into the video when you save it — so he hears the coaching even when you are not there.">🎤${voiceIds.has(c.id) ? '✓' : ''}</button>
         <button class="miniBtn" data-act="edit" data-tip="Change the name, the labels, the note or the question on this clip.">✏️ Edit</button>
@@ -3724,6 +3724,40 @@ function drawReelCard(ctx, W, H, info){
   ctx.textAlign = 'start';
 }
 
+/* A clip's tactics board, drawn full-frame as a card in the exported video.
+   It goes AFTER the clip, not before: the board explains the moment you have
+   just watched, and putting it first would answer the question before he has
+   had a chance to. The pitch is 105:68 and the video is not, so it is rendered
+   at its own aspect and centred rather than stretched. */
+function drawBoardCard(ctx, W, H, b, clip){
+  ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
+  const cx = W / 2;
+  ctx.textAlign = 'center';
+
+  const small = Math.max(15, W / 46);
+  ctx.font = `600 ${small}px -apple-system,sans-serif`;
+  ctx.fillStyle = '#58a6ff';
+  ctx.fillText('🗒  THE IDEA BEHIND IT', cx, H * 0.085);
+
+  const mid = Math.max(17, W / 34);
+  ctx.font = `700 ${mid}px -apple-system,sans-serif`;
+  ctx.fillStyle = '#e6edf3';
+  const heading = (clip && clip.title) || b.name || 'Tactics board';
+  const lines = wrapLines(ctx, heading, W * 0.86).slice(0, 2);
+  let y = H * 0.085 + mid * 1.6;
+  for (const line of lines){ ctx.fillText(line, cx, y); y += mid * 1.2; }
+
+  const top = y + H * 0.02;
+  const availW = W * 0.9, availH = H - top - H * 0.05;
+  let bw = availW, bh = bw * 68 / 105;
+  if (bh > availH){ bh = availH; bw = bh * 105 / 68; }
+  bw = Math.max(16, Math.round(bw)); bh = Math.max(16, Math.round(bh));
+  const off = document.createElement('canvas');
+  off.width = bw; off.height = bh;
+  renderBoardTo(off.getContext('2d'), bw, bh, b, false);
+  ctx.drawImage(off, Math.round((W - bw) / 2), Math.round(top + (availH - bh) / 2), bw, bh);
+}
+
 function drawQuestionBanner(ctx, W, H, question){
   const q = question || 'What are the options here? What would you do?';
   const fs = Math.max(16, W / 34);
@@ -3876,6 +3910,13 @@ async function exportProgram(items, label, opts = {}){
           clamp((doneMedia + t - item.tIn) / totalMedia * 100, 0, 100) + '%';
       }
       doneMedia += item.tOut - item.tIn;
+
+      // if this moment has a board attached, show it once the play has run
+      const linked = item.clip && (project.boards || []).find(b => b.id === item.clip.boardId);
+      if (linked && !ui.exportCancel && !encError){
+        drawBoardCard(ctx, W, H, linked, item.clip);
+        await pushCardFrames(3.2);
+      }
     }
     if (!ui.exportCancel && !encError) await enc.flush();
   } catch(e){ encError = e; }
@@ -4513,6 +4554,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 window.__filmroom = { getProject: () => project, spotPos, version: 1,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
+  drawBoardCard,
   get voiceIds(){ return voiceIds; } };
 
 /* ---------------- "watch" front door ----------------

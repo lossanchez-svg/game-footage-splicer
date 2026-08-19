@@ -555,6 +555,23 @@ Verified by `tests/bundle.js` (22 checks), which opens the result with the **rea
 binary** (`-l` and `-t`, so listing *and* every checksum), extracts it, and loads the
 packed project back into the app. A zip only this app could read would be worthless.
 
+### ✅ v2.8 — tactics boards as cards inside the video (shipped)
+A clip with a 🗒 board linked to it now shows that board as a full-frame card in any video
+it appears in — single clip export or stitched reel.
+- **Placed after the clip, never before.** The board explains the moment you have just
+  watched; putting it first would answer the question before he has had a chance to,
+  which is the opposite of what the session builder is for.
+- Rendered at the pitch's own **105:68** aspect and centred rather than stretched to 16:9,
+  with the clip's title above it so a viewer knows which moment it belongs to.
+- Uses the same `pushCardFrames()` helper as the title cards, so its stretch of the audio
+  timeline is a silence segment by construction — no game audio over a still picture.
+- No setting to find: a board only appears if you made one for that clip, so the feature
+  is opt-in by construction.
+Verified in `tests/fastexport.js` by exporting the **same clip before and after** attaching
+a board and asserting the difference is exactly one card (114 → 210 frames, +96 = 3.2s at
+30fps) — the board's own contribution rather than arithmetic about card lengths.
+Screenshot: `docs/walkthrough/16_board_card.png`.
+
 ## Roadmap
 
 ### Next (in order)
@@ -576,8 +593,8 @@ packed project back into the app. A zip only this app could read would be worthl
 - [x] Per-player trend dashboard — shipped, see v2.2 below.
 - [x] Project bundles — shipped, see v2.7 below.
 - [x] Voice-over recording on exports — shipped, see v2.4 below.
-- [ ] Reel export straight to the reel from compare/board content (title cards already
-      exist; boards could render as interstitial cards).
+- [x] Boards render as interstitial cards in exports — shipped, see v2.8 below.
+      (Pulling *compare* content into a reel is still unbuilt.)
 - [x] Session insights — shipped, see v2.3 below.
 
 ### Known refinements (smaller, pick up alongside other work)
@@ -702,6 +719,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-18 | The trend view compares early vs recent games as per-game rates, not raw counts | The two halves of a season rarely hold the same number of games, so raw counts would report "more heavy touches" purely because you broke down more film in October |
 | 2026-08-18 | "What is changing" is prose, not a chart | It is the one insight a parent acts on, and a sentence ("about 2 a game early on, 0 a game lately") is read where a dumbbell chart is decoded; the bars above already carry the magnitudes |
 | 2026-08-18 | The dashboard reads localStorage *and* the Games folder sidecars | v2.1 made the folder the cross-device source of truth; a season view that ignored it would under-report every game broken down on the other computer |
+| 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
+| 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
 | 2026-08-19 | Entries are stored, and file blobs enter the zip by reference | Everything packed is already compressed, so deflate would cost CPU for nothing; passing Blobs rather than bytes keeps peak memory at one file, which is what makes a multi-gigabyte season bundle possible at all |
 | 2026-08-19 | Clip videos are opt-in, with the cost stated in minutes | It is the difference between a 200KB file and a 2GB one, and between five seconds and twenty minutes — not a choice to make silently on someone's behalf |
