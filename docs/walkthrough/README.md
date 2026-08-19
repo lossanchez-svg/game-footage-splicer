@@ -6,6 +6,7 @@ generated, not hand-taken — regenerate them any time with:
 ```sh
 cd tests && node walkthrough.js     # writes tests/out/walk_*.png  (01-13)
 cd tests && node trends.js          # writes tests/out/trends_dashboard.png  (14)
+cd tests && node insights.js        # writes tests/out/insights.png  (15 is a crop of it)
 ```
 
 The images here are those files, colour-quantised to keep the repo light. They exist so
@@ -28,3 +29,4 @@ quietly breaks a step is visible.
 | 12 | Large text | Comfort mode on |
 | 13 | Undo | Deleting is never a dead end |
 | 14 | Progress | The season across every game — regenerate with `node trends.js` |
+| 15 | His words | The same question, two sessions apart — regenerate with `node insights.js` |
