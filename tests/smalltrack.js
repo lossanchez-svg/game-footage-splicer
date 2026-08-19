@@ -446,6 +446,50 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
     check(`stays with him under the tree line, t=${t} (err ${err.toFixed(3)})`, err < 0.10);
   }
 
+  /* ---- the ring fits itself to him ----
+     Four reports in a row came back with a ring about 90px across drawn around a
+     player about 13px across, and the standing advice was "press Ring −" — a
+     small chip, in a row of eight, that only appears once a spotlight is
+     selected. The user's answer was "I didn't know how to create a smaller
+     ring", which is the right answer: the app has already measured which size
+     works, so asking anyone to go and find a button was the bug. */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'small.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const rbox = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=spot]');
+  const rr0 = him(0);
+  await page.mouse.move(rbox.x + rbox.width * rr0.x, rbox.y + rbox.height * rr0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  const before = await page.evaluate(() => window.__filmroom.getProject().annotations[0].r);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  await page.waitForTimeout(300);
+  const sized = await page.evaluate(() => {
+    const a = window.__filmroom.getProject().annotations[0];
+    const r = window.__filmroom.trackReport.spots[0];
+    return { r: a.r, was: r.ringWas, now: r.ringNow };
+  });
+  check(`the ring is pulled in to fit him without anyone finding a button ` +
+    `(${before} → ${sized.r})`, sized.r < before);
+  check('and the run records that it did so', sized.was != null && sized.now < sized.was);
+  check('it never grows the ring on its own', sized.r <= before);
+  // the buttons are still there, and say what they do in plain words
+  const labels = await page.evaluate(() => [
+    document.querySelector('#selSizeDown').textContent.trim(),
+    document.querySelector('#selSizeUp').textContent.trim() ]);
+  check(`the manual controls say what they are (${labels.join(' / ')})`,
+    /smaller/i.test(labels[0]) && /bigger/i.test(labels[1]));
+
   // and the run must leave a report behind, since that is how a real failure
   // gets diagnosed rather than guessed at
   const rep = await page.evaluate(() => {

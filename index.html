@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.3</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.4</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -668,8 +668,8 @@
           <button class="miniBtn" id="selKeyHere" style="display:none" data-tip="Pin the ring to where he is standing right now. Do that a few times through a play and the ring glides along with him.">📍 Pin him here</button>
           <button class="miniBtn" id="selTrack" style="display:none" data-tip="Follows the player you spotlighted onwards from this moment, until it loses him. Nothing to set up first. Press Escape to stop it.">🎯 Follow him from here</button>
           <button class="miniBtn" id="selTrackBack" style="display:none" data-tip="Works backwards instead: put the ring on him at the moment that matters, press this, and it shows where he came from — the run he made before the ball arrived.">⏪ Where he came from</button>
-          <button class="miniBtn" id="selSizeDown" style="display:none" data-tip="Make the ring smaller. Use it when the camera is far away and the players are tiny.">Ring −</button>
-          <button class="miniBtn" id="selSizeUp" style="display:none" data-tip="Make the ring bigger, for close-up video.">Ring ＋</button>
+          <button class="miniBtn" id="selSizeDown" style="display:none" data-tip="Make the ring smaller, so it sits on him rather than around him. Use it when the camera is far away and the players are tiny.">🔽 Smaller ring</button>
+          <button class="miniBtn" id="selSizeUp" style="display:none" data-tip="Make the ring bigger, for close-up video.">🔼 Bigger ring</button>
           <button class="miniBtn" id="selTrackReport" style="display:none" data-tip="Saves a small text file describing exactly what the last Auto-track did — how big the ring was, how sure it was of the player at every step, and where it went. Send it along if the ring is not following him.">🩺 Save tracking report</button>
         </div>
         <div class="chipRow">
@@ -984,7 +984,7 @@
     <h4>Your words, not mine</h4>
     <p>The tag list is a starting point. In the Save-clip dialog hit <b>✎ Edit tag list</b> to rename any tag to the words his coach uses, remove ones you don't use, or add your own — renames update clips you've already saved.</p>
     <h4>Zoomed-out footage</h4>
-    <p>On far-away sideline or Trace-camera film the players are small: press <b>Ring −</b> on a spotlight to shrink the ring until it fits him — Auto-track then works harder to keep hold of him. It copes with the picture getting brighter and darker, and with another player crossing in front for a moment (watch the <b>lock</b> number while it runs — it dips and recovers).</p>
+    <p>On far-away sideline or Trace-camera film the players are small. Auto-track measures how big he really is and pulls the ring in to fit him on its own; if you want to adjust it yourself, select the spotlight and use <b>🔽 Smaller ring</b> / <b>🔼 Bigger ring</b>. It copes with the picture getting brighter and darker, and with another player crossing in front for a moment (watch the <b>lock</b> number while it runs — it dips and recovers).</p>
     <div class="foot" style="justify-content:space-between">
       <button id="helpTour">↻ Restart the walkthrough</button>
       <button class="primary" id="helpClose">Got it</button>
@@ -2646,6 +2646,18 @@ async function autoTrack(arg, dir = 1){
         picks.length = 0; picks.push(...chosen);
       }
       x.cs = picks.slice(0, 3);
+      /* Fit the ring to what is actually being tracked. Four reports in a row
+         came back with a ring about 90 pixels across drawn around a player about
+         13 pixels across, and the advice was "press Ring −" — a small unlabelled
+         chip, in a row of eight, that only appears once a spotlight is selected.
+         Asking someone to find that is not a fix; the app has already measured
+         which size works, so it can simply use it. Only ever shrinks, keeps the
+         ring big enough to grab, and says so afterwards. */
+      const snug = clamp(x.cs[0].P.w / (W * 1.15), 0.010, 0.05);
+      if (snug < (x.spot.r || 0.035) * 0.8){
+        x.ringWas = x.spot.r || 0.035;
+        x.spot.r = +snug.toFixed(4);
+      }
       x.bestPeak = x.cs[0] && x.cs[0].peak != null ? +x.cs[0].peak.toFixed(3) : null;
       x.bestMargin = x.cs[0] && x.cs[0].probe != null ? +x.cs[0].probe.toFixed(3) : null;
       x.P = picks[0].P; x.bg = picks[0].bg; x.accept = picks[0].accept;
@@ -2671,6 +2683,7 @@ async function autoTrack(arg, dir = 1){
       patch: x.P, distinct: x.distinct == null ? null : +x.distinct.toFixed(3),
       acceptBar: +x.accept.toFixed(3), stopBecause: x.why,
       ensemble: x.ensemble, bestPeak: x.bestPeak, bestMargin: x.bestMargin,
+      ringWas: x.ringWas || null, ringNow: x.spot.r || 0.035,
       patchTried: x.cand, searchRadius: x.baseSearch, stopAt: +x.tEnd.toFixed(3),
     })),
   };
@@ -2895,9 +2908,12 @@ async function autoTrack(arg, dir = 1){
      reporting a duration and leaving it looking like the tracker is broken. */
   const hard = st.some(x => (x.bestPeak != null && x.bestPeak < 0.75) ||
                             (x.bestMargin != null && x.bestMargin < 0.2));
-  const ringTip = hard
-    ? ' It could not get a firm hold on him at this ring size — he is small in the picture, so press <b>Ring −</b> a few times until the ring sits on him rather than around him, then try again. That helps more than anything else.'
-    : '';
+  const shrank = st.find(x => x.ringWas);
+  const ringTip = shrank
+    ? ' The ring was much bigger than he is, so it has been pulled in to fit him — that is what it will use from now on.'
+    : (hard
+      ? ' It could not get a firm hold on him — he is very small and soft-edged in this picture. Try a moment where the camera is closer.'
+      : '');
   await seekTo(ui.trackCancel ? video.currentTime : t0);
   const secs = Math.abs(followedTo - t0);
   const way = dir > 0 ? 'Followed' : 'Worked back';
@@ -5122,7 +5138,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v3.3';
+const APP_BUILD = 'v3.4';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
