@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.0</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.1</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2320,7 +2320,7 @@ async function autoTrack(arg, dir = 1){
      small or too faint to separate from the field), it returns null and the
      square ladder decides instead. */
   function fitPlayer(img, cx, cy, ringR){
-    const reach = clamp(Math.round((ringR || 0.035) * W * 2.4), 8, 90);
+    const reach = clamp(Math.round((ringR || 0.035) * W * 1.8), 8, 60);
     const at = (x, y) => { const o = (cy0(y)*W + cx0(x)) * 4; return [img.data[o], img.data[o+1], img.data[o+2]]; };
 
     // field colour: a ring of ground beyond any reasonable player
@@ -2360,14 +2360,25 @@ async function autoTrack(arg, dir = 1){
       return last;
     };
     if (!off(cx, cy) && !off(cx, cy - 2) && !off(cx, cy + 2)) return null;  // nothing here
+    /* Measure his WIDTH, and trust only that. Sideways there is open grass
+       either side of a player, so the walk ends where he does. Upwards there
+       very often is not — on a park pitch his head runs into a tree line, a
+       fence, parked cars — and this used to demand open ground in EVERY
+       direction before it would answer at all. On real footage it never could:
+       three reports in a row came back with no outline measured, so the tracker
+       fell back to a square of mostly grass every single time.
+       So measure across, and bound how tall he may be from how wide he is.
+       People are about three times as tall as they are wide, which is a fact
+       about people rather than a guess about this clip. */
     const wL = span(-1, 0, 1), wR = span(1, 0, 1);
+    if (ranAway) return null;                      // ran sideways into the crowd
     const halfW = Math.max(wL, wR, 1);
-    const up = span(0, -1, halfW), dn = span(0, 1, halfW);
+    const capH = Math.max(4, Math.round(halfW * 3));
+    const up = Math.min(span(0, -1, halfW), capH), dn = Math.min(span(0, 1, halfW), capH);
     if (up + dn < 4) return null;                  // too small to be a body
-    if (ranAway) return null;
     const h = Math.max(3, Math.round((up + dn) / 2) + 1);
     const w = Math.max(3, halfW + 1);
-    if (h / w > 6 || w / h > 3) return null;        // not a person-shaped thing
+    if (w / h > 3) return null;                    // wider than tall is not a person
     /* Cut to his shape, but not skin-tight. A box holding only the player has
        nothing around it to hold position with and slides onto the next player in
        the same kit; a box big enough to see the ground he is standing on is
@@ -2530,7 +2541,7 @@ async function autoTrack(arg, dir = 1){
       const seen = [], picks = [];
       const add = (P, distinct, how) => {
         const k = P.w + 'x' + P.h + '@' + P.oy;
-        if (seen.includes(k) || picks.length >= 3) return;
+        if (seen.includes(k)) return;
         seen.push(k);
         const raw = extractPatch(img, x.px, x.py, 1, P);
         const T = prepTemplate(raw);
@@ -2541,26 +2552,73 @@ async function autoTrack(arg, dir = 1){
                      trust: how === 'his actual outline' ? 1.3 : 1,
                      accept: distinct > 0 ? clamp(bg + 0.12, ACCEPT, 0.80) : ACCEPT });
       };
-      const cand = (x.cand || []).slice();
-      const fit = cand.find(c => c.shape === 'his actual outline');
-      const squares = cand.filter(c => c.shape === 'square').sort((p, q) => q.distinct - p.distinct);
-      if (fit) add({ w: fit.w, h: fit.h, oy: fit.oy }, fit.distinct, fit.shape);
-      if (squares[0]) add({ w: squares[0].w, h: squares[0].h, oy: 0 }, squares[0].distinct, 'square');
-      // a second square of a clearly different size, for scale diversity
-      const other = squares.find(c => squares[0] && Math.abs(c.w - squares[0].w) >= 4);
-      if (other) add({ w: other.w, h: other.h, oy: 0 }, other.distinct, 'square');
+      /* Every candidate gets built and every one gets asked the same question,
+         because distinctiveness has now been wrong on real footage three times
+         running and it is not going to be right on the fourth. It is a measure
+         of how a patch compares to the grass; what matters is whether it can
+         find him again a frame later, which is a different thing and is cheap
+         to ask directly. So: build them all, probe them all, keep the ones that
+         can actually do the job. */
+      for (const c of (x.cand || [])) add({ w: c.w, h: c.h, oy: c.oy }, c.distinct, c.shape);
       if (!picks.length) add(x.P, x.distinct, 'fallback');
 
       if (probe){
-        for (const c of picks) c.probe = bestMatch(probe, c.T, x.px, x.py, x.baseSearch, 1, c.P).ncc;
-        const live = picks.filter(c => c.probe >= 0.5);
-        if (live.length) picks.length = 0, picks.push(...live.sort((p, q) => q.probe - p.probe));
-        else picks.sort((p, q) => q.probe - p.probe);
+        /* Not "does it match itself a frame later" — a tiny patch scores 0.95 at
+           that and then matches everything else too, which is how selecting on
+           it alone put a 13x13 crop in charge and lost three clips. What a
+           tracker needs is a PEAK: it must match him far better than it matches
+           anything else nearby. So score each candidate by the gap between its
+           best match and the best impostor outside it. A grass-heavy box has no
+           peak because its score is low everywhere; a too-small crop has no peak
+           because its score is high everywhere. Only a patch that is mostly him
+           has one, which is the property all three failed reports lacked and no
+           single-number measure of one patch could see. */
+        for (const c of picks){
+          const pk = bestMatch(probe, c.T, x.px, x.py, x.baseSearch, 1, c.P);
+          let side = -1;
+          const keepOut = Math.max(c.P.w, c.P.h) * 1.2;
+          for (let dy = -x.baseSearch; dy <= x.baseSearch; dy += 3)
+            for (let dx = -x.baseSearch; dx <= x.baseSearch; dx += 3){
+              if (Math.abs(x.px + dx - pk.x) < keepOut && Math.abs(x.py + dy - pk.y) < keepOut) continue;
+              const v = nccAt(probe, c.T, x.px + dx, x.py + dy, 1, c.P);
+              if (v > side) side = v;
+            }
+          c.peak = pk.ncc; c.side = side;
+          c.probe = pk.ncc - Math.max(0, side);
+        }
+        picks.sort((p, q) => q.probe - p.probe);
+        /* Take the best, then deliberately take ones that are NOT like it.
+           Ranking three candidates by a single number gives three near-identical
+           crops, which is an ensemble in name only — they fail together, agree
+           with each other while doing it, and the whole point is lost. Diversity
+           of scale is what makes disagreement meaningful, so each further member
+           has to differ in size by half again on one side or the other. */
+        const usable = picks.filter(c => c.peak >= 0.5 && c.probe >= 0.06);
+        const pool = usable.length ? usable : [picks[0]];
+        const chosen = [pool[0]];
+        /* His measured outline gets a seat whenever it is usable at all. It is
+           the only candidate on the list derived from this footage rather than
+           from a ladder of sizes, and it is the one that holds him through a
+           team-mate crossing in the same kit — the case where every square in
+           the ensemble is fooled at once. */
+        const fitted = picks.find(c => c.how === 'his actual outline' && c.peak >= 0.5);
+        if (fitted && fitted !== chosen[0]) chosen.push(fitted);
+        for (const c of pool){
+          if (chosen.length >= 3) break;
+          const area = (P) => (2*P.w+1) * (2*P.h+1);
+          if (chosen.every(k => { const r = area(c.P) / area(k.P); return r >= 1.5 || r <= 0.67; }))
+            chosen.push(c);
+        }
+        picks.length = 0; picks.push(...chosen);
       }
-      x.cs = picks;
+      x.cs = picks.slice(0, 3);
+      x.bestPeak = x.cs[0] && x.cs[0].peak != null ? +x.cs[0].peak.toFixed(3) : null;
+      x.bestMargin = x.cs[0] && x.cs[0].probe != null ? +x.cs[0].probe.toFixed(3) : null;
       x.P = picks[0].P; x.bg = picks[0].bg; x.accept = picks[0].accept;
-      x.ensemble = picks.map(c => ({ patch: c.P, how: c.how,
-        nextFrame: c.probe == null ? null : +c.probe.toFixed(3), bar: +c.accept.toFixed(3) }));
+      x.ensemble = x.cs.map(c => ({ patch: c.P, how: c.how,
+        nextFrame: c.peak == null ? null : +c.peak.toFixed(3),
+        elsewhere: c.side == null ? null : +c.side.toFixed(3),
+        margin: c.probe == null ? null : +c.probe.toFixed(3), bar: +c.accept.toFixed(3) }));
     }
     if (probe){ await seekTo(t0); img = grab(); }
   }
@@ -2578,7 +2636,8 @@ async function autoTrack(arg, dir = 1){
       label: x.spot.label || '', ringR: x.spot.r || 0.035,
       patch: x.P, distinct: x.distinct == null ? null : +x.distinct.toFixed(3),
       acceptBar: +x.accept.toFixed(3), stopBecause: x.why,
-      ensemble: x.ensemble, patchTried: x.cand, searchRadius: x.baseSearch, stopAt: +x.tEnd.toFixed(3),
+      ensemble: x.ensemble, bestPeak: x.bestPeak, bestMargin: x.bestMargin,
+      patchTried: x.cand, searchRadius: x.baseSearch, stopAt: +x.tEnd.toFixed(3),
     })),
   };
 
@@ -2792,9 +2851,16 @@ async function autoTrack(arg, dir = 1){
   const anyLost = st.some(x => x.lost);
   /* If even the tightest patch barely stands out from the field, tracking is a
      coin toss however it ends — say so, with the one thing that actually helps. */
-  const hard = Math.min(...st.map(x => x.distinct == null ? 1 : x.distinct)) < 0.55;
+  /* Whether it could get a hold on him at all is now a measured thing, not a
+     guess from how his patch compares to grass. If the best template on the
+     list cannot find him a frame later much better than it finds the field, no
+     amount of tracking will rescue the run — and the one thing that fixes it is
+     a ring that sits on him rather than around him. Say that, rather than
+     reporting a duration and leaving it looking like the tracker is broken. */
+  const hard = st.some(x => (x.bestPeak != null && x.bestPeak < 0.75) ||
+                            (x.bestMargin != null && x.bestMargin < 0.2));
   const ringTip = hard
-    ? ' He is very small in the picture — press <b>Ring −</b> a few times so the ring sits snugly on him, then try again; that helps more than anything else.'
+    ? ' It could not get a firm hold on him at this ring size — he is small in the picture, so press <b>Ring −</b> a few times until the ring sits on him rather than around him, then try again. That helps more than anything else.'
     : '';
   await seekTo(ui.trackCancel ? video.currentTime : t0);
   const secs = Math.abs(followedTo - t0);
@@ -5020,7 +5086,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v3.0';
+const APP_BUILD = 'v3.1';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
