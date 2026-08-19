@@ -2179,10 +2179,14 @@ async function autoTrack(arg, dir = 1){
   video.pause(); hideDecision();
   $('#trackPill').style.display = 'flex';
 
-  // one working resolution for the pass: driven by the SMALLEST ring, so the
-  // furthest-away player still has enough pixels to match on
+  /* One working resolution for the pass. This used to be clamp(16/r, 480, 960),
+     which had it backwards for the case that actually matters: a DEFAULT-sized
+     ring drawn around a far-away player produced the LOWEST resolution (480px),
+     leaving the player 3-4 pixels wide. The floor is now high enough that a
+     small player survives, and a small ring still asks for more. */
   const rMin = Math.min(...st.map(x => x.spot.r || 0.035));
-  const W = Math.round(clamp(16 / rMin, 480, Math.min(960, video.videoWidth)));
+  const hiRes = Math.min(1280, video.videoWidth || 1280);
+  const W = Math.round(clamp(20 / rMin, Math.min(960, hiRes), hiRes));
   const H = Math.round(W * video.videoHeight / video.videoWidth);
   trackCanvas.width = W; trackCanvas.height = H;
   const grab = () => { trackCtx.drawImage(video, 0, 0, W, H); return trackCtx.getImageData(0, 0, W, H); };
@@ -2229,19 +2233,85 @@ async function autoTrack(arg, dir = 1){
     if (varY < 1) return -1;                     // flat region — can't be the player
     return sxy / (T.norm * Math.sqrt(varY));
   }
+  /* Players in the same kit are, to a template matcher, the same player. Without
+     a preference for WHERE he should be, a team-mate crossing the search window
+     scores just as well and the ring silently changes player — which looks
+     exactly like "the tracker stopped following him". So a match is judged on
+     its score minus a penalty for how far it sits from where he was predicted
+     to be: a look-alike at the edge of the window has to be substantially
+     better, not merely equal, to take the ring. The raw score is still what gets
+     reported and thresholded; only the choice between candidates is biased. */
+  const NEAR_BIAS = 0.18;
   function bestMatch(img, T, cx, cy, radius, spread, ph){
-    let best = -2, bx = cx, by = cy;
+    let best = -2, bestRaw = -2, bx = cx, by = cy;
+    const r2 = Math.max(1, radius * radius);
     for (let y = cy - radius; y <= cy + radius; y += 3)
       for (let x = cx - radius; x <= cx + radius; x += 3){
-        const s = nccAt(img, T, x, y, spread, ph);
-        if (s > best){ best = s; bx = x; by = y; }
+        const raw = nccAt(img, T, x, y, spread, ph);
+        const dx = x - cx, dy = y - cy;
+        const s = raw - NEAR_BIAS * ((dx*dx + dy*dy) / r2);
+        if (s > best){ best = s; bestRaw = raw; bx = x; by = y; }
       }
     for (let y = by - 2; y <= by + 2; y++)
       for (let x = bx - 2; x <= bx + 2; x++){
-        const s = nccAt(img, T, x, y, spread, ph);
-        if (s > best){ best = s; bx = x; by = y; }
+        const raw = nccAt(img, T, x, y, spread, ph);
+        const dx = x - cx, dy = y - cy;
+        const s = raw - NEAR_BIAS * ((dx*dx + dy*dy) / r2);
+        if (s > best){ best = s; bestRaw = raw; bx = x; by = y; }
       }
-    return { x: bx, y: by, ncc: best };
+    return { x: bx, y: by, ncc: bestRaw };
+  }
+
+  /* The ring says where the player is, NOT how big he is. On zoomed-out film a
+     default ring around a far player makes a template that is ~97% grass, and
+     grass correlates with grass at 0.9 everywhere — so the tracker drifts onto
+     an empty patch of field while reporting near-perfect confidence. Nothing
+     downstream can recover from that, because by its own measure it is right.
+
+     So the patch is chosen here rather than assumed: try the ring's size and a
+     series of tighter ones, and for each ask "how well does this template tell
+     itself apart from the field around it?" A grass-dominated patch matches its
+     own neighbourhood almost perfectly and scores nothing; a patch sitting on
+     the player does not. Pick the one that stands out most. */
+  function pickPatch(img, cx, cy, ringR, search){
+    const base = r0 => clamp(Math.round(r0 * W * 1.15), 5, 28);
+    const tried = [];
+    let best = null;
+    for (const f of [1, 0.7, 0.5, 0.35, 0.22]){
+      const ph = base((ringR || 0.035) * f);
+      if (tried.includes(ph)) continue;
+      tried.push(ph);
+      const T = prepTemplate(extractPatch(img, cx, cy, 1, ph));
+      /* A patch small enough to sit entirely inside one flat-coloured thing has
+         no internal contrast at all, and a template with no variance correlates
+         with nothing — it would score 0 against the player himself. Such a
+         candidate is unusable however "distinct" it looks. */
+      const rms = T.norm / Math.sqrt(Math.max(1, T.z.length));
+      if (rms < 5){
+        if (window.__patchDebug) window.__patchDebug.push({ f, ph, rms: +rms.toFixed(2), skipped: 'featureless' });
+        continue;
+      }
+      /* How well could the FIELD around him impersonate this template? Probing a
+         few fixed points is not enough — the tracker sweeps a neighbourhood and
+         will happily settle wherever mown stripes or noise line up. So sweep it
+         the same way and take the best impostor found anywhere outside him. */
+      let bg = -1;
+      const reach = Math.round(search * 1.6);
+      const keepOut = Math.max(ph * 2, 6);
+      for (let dy = -reach; dy <= reach; dy += 3)
+        for (let dx = -reach; dx <= reach; dx += 3){
+          if (Math.abs(dx) < keepOut && Math.abs(dy) < keepOut) continue;
+          const sc = nccAt(img, T, cx + dx, cy + dy, 1, ph);
+          if (sc > bg) bg = sc;
+        }
+      const distinct = 1 - bg;
+      // prefer the largest patch that is still clearly not the field: a bigger
+      // template is steadier, but only once it is actually about the player
+      if (!best || distinct > best.distinct + 0.08) best = { ph, distinct };
+      if (window.__patchDebug) window.__patchDebug.push({ f, ph, bg: +bg.toFixed(3), distinct: +distinct.toFixed(3) });
+    }
+    // everything was featureless: fall back to the ring the user drew
+    return best || { ph: base(ringR || 0.035), distinct: 0 };
   }
 
   pushUndo();
@@ -2255,8 +2325,14 @@ async function autoTrack(arg, dir = 1){
   for (const x of st){
     const spot = x.spot;
     const startPos = spotPos(spot, t0);
-    x.ph = clamp(Math.round((spot.r || 0.035) * W * 1.15), 8, 28);
-    x.baseSearch = Math.max(12, Math.round(x.ph * 1.6));
+    // how far the player can move between samples is a property of the frame,
+    // not of the ring — tying it to the patch made a tight patch search a tiny
+    // window and lose anyone running
+    x.baseSearch = clamp(Math.round(W * 0.06), 14, 80);
+    const chosen = pickPatch(img, cx0(spotPos(spot, t0).x * W), cy0(spotPos(spot, t0).y * H),
+                             spot.r || 0.035, x.baseSearch);
+    x.ph = chosen.ph;
+    x.distinct = chosen.distinct;
     // keys outside the tracked range are kept; everything inside is rewritten
     x.lo = Math.min(t0, x.tEnd); x.hi = Math.max(t0, x.tEnd);
     x.beforeKeys = spot.keys.filter(k => k.t < x.lo - 0.001);
@@ -2354,6 +2430,12 @@ async function autoTrack(arg, dir = 1){
   persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
 
   const anyLost = st.some(x => x.lost);
+  /* If even the tightest patch barely stands out from the field, tracking is a
+     coin toss however it ends — say so, with the one thing that actually helps. */
+  const hard = Math.min(...st.map(x => x.distinct == null ? 1 : x.distinct)) < 0.35;
+  const ringTip = hard
+    ? ' He is very small in the picture — press <b>Ring −</b> a few times so the ring sits snugly on him, then try again; that helps more than anything else.'
+    : '';
   await seekTo(ui.trackCancel ? video.currentTime : t0);
   const secs = Math.abs(followedTo - t0);
   const way = dir > 0 ? 'Followed' : 'Worked back';
@@ -2362,12 +2444,12 @@ async function autoTrack(arg, dir = 1){
   else if (anyLost && st.length > 1)
     toast(way + ' ' + secs.toFixed(1) + ' seconds. It lost one of them along the way — scrub to where the ring drifts off, drag it back on him and press Auto-track again.', 7000);
   else if (anyLost)
-    toast(way + ' ' + secs.toFixed(1) + ' seconds, to ' + fmtT(followedTo) + ', then lost him. Scrub there, drag the ring back onto him and try again from there.', 7000);
+    toast(way + ' ' + secs.toFixed(1) + ' seconds, to ' + fmtT(followedTo) + ', then lost him. Scrub there, drag the ring back onto him and try again from there.' + stripTags(ringTip), 7000);
   else if (dir < 0)
-    toast('Worked back ' + secs.toFixed(1) + ' seconds, to ' + fmtT(followedTo) + ' — the ring now shows the run that got him here. Press play from there to watch it.', 6500);
+    toast('Worked back ' + secs.toFixed(1) + ' seconds, to ' + fmtT(followedTo) + ' — the ring now shows the run that got him here. Press play from there to watch it.' + stripTags(ringTip), 6500);
   else
     toast('Followed ' + (st.length > 1 ? 'all ' + st.length + ' of them' : 'him') + ' for ' +
-      secs.toFixed(1) + ' seconds. Press play to check it — you can still drag a ring anywhere it is not quite right.', 6000);
+      secs.toFixed(1) + ' seconds. Press play to check it — you can still drag a ring anywhere it is not quite right.' + stripTags(ringTip), 6000);
 }
 
 $('#selTrack').onclick = () => {
@@ -4587,6 +4669,7 @@ $('#watchLater').onclick = () => { watchDismissed = true; updateWatchBanner(); }
   offered as a choice, because that is the difference between a file you can
   email and one that takes twenty minutes to build.
 ------------------------------------------------- */
+const stripTags = s => String(s).replace(/<[^>]*>/g, '');
 const bundleSafe = s => (s || '').replace(/[^\w\- ]+/g, '').trim().replace(/ +/g, '_').slice(0, 48) || 'untitled';
 
 function bundleReadme(clips, withVideos){

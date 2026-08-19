@@ -38,6 +38,20 @@ mkdir -p fixtures
   -filter_complex "[0][1]overlay=x='40+40*t':y='162+60*sin(t)'[a];[a][2]overlay=x='560-45*t':y='90+50*cos(1.1*t)'" \
   -c:v libvpx-vp9 -b:v 500k fixtures/two.webm
 
+# 8s "small player" fixture — the shape of the real-world failure reported from
+# a Trace/iPhone sideline clip: the player is TINY (8x20) next to a default ring,
+# the grass is mown-striped and noisy, and two look-alikes cross his path
+# (a same-colour team-mate running the other way, and a light-shirted player).
+"$FFMPEG" -y -f lavfi -i "nullsrc=s=640x360:r=30:d=8,geq=r='38+9*sin(Y/7)':g='118+20*sin(Y/7)':b='48+7*sin(Y/7)'" \
+  -f lavfi -i "color=c=0xc02828:s=8x20:r=30:d=8" \
+  -f lavfi -i "color=c=0xc02828:s=8x20:r=30:d=8" \
+  -f lavfi -i "color=c=0xd8d8d8:s=8x20:r=30:d=8" \
+  -filter_complex "[0][1]overlay=x='70+58*t':y='150+22*sin(1.5*t)'[a];\
+[a][2]overlay=x='520-40*t':y='120+18*cos(1.2*t)'[b];\
+[b][3]overlay=x='300+15*t':y='230+10*sin(t)'[c];\
+[c]noise=alls=7:allf=t" \
+  -c:v libvpx-vp9 -b:v 900k fixtures/small.webm
+
 # 4s of real AAC (ADTS) for the muxer/demuxer audio suite
 "$FFMPEG" -y -f lavfi -i sine=frequency=600:duration=4 -c:a aac -b:a 96k \
   -f adts fixtures/clip.aac
