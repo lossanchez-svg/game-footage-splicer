@@ -1015,6 +1015,26 @@ in ensembles where one is now deliberately withheld.
 
 Suite: 456 checks green.
 
+### ✅ v3.6 — coasting is a bridge, not travel (shipped)
+Retest of v3.5: *"it followed him for a bit then got lost."* Frames from the recording show
+the ring ending up **against the left edge of the picture, on empty grass**, while the play
+has moved to the middle of the frame — the camera panned right and the ring stayed behind.
+- **Coasting used to travel.** When he cannot be matched for a moment the tracker moves on
+  the last measured velocity, and it kept that speed for up to ten frames at up to a full
+  search window each — enough to cross the picture. The guess now fades (velocity decays
+  each coasted frame), and if it has carried the ring further than he could plausibly have
+  gone unseen, the run declares lost rather than putting the ring somewhere he never was.
+- New check: after a run ends, the ring must be left **where he was last actually seen**.
+
+**What is not confirmed:** the saved path is trimmed back to the last good sample, so a
+runaway coast should not survive into the ring's keys — which means this may not be what
+put the ring at the edge on that clip. No tracking report was captured for the run, and
+without one the rest is inference, which is the trap this whole investigation keeps falling
+into. The change stands on its own (coasting should not travel, and it is neutral across
+all ten fixtures) but it is not claimed as the cause.
+
+Suite: 457 checks green.
+
 ## Roadmap
 
 ### Next (in order)
@@ -1168,6 +1188,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-20 | A coasted guess fades and is bounded, rather than continuing at speed | Coasting exists to bridge a second where he cannot be seen. Continuing at the last measured velocity for ten frames at up to a search window each is enough to carry the ring clear across the picture, which looks exactly like the ring wandering off on its own |
 | 2026-08-20 | The tracked patch is placed on his body, above the ring, not centred on it | The ring lands on the ground he is standing on, because that is where a person puts it. A square centred there samples boots and grass; his shirt and number sit fifty pixels higher and were never looked at |
 | 2026-08-20 | His extent is measured by walking UP from the ring and watching the width | Measuring outward in all directions requires open ground above his head, which a park pitch never provides — trees, fences, parked cars. That is why the outline fit never fired on real footage across four reports |
 | 2026-08-20 | Fixtures place the ring where a person places it, on the feet | Nine builds of fixtures dropped it on the player's middle and so could not reproduce the reported failure at all. The fixture was wrong, not the reports |

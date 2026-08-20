@@ -218,6 +218,21 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
   check(`no sample sits outside the picture (${exitRep && exitRep.offFrame} strayed; the real report had 18)`,
     exitRep && exitRep.offFrame === 0);
 
+  /* A run that ends must leave the ring where he was last actually seen. Coasting
+     is meant to bridge a moment he cannot be seen through, not to travel: it used
+     to keep moving at the last measured speed for ten frames at up to a full
+     search window each, which is enough to cross the picture. */
+  const parked = await page.evaluate(() => {
+    const a = window.__filmroom.getProject().annotations[0];
+    const r = window.__filmroom.trackReport.result[0];
+    const last = a.keys[a.keys.length - 1];
+    const seen = r.samples.filter(s => s.coast === 0).pop();
+    return { last, seen, d: seen ? Math.hypot(last.x - seen.x, last.y - seen.y) : null };
+  });
+  check(`the ring is left where he was last seen, not somewhere it drifted to ` +
+    `(${parked.d == null ? 'n/a' : parked.d.toFixed(3)} away)`,
+    parked.d != null && parked.d < 0.08);
+
   /* ---- and the case the real report finally pinned down ----
      Every fixture above is easier than real film. Measured: they score a
      distinctiveness of 0.74-0.87 with match scores over 0.96, while the user's
