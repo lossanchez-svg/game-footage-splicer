@@ -218,3 +218,19 @@ b='if(lt(Y,146), 20+24*sin(X/3)*sin(Y/6), 54+9*sin(X/11)+6*sin(Y/6))'" \
 [b3][8]overlay=x='430-40*t+6+2*sin(8*t)':y='173+4*cos(1.2*t)'[b4];\
 [b4]noise=alls=7:allf=t" \
   -c:v libvpx-vp9 -b:v 1300k fixtures/feet.webm
+
+# 10s "hide" fixture: he walks right and passes BEHIND a wide obstacle for about
+# two and a half seconds, then comes out the other side and carries on. That is
+# longer than coasting can bridge, so the run used to simply end there — which on
+# a forty-second clip is what "it tracks for a bit then stops" means. He is
+# plainly visible again a moment later, so ending was never the right answer.
+"$FFMPEG" -y -f lavfi -i "nullsrc=s=640x360:r=30:d=10,geq=r='44+9*sin(X/11)+6*sin(Y/6)':g='124+22*sin(X/11)+14*sin(Y/6)':b='54+9*sin(X/11)+6*sin(Y/6)'" \
+  -f lavfi -i "color=c=0x2a2018:s=5x5:r=30:d=10"   -f lavfi -i "color=c=0xc0202a:s=11x16:r=30:d=10" \
+  -f lavfi -i "color=c=0xe8e8e8:s=4x11:r=30:d=10"  -f lavfi -i "color=c=0xe8e8e8:s=4x11:r=30:d=10" \
+  -f lavfi -i "color=c=0x241d18:s=78x120:r=30:d=10" \
+  -filter_complex "[0][1]overlay=x='90+40*t+3':y='150+4*sin(1.3*t)'[a1];\
+[a1][2]overlay=x='90+40*t':y='155+4*sin(1.3*t)'[a2];\
+[a2][3]overlay=x='90+40*t+1+2*sin(9*t)':y='171+4*sin(1.3*t)'[a3];\
+[a3][4]overlay=x='90+40*t+6-2*sin(9*t)':y='171+4*sin(1.3*t)'[a4];\
+[a4][5]overlay=x=250:y=120[b];[b]noise=alls=7:allf=t" \
+  -c:v libvpx-vp9 -b:v 1300k fixtures/hide.webm

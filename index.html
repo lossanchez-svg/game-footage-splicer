@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.6</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.7</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2527,7 +2527,7 @@ async function autoTrack(arg, dir = 1){
   const dt = 1/8;
   const T_LAST = dir > 0 ? Math.max(...st.map(x => x.tEnd)) : Math.min(...st.map(x => x.tEnd));
 
-  const ACCEPT = 0.45, ADAPT = 0.65, MAX_COAST = 10, WARM = 8, DRIFT_MAX = 10;
+  const ACCEPT = 0.45, ADAPT = 0.65, MAX_COAST = 10, WARM = 8, DRIFT_MAX = 10, HUNT_FOR = 24;
   for (const x of st){
     const spot = x.spot;
     const startPos = spotPos(spot, t0);
@@ -2568,7 +2568,7 @@ async function autoTrack(arg, dir = 1){
     x.px = cx0(startPos.x * W); x.py = cy0(startPos.y * H);
     x.spread = 1; x.vx = 0; x.vy = 0; x.coast = 0; x.drift = 0;
     x.lost = false; x.lastGoodT = t0; x.lastGoodIdx = 0; x.done = false;
-    x.lastGoodX = x.px; x.lastGoodY = x.py;
+    x.lastGoodX = x.px; x.lastGoodY = x.py; x.hunt = false; x.hunted = 0; x.reFound = null;
     x.tplRaw = extractPatch(img, x.px, x.py, 1, x.P);
     x.anchor = prepTemplate(x.tplRaw);           // frozen — guards against drift
     x.T = prepTemplate(x.tplRaw);
@@ -2873,13 +2873,55 @@ async function autoTrack(arg, dir = 1){
            further than it could plausibly have gone unseen, that is not a
            bridge any more — he is lost, and saying so is better than putting
            the ring somewhere he never was. */
-        if (++x.coast > MAX_COAST){ x.lost = true; x.done = true; }
-        else {
+        const done = ++x.coast > MAX_COAST;
+        if (!done){
           x.vx *= 0.55; x.vy *= 0.55;
           x.px = clamp(x.px + x.vx, 0, W-1); x.py = clamp(x.py + x.vy, 0, H-1);
           const gone = Math.hypot(x.px - x.lastGoodX, x.py - x.lastGoodY);
-          if (gone > x.baseSearch * 1.5){ x.lost = true; x.done = true; }
-          else x.samples.push({ t, x: x.px / W, y: x.py / H, conf: 0 }); // provisional
+          if (gone <= x.baseSearch * 1.5){
+            x.samples.push({ t, x: x.px / W, y: x.py / H, conf: 0 }); // provisional
+            x.reacquire = 0;
+          } else x.hunt = true;
+        } else x.hunt = true;
+
+        /* Losing him is not the same as him being gone. He goes behind the
+           goalkeeper, turns away, gets small at the edge of a wide camera — and
+           two seconds later he is plainly there again. Giving up at that point
+           is what "it tracks for a bit then stops" is: a real clip held for ten
+           good seconds and then simply ended, on a forty-second video.
+           So before ending, hunt. Look over a wide area around where he was last
+           seen, with the FROZEN first-frame template rather than the adaptive
+           one — the adaptive one has spent the last second learning whatever it
+           drifted onto, and is the last thing that should decide he is found.
+           He has to be found convincingly, and twice in the same place, because
+           picking the wrong player here is worse than admitting he is lost. */
+        if (x.hunt){
+          const wide = Math.round(x.baseSearch * 2.5);
+          let found = null;
+          for (const c of x.cs){
+            const m = bestMatch(img, c.anchor, Math.round(x.lastGoodX), Math.round(x.lastGoodY),
+                                wide, x.spread, c.P);
+            if (!found || m.ncc > found.ncc) found = m;
+          }
+          const barHigh = Math.max(x.accept + 0.15, 0.62);
+          const near = x.reFound && Math.hypot(found.x - x.reFound.x, found.y - x.reFound.y) < x.baseSearch * 0.6;
+          if (found.ncc >= barHigh && near){
+            // twice, in the same place, on the template that still remembers him
+            x.px = found.x; x.py = found.y;
+            x.lastGoodX = found.x; x.lastGoodY = found.y; x.lastGoodT = t;
+            x.vx = 0; x.vy = 0; x.coast = 0; x.hunt = false; x.reFound = null;
+            x.refinds = (x.refinds || 0) + 1; x.hunted = 0;
+            for (const c of x.cs){
+              c.px = found.x; c.py = found.y; c.vx = 0; c.vy = 0; c.out = 0;
+              c.raw = extractPatch(img, found.x, found.y, x.spread, c.P);
+              c.T = prepTemplate(c.raw);
+            }
+            x.samples.push({ t, x: x.px / W, y: x.py / H, conf: 0.34 });
+            x.lastGoodIdx = x.samples.length - 1;
+          } else {
+            x.reFound = found.ncc >= barHigh ? found : null;
+            if (++x.hunted > HUNT_FOR){ x.lost = true; x.done = true; }
+          }
         }
       }
 
@@ -2928,11 +2970,14 @@ async function autoTrack(arg, dir = 1){
   ui.tracking = false;
   $('#trackPill').style.display = 'none';
   if (lastTrackReport){
+    /* Still hunting when the clip ran out means he was never found again: that
+       is lost, not a clean finish. Settled before the report records it. */
+    for (const x of st) if (x.hunt) x.lost = true;
     lastTrackReport.result = st.map(x => ({
       label: x.spot.label || '', lost: x.lost, lastGoodAt: +x.lastGoodT.toFixed(3),
       barUsed: +x.accept.toFixed(3), anchorFloor: x.aFloor == null ? null : +x.aFloor.toFixed(3),
       agreement: x.agreeN ? +(x.agreeSum / x.agreeN).toFixed(2) : null,
-      shakySamples: x.shaky || 0, recuts: x.cs.map(c => c.recut || 0),
+      shakySamples: x.shaky || 0, refinds: x.refinds || 0, recuts: x.cs.map(c => c.recut || 0),
       trust: x.cs.map(c => +c.trust.toFixed(2)),
       keys: x.spot.keys.length,
       samples: x.trace,                       // t, lock, coast, drift, position, velocity
@@ -5182,7 +5227,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v3.6';
+const APP_BUILD = 'v3.7';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),

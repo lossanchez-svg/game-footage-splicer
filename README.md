@@ -122,6 +122,9 @@ The best path depends on the device — each one leads with its strongest option
   A spotlight stays on screen for the length of a play, not a few seconds, and dragging
   or pinning him anywhere stretches it to cover that moment — so following him by hand
   works even where the tracker gives up.
+  If it does lose him — he goes behind someone, or turns away — it **looks for him again**
+  rather than stopping, and picks him back up when it is sure. It only counts that as
+  finding him if the picture of him from the very first frame agrees, twice.
 - **➡️ Arrows** with meanings: **pass** (solid), **run** (dashed), **dribble** (wavy),
   **shot** (heavy) — show where the ball *should* have gone, the run he should make,
   the lane to attack.
