@@ -192,3 +192,29 @@ b='if(lt(Y,140), 18+28*sin(X/3)*sin(Y/6), 52+9*sin(X/11)+5*sin(Y/6))'" \
 [c][4]overlay=x='170+32*t':y='158+5*sin(0.8*t)'[d];\
 [d]noise=alls=9:allf=t" \
   -c:v libvpx-vp9 -b:v 1300k fixtures/canopy.webm
+
+# 8s "feet" fixture: the one that finally reproduced the real failure. Every
+# other fixture drops the ring on the player's MIDDLE, which is not how anyone
+# uses the app — you put it on the player, and what you hit is the ground he is
+# standing on. His body is then entirely above the ring, so a square centred on
+# it samples boots and grass and never sees his shirt. A tree line sits above
+# his head, so measuring him by looking for open ground in every direction (as
+# earlier versions did) cannot work.
+"$FFMPEG" -y -f lavfi -i "nullsrc=s=640x360:r=30:d=8,geq=\
+r='if(lt(Y,146), 22+34*sin(X/5)*sin(Y/4), 44+9*sin(X/11)+6*sin(Y/6))':\
+g='if(lt(Y,146), 48+44*sin(X/7)*cos(Y/5), 124+22*sin(X/11)+14*sin(Y/6))':\
+b='if(lt(Y,146), 20+24*sin(X/3)*sin(Y/6), 54+9*sin(X/11)+6*sin(Y/6))'" \
+  -f lavfi -i "color=c=0x2a2018:s=5x5:r=30:d=8"   -f lavfi -i "color=c=0xc0202a:s=11x16:r=30:d=8" \
+  -f lavfi -i "color=c=0xe8e8e8:s=4x11:r=30:d=8"  -f lavfi -i "color=c=0xe8e8e8:s=4x11:r=30:d=8" \
+  -f lavfi -i "color=c=0x2a2018:s=5x5:r=30:d=8"   -f lavfi -i "color=c=0xc0202a:s=11x16:r=30:d=8" \
+  -f lavfi -i "color=c=0xe8e8e8:s=4x11:r=30:d=8"  -f lavfi -i "color=c=0xe8e8e8:s=4x11:r=30:d=8" \
+  -filter_complex "[0][1]overlay=x='120+38*t+3':y='150+5*sin(1.4*t)'[a1];\
+[a1][2]overlay=x='120+38*t':y='155+5*sin(1.4*t)'[a2];\
+[a2][3]overlay=x='120+38*t+1+2*sin(9*t)':y='171+5*sin(1.4*t)'[a3];\
+[a3][4]overlay=x='120+38*t+6-2*sin(9*t)':y='171+5*sin(1.4*t)'[a4];\
+[a4][5]overlay=x='430-40*t+3':y='152+4*cos(1.2*t)'[b1];\
+[b1][6]overlay=x='430-40*t':y='157+4*cos(1.2*t)'[b2];\
+[b2][7]overlay=x='430-40*t+1-2*sin(8*t)':y='173+4*cos(1.2*t)'[b3];\
+[b3][8]overlay=x='430-40*t+6+2*sin(8*t)':y='173+4*cos(1.2*t)'[b4];\
+[b4]noise=alls=7:allf=t" \
+  -c:v libvpx-vp9 -b:v 1300k fixtures/feet.webm
