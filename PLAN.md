@@ -7,21 +7,17 @@ This is the source of truth for where the project is and where it's going.
 
 You are picking up a working, fully-tested product. Before writing any code:
 
-1. Read `CLAUDE.md` (conventions, test workflow) and this file top to bottom.
-2. **The v2 “Grandma Test” epic is complete** (all six workstreams — see the section
-   below, kept as the record of what was built and why). The next work is the
-   **Roadmap → Next** list: cross-device continuity via the Games folder, then tracker
-   tuning once there is real-footage feedback.
-3. **Before starting anything new, ask the user how the v2 onboarding actually landed.**
-   The epic's whole premise is a person who has never seen the app; only they can say
-   whether the walkthrough, the tooltips and the watch banner survived contact with a
-   real first-time user. Screenshots of the current flow: `cd tests && node walkthrough.js`
-   writes `tests/out/walk_*.png`.
-4. Non-negotiables: single self-contained `index.html`, zero dependencies, works from
-   `file://`, footage never leaves the machine. Run the full test suite in `tests/`
-   (`npm test`, see `tests/README.md`) before every push; add suites for new behavior.
-   The suite is 251 checks across 15 files and takes a few minutes.
-5. Update this file (checkboxes + decision log) as part of every feature commit.
+1. Read `CLAUDE.md` (conventions, test workflow) and this file top to bottom — especially
+   the decision log, which records ten builds of tracker lessons learned the hard way.
+2. Two epics are specced and ready below: **v4 "Lock-On"** (AI-assisted tracking that
+   holds one player for a whole clip) and **v5 "Reel Studio"** (recruiting and social
+   highlight packages). Each has its own kickoff prompt at the top of its spec. Do v4
+   first if both are open: Reel Studio's auto-reframe depends on tracking being solid.
+3. The single most important lesson from v2.5–v3.7: **measure before building.** Every
+   fixture must be validated against real footage numbers (a tracking report or counted
+   pixels from real frames) before any conclusion is drawn from it. Nine builds chased
+   the wrong thing because fixtures put the ring on the player's middle when real users
+   put it on his feet.
 
 ## ✅ Shipped epic — v2: The Grandma Test (intuitive-first UX + onboarding)
 
@@ -1067,6 +1063,152 @@ identical cannot be separated by appearance, and that needs motion.
 
 Suite: 462 checks green.
 
+## Current epic: v4 — "Lock-On" (AI-assisted tracking)
+
+**Kickoff prompt for a fresh session:**
+> Read CLAUDE.md and PLAN.md. Implement the v4 "Lock-On" epic exactly as specced in
+> PLAN.md, phase by phase, starting with Phase 0 (the real-footage eval harness) — no
+> tracker changes land unless the eval shows them winning on real clips. Run the full
+> test suite before every push and update PLAN.md (checkboxes + decision log) as you go.
+
+**The promise:** pick a player, press Follow, and the ring holds *him* — through
+same-kit teammates crossing, through occlusions, for the entire clip — or says plainly
+that it lost him and offers a one-tap way to carry on. Never a ring parked on empty
+grass, never a silent switch to the wrong player.
+
+**The decision that unlocks it (user-approved 2026-08-20):** bundle a small on-device
+player-detection model (~5–10MB) next to `index.html`. Footage still never leaves the
+machine; the app still works offline. `index.html` alone must keep working from
+`file://` with the current v3.7 tracker as the automatic fallback when the model files
+are absent or the browser is too old — the model is a progressive enhancement, not a
+new requirement.
+
+### Why detection, not better matching
+Ten builds of evidence: appearance matching cannot distinguish two players in identical
+kit — there is nothing to distinguish. Every serious tool (Trace, Veo, Hudl) tracks by
+detection: find *all* players every frame, then identity becomes "which box is his
+track" — a crossing is two tracked objects passing, not one template getting confused.
+
+### Phases
+- [ ] **Phase 0 — real-footage eval harness (gate for everything else).**
+      `tests/realeval/` — a runner that replays recorded clips through the tracker and
+      scores them against ground-truth paths. Ground truth comes from the user: clips
+      saved in the app plus hand-dragged paths (manual tracking works and its keys ARE
+      ground truth). Ask the user for 3–5 real clips exported via **Keep this game** /
+      project bundles: at least one same-kit crossing, one occlusion, one camera pan,
+      one where he leaves frame. Every tracker change from here on must beat or match
+      the previous build on this harness before it ships. Synthetic fixtures stay for
+      regression, but no conclusion about real footage is drawn from them again.
+- [ ] **Phase 1 — model runtime, vendored and offline.**
+      A person-detector (YOLO-class, quantized to ~5–8MB ONNX) + inference runtime
+      (onnxruntime-web WASM/WebGPU) vendored into the repo as local files — no CDN, no
+      network fetch, ever. WASM binary base64-embedded in its loader so `file://` works.
+      Feature-detect: model present + browser capable → detection path; otherwise v3.7
+      path untouched. Budget: detection at the pass's existing ~8fps working rate;
+      first-run model load under 2s on a mid-range laptop.
+- [ ] **Phase 2 — tracking-by-detection.**
+      Per frame: detections → boxes. Association (SORT-style): constant-velocity
+      prediction + IoU + appearance (torso colour split — shirt/shorts/socks separates
+      teams; within a team, geometry decides). **Track every player near him, not just
+      him** — identity through a crossing comes from carrying both tracks through it.
+      Jersey-number OCR opportunistically when the box is large and sharp enough,
+      as a strong identity confirm, never a requirement.
+- [ ] **Phase 3 — the invariants.**
+      (a) *No silent switches:* a track that swaps identity must score worse on the eval
+      than one that admits uncertainty; when two same-kit tracks merge and split
+      ambiguously, prefer flagging "check this moment" over guessing. (b) *Never
+      stationary-lost:* a ring with no live track either hunts (v3.7) or says "lost him
+      at 0:12 — tap him to carry on" with one-tap resume that stitches the path.
+      (c) *Whole clip:* the 25s cap goes; long passes run chunked with progress and
+      cancel, memory bounded.
+- [ ] **Phase 4 — polish + regression gate.**
+      Eval suite in CI alongside the 462 existing checks. Tracking report gains
+      per-track detection confidence. PLAN.md decision log updated with what the eval
+      measured for every tuning choice.
+
+**Acceptance:** on the real-clip eval set — zero identity switches through same-kit
+crossings; a 40s clip tracked end to end; leaving frame reported as lost within 1s with
+working one-tap resume; all v3.7 fixtures still green; `file://` still fully functional
+without the model files.
+
+---
+
+## Next epic: v5 — "Reel Studio" (recruiting & social highlight packages)
+
+**Kickoff prompt for a fresh session:**
+> Read CLAUDE.md and PLAN.md. Implement the v5 "Reel Studio" epic exactly as specced in
+> PLAN.md, workstream by workstream, in order (A→F). The design bar is a product Meta,
+> Apple or Google would ship: run the walkthrough screenshot suite after every
+> workstream and judge the screenshots against that bar, not against "works". Run the
+> full test suite before every push and update PLAN.md as you go.
+
+**The promise:** a parent can turn a season of tagged clips into a recruiting package —
+master reel, social cuts, single-play shares, full-match index, player one-pager — in an
+evening, without watching a single tutorial, and the result looks like a top studio made
+it. Good enough that no other tool is ever needed (user-stated bar, 2026-08-20).
+
+**User decisions (2026-08-20):** all four formats; full recruiting package including
+player profile; game audio + voice-over, no bundled music (text hooks for social);
+optional bring-your-own-audio explicitly out of v1 unless trivially cheap.
+
+### The five content modes (research-driven, baked into templates)
+1. **Recruiting Master Reel** — 16:9, 1080p, 3–5 min, 20–35 clips. Best play FIRST
+   (coaches decide in 30 seconds). Spotlight ring + freeze-frame "watch #87" intro on
+   every clip so the scout never hunts for him. Opening title card: name, grad year,
+   positions, height, club, GPA, contact. Per-clip context label (opponent, competition,
+   date). Outro contact card ≤5s. Game audio or silence — never music.
+2. **Attribute Chapters** — the differentiation weapon. Optional chapters inside the
+   master reel or standalone: *Technique*, *Game IQ*, *Work Ethic*, *Athleticism*.
+   Game IQ is where this app has a moat no editor can copy: decision-point freezes with
+   his recorded answers and voice-over — evidence of scanning and thinking, not claims.
+   Work Ethic = defensive recovery runs, pressing sequences (clips tagged work-rate).
+3. **Social Teaser** — 9:16 vertical, 30–60s, for IG/TikTok/Shorts. Auto-reframed using
+   the tracking path so he stays centred in the crop (this is why v4 ships first). Hook
+   text in the first 2 seconds, captions burned in, handle watermark.
+4. **Single-Play Share** — one moment, trimmed tight, spotlight on, exported in seconds,
+   sized to text to a coach the same evening.
+5. **Full Match + Index** — the verification layer serious recruiters ask for: the
+   whole game plus a clickable timestamp index of his involvements (YouTube chapter
+   text auto-generated).
+
+### Workstreams
+- [ ] **A — Player Profile.** One card, filled once, reused everywhere: name, jersey #,
+      grad year, positions, height, club/team, league, GPA/academics, contact, socials,
+      photo. Lives in localStorage + Games folder sidecar. Feeds every title card,
+      one-pager and export filename ("Name – Grad Year – Position – Reel").
+- [ ] **B — Reel Builder.** A storyboard mode over the existing cross-game clip
+      library: auto-suggested draft (strength-tagged and highly-rated clips, ordered
+      best-first), drag to reorder, per-clip trim, spotlight toggle, freeze-frame intro
+      toggle, context labels auto-filled from the game data. Coach-guidance built into
+      the UI as quiet hints ("your best play goes first — scouts decide in 30 seconds"),
+      never as a wall of text. Position-aware suggestions (GK/CB/FB/CM/W/ST attribute
+      checklists).
+- [ ] **C — Render pipeline.** Extends the existing WebCodecs + hand-rolled muxer:
+      title/outro/freeze-frame cards drawn by `drawScene`-grade canvas code (crisp
+      typography, no clip-art), 16:9 master and 9:16 auto-reframe outputs, voice-over
+      mixed as today, burned-in captions for social. Time-remaining estimate on long
+      renders.
+- [ ] **D — Distribution kit.** Auto-generated alongside every export: YouTube
+      title/description with chapter timestamps, a coach-email template with the
+      player's details filled in, and a self-contained one-page player site
+      (single HTML file: photo, profile, embedded poster frame, links to reels) that
+      works from any hosting or attachment.
+- [ ] **E — Design-system pass.** Tokens (type scale, spacing, radii, motion), a
+      considered light+dark palette, micro-interactions on the storyboard, and a
+      Reel Studio surface that reads as a distinct, calm, premium mode. Judged on
+      walkthrough screenshots against the Meta/Apple/Google bar. The Grandma Test still
+      applies: every next step visible, in plain words.
+- [ ] **F — Tests + docs.** Suites for profile persistence, builder ordering, render
+      correctness (muxer-level checks like `bundle.js` does), reframe-follows-track,
+      one-pager integrity; README + walkthrough updates; PLAN.md log.
+
+**Acceptance:** from a library of tagged clips, a first-time parent reaches a finished
+master reel in under 30 minutes without help; every export passes the muxer checks; the
+walkthrough screenshots of Reel Studio would not look out of place in an Apple keynote
+slide; 9:16 cuts keep the player in frame for ≥95% of their duration on the eval clips.
+
+---
+
 ## Roadmap
 
 ### Next (in order)
@@ -1220,6 +1362,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-20 | v4 will bundle an on-device player-detection model; the zero-dependency rule bends, the privacy rule does not | User-approved. Ten builds proved appearance matching cannot separate identical kit — detection-based tracking is how every serious tool does it. The model is vendored locally, footage never leaves the machine, and index.html alone still works from file:// with the v3.7 tracker as fallback |
+| 2026-08-20 | Reels carry game audio and voice-over, never bundled music | Licensed music gets reels muted or blocked on the platforms parents post to, and recruiters prefer natural sound. The voice-over feature already built is the differentiator; social cuts get text hooks |
+| 2026-08-20 | The Game IQ chapter is built on decision-point answers, not claims | Every editor can cut fast plays together. Recorded freeze-frame questions with his own answers are evidence of scanning and thinking that no generic tool can produce — it is the moat |
 | 2026-08-20 | A lost track hunts for him before the run ends | He goes behind someone, turns, gets small at the edge — and is plainly back two seconds later. Ending there is what "it tracks for a bit then stops" is, on a clip where he is visible for another thirty seconds |
 | 2026-08-20 | The hunt uses the frozen first-frame templates, and must find him twice in the same place | The adaptive templates have spent the last second learning whatever they drifted onto, so they are the last thing that should decide he has been found. Re-finding the wrong player is worse than admitting he is lost |
 | 2026-08-20 | A coasted guess fades and is bounded, rather than continuing at speed | Coasting exists to bridge a second where he cannot be seen. Continuing at the last measured velocity for ten frames at up to a search window each is enough to carry the ring clear across the picture, which looks exactly like the ring wandering off on its own |
