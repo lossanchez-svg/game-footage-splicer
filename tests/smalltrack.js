@@ -571,6 +571,54 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
       (t > 3 ? ', open gap: same-kit crossing at t=4' : '') + ')', err < bound);
   }
 
+  /* ---- losing him is not the same as him being gone ----
+     From a real tracking report: it held him cleanly for ten seconds of a
+     forty-second clip and then ended. He goes behind the goalkeeper, turns away,
+     gets small at the edge of a wide camera — and two seconds later he is
+     plainly there again. Ending at that point is what "it tracks for a bit then
+     stops" is. Here he passes behind an obstacle for about two and a half
+     seconds, which is longer than coasting can bridge. */
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.reload();
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'hide.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 9);
+  const hdbox = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(250);
+
+  const walker = t => ({ x: (90 + 40 * t + 5) / 640, y: (171 + 4 * Math.sin(1.3 * t) + 11) / 360 });
+  await page.click('#toolGrid button[data-tool=spot]');
+  const hd0 = walker(0);
+  await page.mouse.move(hdbox.x + hdbox.width * hd0.x, hdbox.y + hdbox.height * hd0.y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  await page.waitForTimeout(300);
+
+  const hunt = await page.evaluate(() => {
+    const r = window.__filmroom.trackReport.result[0];
+    return { lost: r.lost, to: r.lastGoodAt, refinds: r.refinds };
+  });
+  // on the previous build this ends at 4s with err 0.264 / 0.327 afterwards
+  check(`it finds him again after he reappears (${hunt.refinds} re-find` +
+    `${hunt.refinds === 1 ? '' : 's'}, followed to ${hunt.to}s)`,
+    hunt.refinds >= 1 && !hunt.lost && hunt.to > 9);
+  for (const t of [2, 3.5, 8, 9]){
+    const got = await page.evaluate(t => {
+      const a = window.__filmroom.getProject().annotations[0];
+      return window.__filmroom.spotPos(a, t);
+    }, t);
+    const want = walker(t);
+    const err = Math.hypot(got.x - want.x, got.y - want.y);
+    check(`on him before and after he is hidden, t=${t} (err ${err.toFixed(3)})`, err < 0.03);
+  }
+
   // and the run must leave a report behind, since that is how a real failure
   // gets diagnosed rather than guessed at
   const rep = await page.evaluate(() => {

@@ -1035,6 +1035,38 @@ all ten fixtures) but it is not claimed as the cause.
 
 Suite: 457 checks green.
 
+### ✅ v3.7 — losing him is not the same as him being gone (shipped)
+The first report where the tracker was working. v3.5's body-fit landed properly on a wide
+Trace-style clip: all three templates cut from **his body, 15px above the ring**, finding
+him a frame later at **0.966 / 0.967 / 0.952** — against 0.639, 0.538, 0.62, 0.62 in the
+four reports before it. The ring sized itself 0.035 → 0.0161 with nobody touching it,
+agreement ran at **0.91**, no template ever needed re-cutting, and it held him cleanly for
+about **ten seconds** where earlier builds lost him inside one.
+
+Then it ended, on a forty-second video — which is what *"it tracks for a little, but then
+stops after a few seconds"* means.
+
+**Losing him is not the same as him being gone.** He goes behind the goalkeeper, turns
+away, gets small at the edge of a wide camera; two seconds later he is plainly there
+again. Before ending, the pass now **hunts**: a wide search around where he was last seen,
+using the **frozen first-frame templates** rather than the adaptive ones — the adaptive
+ones have spent the last second learning whatever they drifted onto, and are the last
+thing that should decide he has been found. He must be found convincingly and **twice in
+the same place**, because picking the wrong player there is worse than admitting he is
+lost. A successful re-find resets the budget, so a long clip can recover more than once.
+A hunt still running when the clip ends counts as lost, not as a clean finish.
+
+`tests/fixtures/hide.webm`: he passes behind an obstacle for about two and a half seconds
+— longer than coasting can bridge. On v3.6 the run ends at 4s and the ring is 0.264 /
+0.327 out afterwards. On v3.7 it re-finds him once and holds to the end at err 0.005.
+
+All ten existing fixtures are unchanged.
+
+**Still open:** the same-kit crossing in `feet.webm` (0.125 / 0.370). Two players who look
+identical cannot be separated by appearance, and that needs motion.
+
+Suite: 462 checks green.
+
 ## Roadmap
 
 ### Next (in order)
@@ -1188,6 +1220,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-20 | A lost track hunts for him before the run ends | He goes behind someone, turns, gets small at the edge — and is plainly back two seconds later. Ending there is what "it tracks for a bit then stops" is, on a clip where he is visible for another thirty seconds |
+| 2026-08-20 | The hunt uses the frozen first-frame templates, and must find him twice in the same place | The adaptive templates have spent the last second learning whatever they drifted onto, so they are the last thing that should decide he has been found. Re-finding the wrong player is worse than admitting he is lost |
 | 2026-08-20 | A coasted guess fades and is bounded, rather than continuing at speed | Coasting exists to bridge a second where he cannot be seen. Continuing at the last measured velocity for ten frames at up to a search window each is enough to carry the ring clear across the picture, which looks exactly like the ring wandering off on its own |
 | 2026-08-20 | The tracked patch is placed on his body, above the ring, not centred on it | The ring lands on the ground he is standing on, because that is where a person puts it. A square centred there samples boots and grass; his shirt and number sit fifty pixels higher and were never looked at |
 | 2026-08-20 | His extent is measured by walking UP from the ring and watching the width | Measuring outward in all directions requires open ground above his head, which a park pitch never provides — trees, fences, parked cars. That is why the outline fit never fired on real footage across four reports |
