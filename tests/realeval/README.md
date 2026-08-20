@@ -102,6 +102,22 @@ a real Chrome.
    say.
 4. Paste the per-clip numbers into PLAN.md's decision log entry for the change.
 
+## Judging the v4 detection path (the flip decision)
+
+The v4 tracking-by-detection path ships **off by default** until this harness
+shows it winning. With the real clips in place:
+
+```sh
+node realeval/run.js --save-baseline          # the v3.7 template tracker
+node realeval/run.js --path detect            # the same clips, detection-led
+```
+
+Each case prints `[ran as: detection]` (or `template`, if nobody was detected
+at the anchor and the run fell back). If detection beats or matches the
+baseline on every clip — and shows zero identity switches through the same-kit
+crossings — flip the default (see PLAN.md) and record the numbers in the
+decision log. If it loses anywhere, it stays off and the numbers say why.
+
 `baseline.json` and `out/` hold only numbers about tracker runs (positions,
 scores, times) — never frames or footage. `out/` also keeps the app's own
 tracking report per case (`<case>-report.json`) for diagnosis.

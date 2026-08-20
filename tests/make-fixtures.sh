@@ -234,3 +234,13 @@ b='if(lt(Y,146), 20+24*sin(X/3)*sin(Y/6), 54+9*sin(X/11)+6*sin(Y/6))'" \
 [a3][4]overlay=x='90+40*t+6-2*sin(9*t)':y='171+4*sin(1.3*t)'[a4];\
 [a4][5]overlay=x=250:y=120[b];[b]noise=alls=7:allf=t" \
   -c:v libvpx-vp9 -b:v 1300k fixtures/hide.webm
+
+# 40s "long" fixture for the v4 detection path: a red 16px ball drifting across
+# a plain field for the WHOLE clip — center x = 12+6.5t, y = 90+30*sin(0.4t) at
+# 320x180. Exists to prove the 25-second-per-go cap is gone on the detection
+# path ("follow him" means to the end of the clip), so it has to be well over
+# 25 seconds long. Small and low-rate to keep the suite quick.
+"$FFMPEG" -y -f lavfi -i color=c=0x2f7d31:s=320x180:r=15:d=40 \
+  -f lavfi -i color=c=0xd03030:s=16x16:r=15:d=40 \
+  -filter_complex "[0][1]overlay=x='4+6.5*t':y='82+30*sin(0.4*t)'" \
+  -c:v libvpx-vp9 -b:v 250k fixtures/long.webm

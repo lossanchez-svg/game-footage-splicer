@@ -108,7 +108,14 @@ async function trackInApp(c, gt, opts = {}){
   const { browser, page, errors } = await launch();
   try {
     await page.goto(appUrl);
-    await page.evaluate(() => { localStorage.clear(); localStorage.setItem('filmroom:tourDone', '1'); });
+    await page.evaluate(usePath => {
+      localStorage.clear();
+      localStorage.setItem('filmroom:tourDone', '1');
+      /* which tracker to measure: 'detect' opts into the v4 detection path
+         (it still falls back to the template tracker if nobody is detected
+         at the anchor — the report's `path` field says what actually ran) */
+      if (usePath === 'detect') localStorage.setItem('filmroom:lockonPath', 'on');
+    }, opts.path || 'template');
     await page.reload();
     await page.setInputFiles('#fileVideo', c.video);
     await page.waitForSelector('#videoWrap', { state: 'visible', timeout: 30000 });
@@ -158,6 +165,7 @@ async function trackInApp(c, gt, opts = {}){
       const s = window.__filmroom.getProject().annotations.find(a => a.type === 'spot');
       return { trackedKeys: s.keys, ringNow: s.r,
                report: window.__filmroom.trackReport,
+               path: window.__filmroom.trackReport && window.__filmroom.trackReport.path,
                build: window.__filmroom.build };
     });
     res.anchor = anchor; res.direction = dir;
@@ -196,14 +204,15 @@ async function runCase(c, opts = {}){
     decoys: gt.decoys,
     report: spotReport,
   });
-  return { name: c.name, build: r.build, anchor: r.anchor, direction: r.direction,
+  return { name: c.name, build: r.build, path: r.path || 'template',
+           anchor: r.anchor, direction: r.direction,
            notes: c.manifest.notes || '', metrics,
            ringNow: r.ringNow, report: r.report, pageErrors: r.pageErrors };
 }
 
 function fmtCase(rc){
   const m = rc.metrics;
-  return `  ${rc.name}${rc.notes ? '  (' + rc.notes + ')' : ''}\n` +
+  return `  ${rc.name}${rc.notes ? '  (' + rc.notes + ')' : ''}  [ran as: ${rc.path}]\n` +
     `    on him ${m.onHimPct}%   mean err ${m.meanErr}   p90 ${m.p90Err}   coverage ${Math.round(m.coverage * 100)}%\n` +
     `    switches ${m.switches}${m.switchTime ? ` (${m.switchTime}s on the wrong player)` : ''}` +
     `   ${m.lostReported ? `said lost (last good at ${rc.report && rc.report.result && rc.report.result[0] ? rc.report.result[0].lastGoodAt : '?'}s)` : 'never said lost'}` +
@@ -217,6 +226,7 @@ async function main(){
   const gate = args.includes('--gate');
   const saveBaseline = args.includes('--save-baseline');
   const clipsDir = getArg('--clips') || CLIPS;
+  const usePath = getArg('--path') || 'template';   // 'template' (v3.7) | 'detect' (v4)
 
   let cases = discoverCases(clipsDir);
   if (only) cases = cases.filter(c => c.name === only);
@@ -237,7 +247,7 @@ async function main(){
   for (const c of cases){
     console.log(`--- ${c.name}`);
     try {
-      const rc = await runCase(c);
+      const rc = await runCase(c, { path: usePath });
       results.push(rc);
       fs.writeFileSync(path.join(OUT, `${c.name}-report.json`),
         JSON.stringify(rc.report, null, 1));
@@ -250,10 +260,10 @@ async function main(){
   }
 
   const build = (results.find(r => r.build) || {}).build || 'unknown';
-  const board = { build, at: new Date().toISOString(),
+  const board = { build, path: usePath, at: new Date().toISOString(),
     cases: Object.fromEntries(results.map(r => [r.name,
-      r.error ? { error: r.error } : { notes: r.notes, ...r.metrics, samples: undefined }])) };
-  const outFile = path.join(OUT, `eval-${build}.json`);
+      r.error ? { error: r.error } : { notes: r.notes, ranAs: r.path, ...r.metrics, samples: undefined }])) };
+  const outFile = path.join(OUT, `eval-${build}-${usePath}.json`);
   fs.writeFileSync(outFile, JSON.stringify(board, null, 1));
   console.log(`\nScoreboard written to ${path.relative(process.cwd(), outFile)}`);
 

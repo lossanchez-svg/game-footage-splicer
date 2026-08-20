@@ -32,6 +32,13 @@ node lockon.js         # Lock-On model runtime: the vendored detector boots from
                        # file:// with zero network, YOLOX decode/NMS proved on
                        # fabricated tensors, and index.html ALONE still runs the
                        # v3.7 tracker (loader reports absent, report says so)
+node lockontrack.js    # tracking-by-detection, end to end with a SCRIPTED
+                       # detector (boxes from the fixtures' own motion math):
+                       # off-by-default gate, identity through a crossing, both
+                       # players in one pass, occlusion carried + re-found,
+                       # honest loss + one-tap resume stitching, the 40s no-cap
+                       # clip, same-kit check-this-moment flags, association
+                       # unit checks (motion keeps identity, colour splits teams)
 node touch.js          # touch/iPad suite: responsive layout + tap interactions
 node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise

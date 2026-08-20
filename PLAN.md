@@ -1110,14 +1110,17 @@ track" — a crossing is two tracked objects passing, not one template getting c
       Feature-detect: model present + browser capable → detection path; otherwise v3.7
       path untouched. Budget: detection at the pass's existing ~8fps working rate;
       first-run model load under 2s on a mid-range laptop.
-- [ ] **Phase 2 — tracking-by-detection.**
+- [x] **Phase 2 — tracking-by-detection.** *(built and proven on scripted
+      detections; ships OFF by default behind the real-clip gate — see "v4
+      progress" below. Jersey-number OCR deferred, recorded in the log.)*
       Per frame: detections → boxes. Association (SORT-style): constant-velocity
       prediction + IoU + appearance (torso colour split — shirt/shorts/socks separates
       teams; within a team, geometry decides). **Track every player near him, not just
       him** — identity through a crossing comes from carrying both tracks through it.
       Jersey-number OCR opportunistically when the box is large and sharp enough,
       as a strong identity confirm, never a requirement.
-- [ ] **Phase 3 — the invariants.**
+- [x] **Phase 3 — the invariants.** *(on the detection path: flag-don't-guess,
+      hunt + one-tap resume that stitches, 25s cap gone — see "v4 progress".)*
       (a) *No silent switches:* a track that swaps identity must score worse on the eval
       than one that admits uncertainty; when two same-kit tracks merge and split
       ambiguously, prefer flagging "check this moment" over guessing. (b) *Never
@@ -1129,6 +1132,10 @@ track" — a crossing is two tracked objects passing, not one template getting c
       Eval suite in CI alongside the 462 existing checks. Tracking report gains
       per-track detection confidence. PLAN.md decision log updated with what the eval
       measured for every tuning choice.
+      *(Mostly in place: the eval selftest runs in `npm test`; detection reports
+      carry per-sample confidence, contested-margins and track counts. What
+      remains is the part only real clips can provide: the eval measurements for
+      the flip decision, logged per tuning choice.)*
 
 **Acceptance:** on the real-clip eval set — zero identity switches through same-kit
 crossings; a 40s clip tracked end to end; leaving frame reported as lost within 1s with
@@ -1153,7 +1160,7 @@ cannot flip a verdict, large enough that a real regression cannot hide). Clips l
 same spirit as never leaving the machine. `prep.sh` unpacks Keep-this-game bundle zips
 and makes one-time WebM transcodes (the test Chromium has no H.264; real Chrome via
 `CHROME_PATH` also works). Eval footage must be RAW video, never an annotated export —
-a burned-in ring would falsify the eval. `selftest.js` (part of `npm test`, 33 checks)
+a burned-in ring would falsify the eval. `selftest.js` (part of `npm test`, 32 checks)
 proves the instrument: fabricated paths with known answers (perfect track scores
 perfect; following the look-alike after a crossing counts exactly one switch; honesty
 beats bluffing; off-frame windows excluded; WIN/TIE/LOSS verdicts fire correctly), then
@@ -1164,6 +1171,54 @@ fixture's own motion expressions — mean err 0.0035, 100% on him, coverage 1, 0
 ground truth in `tests/realeval/clips/` per `tests/realeval/README.md` — at least one
 same-kit crossing (with a second hand-tracked ring on the look-alike), one occlusion,
 one camera pan, one where he leaves the frame.
+
+**Phases 2 + 3 — shipped OFF-BY-DEFAULT (build `v4.0p3`), gated on real clips.**
+`autoTrackDetect` tracks by detection: every player near the play is detected per
+sample (native-resolution crops, shared across spotlights), carried as its own
+SORT-style track — constant-velocity prediction, greedy association by overlap +
+distance + kit colour, per-match contested-margin — and "him" is simply the track the
+ring is bound to at the anchor. A crossing is two tracks passing; the association unit
+checks prove velocity keeps two same-kit tracks on their own detections through one,
+and that kit colour is a CLIFF between teams (a clearly different kit can never buy a
+match with nearness — measured: the gentle-nudge version lost exactly that case)
+while within a team it is noise-sized and geometry decides. The ring rides each
+detection at the feet (box bottom — where a person drops the ring, per v3.5) and fits
+itself to the detected body, only ever shrinking (v3.4 rule).
+
+The Phase 3 invariants, on this path: **(a)** a same-kit rival within reach, or a
+contested association margin, marks the sample *uncertain* — coalesced into
+check-this-moment windows in the report, said plainly in the finish message ("two
+players in the same colours crossed and it may have picked the wrong one — play that
+moment to check") — flagging over guessing. **(b)** never stationary-lost: an
+unexplained absence goes to a full-frame tiled hunt (candidates must wear his FROZEN
+start-of-run kit signature, be reachable from where he was last seen, and be found
+twice in the same place — the v3.7 lesson kept); a run that still ends lost leaves the
+ring at his last seen position and the toast's button arms **one-tap resume**: tap him
+where you can see him and the pass carries on from there, stitching onto the path it
+already has. **(c)** the 25-second cap is GONE on this path — bounded by the clip (or
+an end the user set), progress and Esc-cancel throughout, memory bounded (tracks +
+thinned keys only). The cap stays on the template path deliberately: changing v3.7
+behaviour is what the eval gate judges.
+
+**The gate is honoured in code:** the path runs only with `filmroom:lockonPath = "on"`
+(localStorage), which nothing in the app sets — `tests/realeval/run.js --path detect`
+sets it to measure both trackers on the same clips, and the flip to default-on happens
+only if detection beats or matches v3.7 on every real clip (workflow in
+`tests/realeval/README.md`). Even when on, a run where nobody is detected at the ring
+falls back to the template tracker by itself, so the detector failing on some footage
+never costs the user the tracker they had. **Deferred, stated plainly:**
+opportunistic jersey-number OCR (spec'd as a confirm-only signal) is not built — there
+is no vendorable OCR that meets the offline/licence bar at reasonable size, and a
+guessed digit is worse than no digit; revisit if the eval shows identity errors that
+colour+motion cannot resolve. Verified by `tests/lockontrack.js` (40 checks) driving
+the real app with a SCRIPTED detector (boxes from the fixtures' own motion math,
+dropouts and all): off-by-default, identity through the two.webm crossing, both
+players in one pass, a 1.5s occlusion carried and re-found, honest loss within 1s +
+ring left where he was last seen + resume stitching (17 keys, in order, spanning both
+runs), the 40s `long.webm` clip end to end (cap gone), and the small.webm same-kit
+crossing flagged at [4.38, 4.75] around the true crossing at 4.59 — plus a backwards run from a 7.5s anchor through the crossing (errs 0.000-0.003, keys in time order, tStart stretched to 0). What the stub
+deliberately does not test — YOLOX's detection quality on real players — is exactly
+the realeval harness's question.
 
 **Phase 1 — shipped (build `v4.0p1`).** `lockon.js` (8.5MB, generated-but-committed,
 reproducible byte-for-byte by `tests/make-lockon.js` from SHA-256-pinned upstreams)
@@ -1479,6 +1534,15 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-20 | Detection runs on a native-resolution crop around the play, never a downscaled whole frame | Scaling 1280px of frame into the model's 416px input shrinks a 12px player to 4px — below what any detector resolves. A 416px crop at native resolution keeps him full size; the whole-frame view is what the v3.7 working-resolution lesson already taught |
 | 2026-08-20 | YOLOX input is RGB, raw 0–255 | Measured on a real photo through the exact embedded stack: RGB scores above BGR on every person, and the 0.1.1rc0 export takes unnormalized pixels. Written down because channel order is exactly the kind of silent half-wrong that still detects people |
 | 2026-08-20 | Detector correctness on real players is NOT asserted by the synthetic suites | The fixtures are rectangles — a COCO-trained model rightly sees nothing in them. tests/lockon.js proves plumbing (boot, decode, NMS, fallback) on constructed answers; detection quality is the realeval harness's question, on real clips |
+| 2026-08-20 | The detection path ships OFF by default, behind the real-clip gate | The epic's own rule: no tracker change lands unless the eval shows it winning on real clips — and no real clips exist yet. The code honours the gate instead of waiving it: nothing in the app turns the flag on; the eval runner does, to measure both paths on the same clips, and the flip is a deliberate one-line change recorded with the numbers |
+| 2026-08-20 | Tracking-by-detection carries every nearby player as its own track; the ring is just a binding | A crossing is two tracked objects passing each other. One template getting confused was the entire failure class of v2.5-v3.7, and no amount of matching cleverness fixed it — identity comes from carrying both through |
+| 2026-08-20 | Kit colour is a cliff between teams, and nothing within a team | Measured on the association unit case: as a gentle additive nudge, a clearly-different-kit detection 18px closer still won. A step penalty makes nearness unable to buy a cross-team match, while same-team sig differences stay noise-sized so geometry decides — which is the honest split: colour separates teams, only motion separates team-mates |
+| 2026-08-20 | A same-kit rival within reach flags a check-this moment; the tracker never silently guesses | Phase 3(a). The report carries coalesced uncertain windows, the finish message names the first one in plain words, and per-sample confidence drops — so a wrong pick at a crossing is at worst a flagged moment, never a confident lie. The eval scorer already prices this: admitting uncertainty scores better than switching |
+| 2026-08-20 | A lost run ends with one-tap resume that stitches, and the ring stays where he was last seen | Phase 3(b). "Lost him at 0:12" with a button beats a ring parked on grass in every report ever filed. The resume rides the existing keyframe model: keys outside the re-run range are kept, so tapping him simply continues the same path |
+| 2026-08-20 | The hunt re-find must wear the FROZEN start-of-run kit signature | The adaptive signature has spent the occlusion learning whatever the box drifted over — the same reason v3.7's hunt uses frozen templates. Plus reachability from last-seen and found-twice-in-the-same-place, both kept from v3.7 |
+| 2026-08-20 | The 25s cap is removed on the detection path only | "Follow him" means to the end of the clip — that is the epic's promise. The template path keeps its cap because changing v3.7 behaviour without the eval is exactly what the gate forbids; long.webm (40s) proves the detection path runs end to end |
+| 2026-08-20 | Jersey-number OCR is deferred, not half-built | No vendorable OCR meets the offline/licence/size bar, and a guessed digit as an identity confirm is worse than no digit. Revisit only if the real-clip eval shows identity errors colour+motion cannot resolve |
+| 2026-08-20 | Phase 2-3 logic is proven with a SCRIPTED detector; model quality is not | The stub feeds the real app boxes from the fixtures' own motion expressions — dropouts, crossings, permanent exits — so association, occlusion carrying, hunting, loss honesty, resume stitching and the no-cap rule are tested against answers known by construction. YOLOX-on-real-players is the one question this cannot answer, and it is the question the realeval harness exists for |
 
 ## Working agreements for future sessions
 
