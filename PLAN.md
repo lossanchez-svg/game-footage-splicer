@@ -1090,7 +1090,7 @@ detection: find *all* players every frame, then identity becomes "which box is h
 track" — a crossing is two tracked objects passing, not one template getting confused.
 
 ### Phases
-- [ ] **Phase 0 — real-footage eval harness (gate for everything else).**
+- [x] **Phase 0 — real-footage eval harness (gate for everything else).**
       `tests/realeval/` — a runner that replays recorded clips through the tracker and
       scores them against ground-truth paths. Ground truth comes from the user: clips
       saved in the app plus hand-dragged paths (manual tracking works and its keys ARE
@@ -1099,6 +1099,9 @@ track" — a crossing is two tracked objects passing, not one template getting c
       one where he leaves frame. Every tracker change from here on must beat or match
       the previous build on this harness before it ships. Synthetic fixtures stay for
       regression, but no conclusion about real footage is drawn from them again.
+      **Built and self-validated — waiting on the user's clips** (see "v4 progress"
+      below; the harness runs, scores, and gates; the clip drop-folder is gitignored
+      and empty until real footage is added).
 - [ ] **Phase 1 — model runtime, vendored and offline.**
       A person-detector (YOLO-class, quantized to ~5–8MB ONNX) + inference runtime
       (onnxruntime-web WASM/WebGPU) vendored into the repo as local files — no CDN, no
@@ -1130,6 +1133,36 @@ track" — a crossing is two tracked objects passing, not one template getting c
 crossings; a 40s clip tracked end to end; leaving frame reported as lost within 1s with
 working one-tap resume; all v3.7 fixtures still green; `file://` still fully functional
 without the model files.
+
+### v4 progress
+
+**Phase 0 — shipped (harness built and self-validated; real clips still needed).**
+`tests/realeval/` drives the real app the way a person does — load the video, ring on
+him at the anchor, press Follow — then scores the written path against hand-dragged
+ground truth (`score.js`): on-him % / error stats, coverage, **identity switches**
+(stretches where the ring sits on a labelled look-alike while he is elsewhere — the
+acceptance bar is zero), and **honest-loss accounting**: once the tracker *reports*
+lost, later samples accrue lost-time instead of position error, while a ring silently
+parked on grass keeps charging full error — so a tracker can never score better by
+bluffing than by admitting it lost him. That encodes Phase 3's invariant (a) into the
+instrument before any new tracker exists. `run.js --save-baseline` freezes the numbers;
+`--gate` fails the run on any per-clip LOSS (tolerances small enough that seek jitter
+cannot flip a verdict, large enough that a real regression cannot hide). Clips live in
+`tests/realeval/clips/` which is **gitignored** — footage never enters the repo, in the
+same spirit as never leaving the machine. `prep.sh` unpacks Keep-this-game bundle zips
+and makes one-time WebM transcodes (the test Chromium has no H.264; real Chrome via
+`CHROME_PATH` also works). Eval footage must be RAW video, never an annotated export —
+a burned-in ring would falsify the eval. `selftest.js` (part of `npm test`, 33 checks)
+proves the instrument: fabricated paths with known answers (perfect track scores
+perfect; following the look-alike after a crossing counts exactly one switch; honesty
+beats bluffing; off-frame windows excluded; WIN/TIE/LOSS verdicts fire correctly), then
+one real end-to-end v3.7 run over `small.webm` against ground truth generated from the
+fixture's own motion expressions — mean err 0.0035, 100% on him, coverage 1, 0 switches.
+
+**→ Needed from the user to open the Phase 2 gate:** 3–5 real clips + hand-dragged
+ground truth in `tests/realeval/clips/` per `tests/realeval/README.md` — at least one
+same-kit crossing (with a second hand-tracked ring on the look-alike), one occlusion,
+one camera pan, one where he leaves the frame.
 
 ---
 
@@ -1408,6 +1441,11 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | "Asked before / sees it now" groups by the question text, and needs two *answered* instances | The question is the stable key across games — clips differ every week. Requiring two answers keeps the section honest: one answer is a record, two is a comparison, and only the comparison tells you anything |
 | 2026-08-19 | Unanswered questions are reported as "talked out loud — not lost" | Most film-session answers are spoken, not typed. A bare "3 of 8 answered" would read as the kid failing to participate when in fact the app simply was not the place he said it |
 | 2026-08-18 | v2 bar: "the Grandma Test" — the next step must be visible, in plain words, on every screen | User wants an 88-year-old first-time user to succeed unaided; onboarding is a do-based tour + real tooltips, not a help wall; help modal demoted from auto-open to reference |
+| 2026-08-20 | Eval clips live in a gitignored folder, never in the repo | "Footage never leaves the machine" extends to git: a push would put his games on GitHub. The harness keeps only numbers (scores, positions, times) in anything that can be committed |
+| 2026-08-20 | Eval ground truth is hand-dragged spotlight keys; a second ring on the look-alike makes identity switches measurable | Manual tracking already works and produces exactly the data structure the app interpolates; a labelled decoy path turns "did it swap players" from a judgement call into a count. Requiring real separation between him and the decoy before a sample can count as a switch keeps the crossing instant itself from convicting a clean track |
+| 2026-08-20 | The eval scorer stops charging position error the moment the tracker REPORTS lost, while a silent park keeps charging | Encodes the epic's invariant in the instrument: honesty must always score better than bluffing, so no future tracker can win the gate by confidently parking the ring on grass — the exact failure mode of five user reports |
+| 2026-08-20 | The eval harness self-tests on fabricated paths with known answers, plus one real tracked run | An instrument that cannot catch a failure waves every change through — the fixture-gap lesson of v2.9.4 applied to the eval itself. The selftest is in npm test so the harness cannot silently rot |
+| 2026-08-20 | Eval footage must be raw video, never an annotated export | Exports burn the ring into the pixels; a tracker following a painted ring is not being tested on anything. prep.sh unpacks bundles for their ground-truth JSON, and the README says to add the raw video beside it |
 
 ## Working agreements for future sessions
 

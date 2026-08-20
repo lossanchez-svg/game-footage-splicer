@@ -71,7 +71,20 @@ node bundle.js         # season bundles: the hand-rolled zip opened by a REAL un
 FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264 + AAC:
                           # ffmpeg-encoded samples through buildMp4(), round-tripped
                           # through the app's demuxMp4Audio(), probe + full decode
+node realeval/selftest.js # proves the real-footage eval harness itself: scoring on
+                          # fabricated paths where the right answer is known (switch
+                          # detection, honest-loss accounting, the WIN/TIE/LOSS gate),
+                          # then a real tracking run over synthetic ground truth
 ```
+
+### Real-footage eval (`realeval/`)
+
+The gate for every v4+ tracker change: replays REAL clips (gitignored, never in
+the repo) through the tracker and scores them against hand-dragged ground-truth
+paths. `node realeval/run.js` runs the set; `--save-baseline` freezes the
+numbers a change must beat; `--gate` fails on any regression. See
+`realeval/README.md` for how to add clips and why synthetic fixtures alone are
+not trusted for real-footage conclusions.
 
 Notes
 - Chromium is resolved from `$CHROME_PATH`, else the newest `chromium*` under
