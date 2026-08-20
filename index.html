@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.4</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.5</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2354,75 +2354,73 @@ async function autoTrack(arg, dir = 1){
      small or too faint to separate from the field), it returns null and the
      square ladder decides instead. */
   function fitPlayer(img, cx, cy, ringR){
-    const reach = clamp(Math.round((ringR || 0.035) * W * 1.8), 8, 60);
-    const at = (x, y) => { const o = (cy0(y)*W + cx0(x)) * 4; return [img.data[o], img.data[o+1], img.data[o+2]]; };
+    /* The ring marks where he IS — which is his feet, on the ground, because
+       that is where a person naturally drops it. His body is the part worth
+       matching, and it is entirely ABOVE the ring: on the footage that kept
+       failing, a red shirt with a large white number on it sat about fifty
+       pixels above a template that was busy sampling boots and grass.
 
-    // field colour: a ring of ground beyond any reasonable player
-    const rs = [[], [], []];
-    for (let a = 0; a < 32; a++){
-      const th = a / 32 * Math.PI * 2;
-      for (const rr of [reach * 1.1, reach * 1.4]){
-        const c = at(cx + Math.cos(th)*rr, cy + Math.sin(th)*rr);
-        rs[0].push(c[0]); rs[1].push(c[1]); rs[2].push(c[2]);
+       Every previous attempt measured outward from the ring in all directions
+       and gave up when it could not find open ground, which on a park pitch it
+       never can — his head runs into a tree line. This measures him the way you
+       would look at him: find the ground colour from the grass beside and below
+       the ring, then walk UP row by row, tracking how wide he is at each height.
+       He ends where that width blows out, because trees and fences are wide and
+       people are not. */
+    const at = (x, y) => { const o = (cy0(y)*W + cx0(x)) * 4; return [img.data[o], img.data[o+1], img.data[o+2]]; };
+    const maxHalf = clamp(Math.round((ringR || 0.035) * W * 2.5), 6, 70);
+    const maxUp = clamp(Math.round(H * 0.35), 24, 260);
+
+    // ground colour: grass beside and below him, never above
+    const gs = [[], [], []];
+    for (const dy of [2, 8, 16])
+      for (const dx of [-maxHalf*2, -maxHalf*1.5, maxHalf*1.5, maxHalf*2]){
+        const c = at(cx + dx, cy + dy);
+        gs[0].push(c[0]); gs[1].push(c[1]); gs[2].push(c[2]);
       }
-    }
-    const med = a => { const b = a.slice().sort((p, q) => p - q); return b[b.length >> 1]; };
-    const field = [med(rs[0]), med(rs[1]), med(rs[2])];
-    // how much the ground varies from itself, so the threshold suits this pitch
-    const devs = rs[0].map((_, i) => Math.abs(rs[0][i]-field[0]) + Math.abs(rs[1][i]-field[1]) + Math.abs(rs[2][i]-field[2]));
-    const thr = Math.max(30, med(devs) * 3);
+    const med = arr => { const b2 = arr.slice().sort((p2, q2) => p2 - q2); return b2[b2.length >> 1]; };
+    const field = [med(gs[0]), med(gs[1]), med(gs[2])];
+    const devs = gs[0].map((_, i) => Math.abs(gs[0][i]-field[0]) + Math.abs(gs[1][i]-field[1]) + Math.abs(gs[2][i]-field[2]));
+    const thr = Math.max(34, med(devs) * 3);
     const off = (x, y) => { const c = at(x, y); return Math.abs(c[0]-field[0]) + Math.abs(c[1]-field[1]) + Math.abs(c[2]-field[2]) > thr; };
 
-    // how wide is he, at the height the ring was dropped? then how tall, over
-    // that width. Two passes, because a leg is narrow and a torso is not.
-    let ranAway = false;
-    const span = (stepX, stepY, wide) => {
-      let last = 0, gap = 0;
-      for (let d = 1; d <= reach; d++){
-        let hit = false;
-        for (let o = -wide; o <= wide && !hit; o++)
-          hit = stepX ? off(cx + d*stepX, cy + o) : off(cx + o, cy + d*stepY);
-        if (hit){ last = d; gap = 0; }
-        else if (++gap > 3) break;                 // shorts, socks, a shadow gap
+    // how wide is he at this height, around where the ring is?
+    const rowWidth = y => {
+      let seed = null;
+      for (let d = 0; d <= maxHalf && seed == null; d++){
+        if (off(cx - d, y)) seed = cx - d;
+        else if (off(cx + d, y)) seed = cx + d;
       }
-      /* Reaching the end of the search without ever finding open ground means
-         this is not one player — it is him, plus the team-mate beside him, plus
-         a shadow, plus the far sideline. A pitch is crowded and everything that
-         is "not grass" runs together, so the walk has to end at open ground for
-         the outline to mean anything. */
-      if (last >= reach) ranAway = true;
-      return last;
+      if (seed == null) return null;
+      let l = seed, r = seed, gap = 0;
+      while (l > cx - maxHalf){ if (off(l - 1, y)){ l--; gap = 0; } else if (++gap > 2) break; else l--; }
+      gap = 0;
+      while (r < cx + maxHalf){ if (off(r + 1, y)){ r++; gap = 0; } else if (++gap > 2) break; else r++; }
+      return { half: Math.max(1, (r - l) / 2), mid: (l + r) / 2 };
     };
-    if (!off(cx, cy) && !off(cx, cy - 2) && !off(cx, cy + 2)) return null;  // nothing here
-    /* Measure his WIDTH, and trust only that. Sideways there is open grass
-       either side of a player, so the walk ends where he does. Upwards there
-       very often is not — on a park pitch his head runs into a tree line, a
-       fence, parked cars — and this used to demand open ground in EVERY
-       direction before it would answer at all. On real footage it never could:
-       three reports in a row came back with no outline measured, so the tracker
-       fell back to a square of mostly grass every single time.
-       So measure across, and bound how tall he may be from how wide he is.
-       People are about three times as tall as they are wide, which is a fact
-       about people rather than a guess about this clip. */
-    const wL = span(-1, 0, 1), wR = span(1, 0, 1);
-    if (ranAway) return null;                      // ran sideways into the crowd
-    const halfW = Math.max(wL, wR, 1);
-    const capH = Math.max(4, Math.round(halfW * 3));
-    const up = Math.min(span(0, -1, halfW), capH), dn = Math.min(span(0, 1, halfW), capH);
-    if (up + dn < 4) return null;                  // too small to be a body
-    const h = Math.max(3, Math.round((up + dn) / 2) + 1);
-    const w = Math.max(3, halfW + 1);
-    if (w / h > 3) return null;                    // wider than tall is not a person
-    /* Cut to his shape, but not skin-tight. A box holding only the player has
-       nothing around it to hold position with and slides onto the next player in
-       the same kit; a box big enough to see the ground he is standing on is
-       anchored. Measured on the silhouette clip: skin-tight lost him exactly as
-       a square did (err 0.405 at t=7), the same shape with room around it held
-       to 0.004. The margin is what the tracker needs; the shape is what keeps
-       that margin from being almost all field. */
-    const M = 2.0;
-    return { w: Math.max(3, Math.round(w * M)), h: Math.max(4, Math.round(h * M)),
-             oy: Math.round((dn - up) / 2) };
+
+    const widths = [];
+    let top = cy;
+    for (let dy = 2; dy >= -maxUp; dy--){
+      const rw = rowWidth(cy + dy);
+      if (!rw) { if (dy < -4) break; else continue; }
+      const typical = widths.length >= 4 ? med(widths.map(v => v.half)) : rw.half;
+      // trees, fences and crowds are wide; a person is not
+      if (widths.length >= 6 && rw.half > typical * 3) break;
+      widths.push(rw);
+      top = cy + dy;
+    }
+    if (widths.length < 6) return null;                 // nothing body-shaped here
+
+    const halfW = Math.max(2, Math.round(med(widths.map(v => v.half))));
+    const bottom = cy + 3;
+    const h = Math.max(4, Math.round((bottom - top) / 2));
+    const w = Math.max(3, Math.round(halfW * 1.35));
+    if (h < w) return null;                             // wider than tall is not a person
+    /* The box spans him and stops there. It does not need extra room around it:
+       he IS the distinctive thing once the template is actually looking at him,
+       and reaching further only invites the tree line back in. */
+    return { w, h, oy: Math.round((top + bottom) / 2 - cy) };
   }
 
   function pickPatch(img, cx, cy, ringR, search){
@@ -2474,8 +2472,27 @@ async function autoTrack(arg, dir = 1){
 
     /* His measured outline, if it could be found — the one shape on the list that
        came from this footage rather than from an assumption. */
-    const fitted = fitPlayer(img, cx, cy, ringR);
+    let fitted = fitPlayer(img, cx, cy, ringR);
+    /* These candidates exist to correct one specific thing: a ring dropped on
+       his feet with his body above it. If the outline comes back centred on the
+       ring anyway then nothing is being corrected, and adding near-identical
+       crops to the ensemble only changes who votes — which measurably cost
+       accuracy on clips that were already fine. */
+    if (fitted && Math.abs(fitted.oy) <= fitted.h * 0.4) fitted = null;
     if (fitted){
+      /* Once his body has been found, every template should be looking at it.
+         A tighter and a looser crop of HIM are far more useful than squares
+         centred on the ring, which is to say on his boots: on the clip that
+         reproduced this, two feet-centred squares outvoted the one template
+         actually on his shirt and walked the ring onto a team-mate. The offset
+         does not scale with the crop — it is where his middle is, and that does
+         not move when you frame him more tightly. */
+      for (const f of [0.72, 1.35]){
+        const v = { w: Math.max(3, Math.round(fitted.w * f)),
+                    h: Math.max(4, Math.round(fitted.h * f)), oy: fitted.oy };
+        const dv = rate(v);
+        if (dv != null) note(v, dv, 'his outline, ' + (f < 1 ? 'tighter' : 'looser'));
+      }
       const d = rate(fitted);
       if (d != null){
         note(fitted, d, 'his actual outline');
@@ -2628,7 +2645,19 @@ async function autoTrack(arg, dir = 1){
            of scale is what makes disagreement meaningful, so each further member
            has to differ in size by half again on one side or the other. */
         const usable = picks.filter(c => c.peak >= 0.5 && c.probe >= 0.06);
-        const pool = usable.length ? usable : [picks[0]];
+        /* Crops of HIM lead, because a template on his boots is looking at the
+           wrong thing. One square still gets in behind them: cutting the pool
+           to three near-identical crops of the same body removed the variety
+           that carries a clip through a look-alike, and they failed together. */
+        /* Crops of HIM lead — but only when they are actually somewhere other
+           than the ring. That is the case this is for: the ring goes on his
+           feet and his body is above it, so a square centred on the ring is
+           looking at boots and grass. When the ring is already on him the
+           offset is near zero, nothing is being corrected, and cutting the pool
+           to three near-identical crops only removes the variety that carries a
+           clip through a look-alike. */
+        const onHim = usable.filter(c => /outline/.test(c.how));
+        const pool = onHim.length ? onHim : (usable.length ? usable : [picks[0]]);
         const chosen = [pool[0]];
         /* His measured outline gets a seat whenever it is usable at all. It is
            the only candidate on the list derived from this footage rather than
@@ -5138,7 +5167,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v3.4';
+const APP_BUILD = 'v3.5';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),

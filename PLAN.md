@@ -963,6 +963,58 @@ shows whether it fitted itself.
 
 Suite: 450 checks green.
 
+### ✅ v3.5 — the ring is on his feet; his body is above it (shipped)
+Measured, at last, instead of assumed. Extracting frames from the user's own screen
+recording and counting pixels: **his shirt alone is about 29 x 78 px in the source video**
+and his whole body is over 100 px tall. Every previous entry here asserted "roughly
+13 x 26 px" — a number inferred from patch sizes, never measured, and repeated across nine
+builds as though it were established. The "this footage is at the limit of template
+matching" conclusion rested entirely on it and was wrong.
+
+The real defect is visible the moment you look at a frame: **the ring sits around his
+ankles.** That is where it lands, because a person drops it on the player and hits the
+ground he is standing on. The template is a square centred on the ring, so it samples
+boots and grass — while a red shirt with a large white number on it, by far the most
+distinctive thing about him, sits fifty pixels higher and is never looked at once.
+
+`fitPlayer` now measures him the way a person would: take the ground colour from the grass
+**beside and below** the ring, then walk **up** row by row tracking how wide he is. He ends
+where that width blows out, because trees and fences are wide and people are not. Earlier
+versions measured outward in all directions and gave up unless they found open ground
+everywhere, which on a park pitch never happens — his head is against a tree line. That is
+why the outline fit never once fired on real footage.
+
+The ensemble is then built from crops of **him** — tighter and looser — rather than squares
+centred on the ring. Two guards keep this from doing harm elsewhere: the body crops are
+only created when the outline actually comes back offset from the ring (nothing to correct
+otherwise), and they only take over the ensemble in that same case.
+
+**Why nine builds missed it:** every fixture dropped the ring on the player's *middle*.
+`tests/fixtures/feet.webm` puts it where a person puts it — on his feet, with a tree line
+above his head. With a square template it fails at err 0.061 / 0.179 / 0.297 / 0.416 while
+reporting a peak of 0.859 and no loss: confident and completely wrong, which is exactly
+what every report showed.
+
+| clip | before | after |
+| --- | --- | --- |
+| `feet` t=1 / t=3 | 0.061 / 0.179 | **0.003 / 0.003** |
+| `feet` t=5 / t=7 | 0.297 / 0.416 | 0.125 / 0.370 — still open |
+| `faint`, `body`, `small`, `trees`, `pan`, `dim` | — | unchanged or better |
+| `canopy` t=7 | 0.079 | 0.094 |
+
+**Still open, and stated rather than hidden:** in `feet.webm` a team-mate in the same kit
+crosses him at t=4 and takes the ring. Templates cut from his body cannot separate two
+players who look identical — that needs motion, not appearance. A movement-based voter was
+attempted and reverted: the first version was ten times too slow and the rewrite hung, and
+shipping it unvalidated was the wrong trade. The test bounds hold the real numbers so the
+gap stays visible.
+
+Three assertions were rewritten rather than deleted: "no template reaches up into the
+canopy" (reaching up is now a measurement, not a guess), and two that required an outline
+in ensembles where one is now deliberately withheld.
+
+Suite: 456 checks green.
+
 ## Roadmap
 
 ### Next (in order)
@@ -1116,6 +1168,10 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-19 | A clip's board plays after the clip, not before it | The board is the explanation; leading with it hands over the answer before he has committed to one, which undoes the whole questions-before-answers guardrail |
 | 2026-08-19 | The board card measures its own contribution in tests (export the same clip with and without) | Asserting a total frame count bakes in every other card's length, so an unrelated change to the title card would fail the board test and teach nobody anything |
 | 2026-08-19 | The bundle zip is verified with the real `unzip` binary, not by re-reading it in-app | The entire point of an archive is that *other* software opens it in five years; a self-consistent reader would have proved nothing. `unzip -t` checks every CRC |
+| 2026-08-20 | The tracked patch is placed on his body, above the ring, not centred on it | The ring lands on the ground he is standing on, because that is where a person puts it. A square centred there samples boots and grass; his shirt and number sit fifty pixels higher and were never looked at |
+| 2026-08-20 | His extent is measured by walking UP from the ring and watching the width | Measuring outward in all directions requires open ground above his head, which a park pitch never provides — trees, fences, parked cars. That is why the outline fit never fired on real footage across four reports |
+| 2026-08-20 | Fixtures place the ring where a person places it, on the feet | Nine builds of fixtures dropped it on the player's middle and so could not reproduce the reported failure at all. The fixture was wrong, not the reports |
+| 2026-08-20 | Player size is measured from real frames, never inferred from patch sizes | "Roughly 13 x 26 px" was an inference repeated as fact across nine builds and was wrong by about 4x per axis; a conclusion that the footage was untrackable was built on it |
 | 2026-08-19 | The ring sizes itself to the player rather than asking the user to | The app measures which template size works before it starts; telling someone to find a small chip in a row of eight is not a fix, and four reports in a row came back with a 90px ring around a 13px player because of it |
 | 2026-08-19 | A template must be substantially on the picture for its match to count | nccAt clamps its reads, so a patch hanging off the edge re-reads the last column and correlates with its own smear at 0.98. The search window was clipped to the frame long ago; the patch never was, and the ring finished a real run pinned to x = 0.000 |
 | 2026-08-19 | Multi-edit scripts are verified by their effect, not their exit line | An AssertionError on a later substitution aborted a script before it wrote the file, so a change that was described in a commit message, a PLAN entry and a PR simply did not exist. The report caught it two builds later |
