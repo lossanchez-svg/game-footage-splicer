@@ -1102,7 +1102,8 @@ track" — a crossing is two tracked objects passing, not one template getting c
       **Built and self-validated — waiting on the user's clips** (see "v4 progress"
       below; the harness runs, scores, and gates; the clip drop-folder is gitignored
       and empty until real footage is added).
-- [ ] **Phase 1 — model runtime, vendored and offline.**
+- [x] **Phase 1 — model runtime, vendored and offline.** *(shipped — see "v4
+      progress" below)*
       A person-detector (YOLO-class, quantized to ~5–8MB ONNX) + inference runtime
       (onnxruntime-web WASM/WebGPU) vendored into the repo as local files — no CDN, no
       network fetch, ever. WASM binary base64-embedded in its loader so `file://` works.
@@ -1163,6 +1164,31 @@ fixture's own motion expressions — mean err 0.0035, 100% on him, coverage 1, 0
 ground truth in `tests/realeval/clips/` per `tests/realeval/README.md` — at least one
 same-kit crossing (with a second hand-tracked ring on the look-alike), one occlusion,
 one camera pan, one where he leaves the frame.
+
+**Phase 1 — shipped (build `v4.0p1`).** `lockon.js` (8.5MB, generated-but-committed,
+reproducible byte-for-byte by `tests/make-lockon.js` from SHA-256-pinned upstreams)
+carries onnxruntime-web **1.17.3** `ort.wasm.min.js` (MIT) + `ort-wasm-simd.wasm` and
+**YOLOX-Nano** (Apache-2.0, 3.66MB ONNX, 416×416, COCO) — both payloads gzip+base64
+(19MB → 8.5MB), inflated in the browser with `DecompressionStream`, the wasm served to
+ort through a **blob-URL `wasmPaths`** override. Everything measured, not assumed:
+1.19.x's UMD bundle cannot boot from `file://` at all (its wasm backend dynamic-imports
+an `.mjs` glue whose URL resolution throws `Invalid URL`), and 1.17.3 ignores
+`wasmBinary` but honors blob-URL `wasmPaths`; RGB raw 0–255 input scores slightly above
+BGR on a real photograph, so RGB it is; the full embedded stack finds the people in a
+real photo correctly. In `index.html`: `loadLockon()` (lazy, single-flight, quiet
+`absent` on any failure so the v3.7 tracker carries on untouched), `lockonDetect(src,
+cx, cy, crop)` — detection runs on a **native-resolution crop** around the play rather
+than a downscaled whole frame, which is what keeps a 12px player detectable —
+plus pure `lockonDecode`/`lockonNms` exposed for tests, and the tracking report now
+carries `lockon: untried|loading|ready|absent` so every future report says which path
+ran. `sw.js` caches `lockon.js` (cache bumped to v3). Measured first load: **1.16s**
+in the headless VM (budget: 2s on a mid-range laptop). `tests/lockon.js` (16 checks):
+zero network requests during load, lazy startup, decode/NMS proved on fabricated
+tensors with answers known by construction, plain grass detects no one, and
+`index.html` copied ALONE to an empty folder still runs the v3.7 tracker with the
+loader reporting `absent` — the synthetic fixtures contain no real people for a
+COCO-trained detector, so detection quality on real players is exactly what the
+Phase 0 harness measures once real clips arrive.
 
 ---
 
@@ -1446,6 +1472,13 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-20 | The eval scorer stops charging position error the moment the tracker REPORTS lost, while a silent park keeps charging | Encodes the epic's invariant in the instrument: honesty must always score better than bluffing, so no future tracker can win the gate by confidently parking the ring on grass — the exact failure mode of five user reports |
 | 2026-08-20 | The eval harness self-tests on fabricated paths with known answers, plus one real tracked run | An instrument that cannot catch a failure waves every change through — the fixture-gap lesson of v2.9.4 applied to the eval itself. The selftest is in npm test so the harness cannot silently rot |
 | 2026-08-20 | Eval footage must be raw video, never an annotated export | Exports burn the ring into the pixels; a tracker following a painted ring is not being tested on anything. prep.sh unpacks bundles for their ground-truth JSON, and the README says to add the raw video beside it |
+| 2026-08-20 | Lock-On runtime: onnxruntime-web 1.17.3 wasm-simd via blob-URL wasmPaths + YOLOX-Nano (Apache-2.0), all in one committed lockon.js | Measured, not assumed: 1.19.x cannot boot from file:// (its wasm backend's .mjs dynamic import throws Invalid URL), and 1.17.3 ignores wasmBinary but honors blob-URL wasmPaths. YOLOX-Nano is Apache-licensed (YOLOv5/v8 are AGPL), 3.66MB, and found the people in a real photo through the full embedded stack. One file via script src because fetch() of local files does not work from file:// |
+| 2026-08-20 | lockon.js payloads ship gzip+base64, inflated with DecompressionStream | Halves the file (19MB → 8.5MB). Any browser new enough for the detector has DecompressionStream; one without it rejects load() and the app falls back to the built-in tracker, which is the designed degradation, not an error |
+| 2026-08-20 | lockon.js is generated-but-committed, from SHA-256-pinned upstreams | No build step at use time (double-click still works), but the 8.5MB artifact is reproducible and its provenance checkable — tests/make-lockon.js re-emits it byte-for-byte and refuses a changed upstream |
+| 2026-08-20 | The detector loads lazily, on first use, single-flight | The app must open instantly and mostly is not tracking; a 1.2s model boot belongs on the first Follow press, not on every launch. Failure of any kind quietly parks the state at 'absent' and the v3.7 tracker carries on |
+| 2026-08-20 | Detection runs on a native-resolution crop around the play, never a downscaled whole frame | Scaling 1280px of frame into the model's 416px input shrinks a 12px player to 4px — below what any detector resolves. A 416px crop at native resolution keeps him full size; the whole-frame view is what the v3.7 working-resolution lesson already taught |
+| 2026-08-20 | YOLOX input is RGB, raw 0–255 | Measured on a real photo through the exact embedded stack: RGB scores above BGR on every person, and the 0.1.1rc0 export takes unnormalized pixels. Written down because channel order is exactly the kind of silent half-wrong that still detects people |
+| 2026-08-20 | Detector correctness on real players is NOT asserted by the synthetic suites | The fixtures are rectangles — a COCO-trained model rightly sees nothing in them. tests/lockon.js proves plumbing (boot, decode, NMS, fallback) on constructed answers; detection quality is the realeval harness's question, on real clips |
 
 ## Working agreements for future sessions
 

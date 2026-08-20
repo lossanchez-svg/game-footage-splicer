@@ -14,6 +14,9 @@ never leaves the machine.
 ## Layout
 
 - `index.html` — the entire app (CSS + HTML + one plain-JS `<script>`)
+- `lockon.js` — optional vendored on-device player detector (onnxruntime-web +
+  YOLOX-Nano, gzip+base64 in one file; regenerate with `tests/make-lockon.js`).
+  `index.html` must always keep working without it (v3.7 tracker fallback)
 - `manifest.webmanifest`, `sw.js`, `icon-512.png`, `apple-touch-icon.png` — optional PWA
   files, only active when hosted (e.g. GitHub Pages for iPad home-screen install);
   `index.html` must always keep working standalone from `file://`

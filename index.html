@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.7</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0p1</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2158,6 +2158,116 @@ function thinSamples(pts, eps){
           ...thinSamples(pts.slice(idx), eps)];
 }
 
+/* ---------------- Lock-On model runtime (v4) ----------------
+   An optional on-device player detector: lockon.js next to this file carries
+   onnxruntime-web (MIT) and a YOLOX-Nano person model (Apache-2.0), gzipped
+   and base64'd so one <script src> works from file:// with zero network —
+   footage never leaves the machine, and this file alone keeps working when
+   lockon.js is absent or the browser is too old (the v3.7 tracker is the
+   automatic fallback; the model is an enhancement, never a requirement).
+   Loaded lazily on first use so opening the app stays instant. */
+const LOCKON_INPUT = 416;                 // the model's square input side
+let lockonState = 'untried';              // untried | loading | ready | absent
+let lockonRT = null;                      // { ort, model } from lockon.js
+let lockonSes = null;                     // cached InferenceSession
+let lockonLoadMs = null;                  // measured first-load cost
+let lockonLoading = null;                 // single-flight: concurrent callers share one load
+function loadLockon(){
+  if (lockonLoading) return lockonLoading;
+  return lockonLoading = (async () => {
+    const t0 = performance.now();
+    lockonState = 'loading';
+    if (!window.__lockon){
+      await new Promise(res => {
+        const s = document.createElement('script');
+        s.src = 'lockon.js';
+        s.onload = res; s.onerror = res;
+        document.head.appendChild(s);
+      });
+    }
+    if (!window.__lockon){ lockonState = 'absent'; return null; }
+    try {
+      lockonRT = await window.__lockon.load();
+      lockonSes = await lockonRT.ort.InferenceSession.create(lockonRT.model,
+        { executionProviders: ['wasm'] });
+      lockonLoadMs = Math.round(performance.now() - t0);
+      lockonState = 'ready';
+      return lockonRT;
+    } catch (e) {
+      /* an old browser (no DecompressionStream / no WASM-SIMD) lands here —
+         the built-in tracker carries on exactly as before */
+      lockonState = 'absent'; lockonRT = lockonSes = null;
+      return null;
+    }
+  })();
+}
+/* YOLOX decode: raw output is [1, N, 85] over grids at strides 8/16/32 —
+   box centre = (grid + xy) * stride, size = exp(wh) * stride, and the score is
+   objectness x class probability. Persons are class 0. Pure so the tests can
+   feed it a fabricated tensor and know the right answer by construction. */
+function lockonDecode(data, S, thresh){
+  const out = [];
+  const strides = [8, 16, 32];
+  let i = 0;
+  for (const st of strides){
+    const g = Math.floor(S / st);
+    for (let gy = 0; gy < g; gy++)
+      for (let gx = 0; gx < g; gx++, i++){
+        const o = i * 85;
+        const score = data[o + 4] * data[o + 5];         // objectness x person
+        if (score < thresh) continue;
+        const bx = (data[o] + gx) * st, by = (data[o + 1] + gy) * st;
+        const bw = Math.exp(data[o + 2]) * st, bh = Math.exp(data[o + 3]) * st;
+        out.push({ x: bx - bw / 2, y: by - bh / 2, w: bw, h: bh, score });
+      }
+  }
+  return out;
+}
+function lockonNms(dets, iouMax){
+  const iou = (a, b) => {
+    const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
+    const x2 = Math.min(a.x + a.w, b.x + b.w), y2 = Math.min(a.y + a.h, b.y + b.h);
+    const ov = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+    return ov / Math.max(1e-6, a.w * a.h + b.w * b.h - ov);
+  };
+  const keep = [];
+  for (const d of [...dets].sort((a, b) => b.score - a.score))
+    if (keep.every(k => iou(k, d) < (iouMax || 0.45))) keep.push(d);
+  return keep;
+}
+const lockonCanvas = document.createElement('canvas');
+const lockonCtx = lockonCanvas.getContext('2d', { willReadFrequently: true });
+/* Detect people in a square crop of a source canvas, centred on (cx, cy) with
+   side `crop`, all in source pixels. Cropping at native resolution is what
+   keeps a far-away player detectable: downscaling a whole 1280px frame to 416
+   would shrink a 12px player to 4px, but a 416px crop around the play keeps
+   him at full size. Returns boxes in SOURCE coordinates. */
+async function lockonDetect(src, cx, cy, crop, thresh){
+  if (lockonState !== 'ready') return null;
+  const S = LOCKON_INPUT;
+  crop = Math.max(64, Math.min(crop || S, Math.max(src.width, src.height)));
+  const x0 = clamp(Math.round(cx - crop / 2), 0, Math.max(0, src.width - crop));
+  const y0 = clamp(Math.round(cy - crop / 2), 0, Math.max(0, src.height - crop));
+  const cw = Math.min(crop, src.width), ch = Math.min(crop, src.height);
+  lockonCanvas.width = S; lockonCanvas.height = S;
+  lockonCtx.fillStyle = 'rgb(114,114,114)';           // YOLOX letterbox grey
+  lockonCtx.fillRect(0, 0, S, S);
+  const scale = Math.min(S / cw, S / ch);
+  lockonCtx.drawImage(src, x0, y0, cw, ch, 0, 0, Math.round(cw * scale), Math.round(ch * scale));
+  const d = lockonCtx.getImageData(0, 0, S, S).data;
+  const inp = new Float32Array(3 * S * S);            // CHW, RGB, raw 0-255
+  for (let i = 0, p = 0; i < S * S; i++, p += 4){
+    inp[i] = d[p]; inp[S * S + i] = d[p + 1]; inp[2 * S * S + i] = d[p + 2];
+  }
+  const feeds = {};
+  feeds[lockonSes.inputNames[0]] = new lockonRT.ort.Tensor('float32', inp, [1, 3, S, S]);
+  const res = await lockonSes.run(feeds);
+  const raw = res[lockonSes.outputNames[0]].data;
+  return lockonNms(lockonDecode(raw, S, thresh == null ? 0.35 : thresh), 0.45)
+    .map(b => ({ x: x0 + b.x / scale, y: y0 + b.y / scale,
+                 w: b.w / scale, h: b.h / scale, score: b.score }));
+}
+
 /* How far should it follow? The old answer was "to this spotlight's End time",
    which defaults to 4 seconds after the ring was placed — so pressing Track on a
    fresh spotlight followed the player for four seconds and stopped, and pressing
@@ -2703,6 +2813,7 @@ async function autoTrack(arg, dir = 1){
   window.__trackTraces = st.map(x => x.trace);
   lastTrackReport = {
     build: APP_BUILD,
+    lockon: lockonState,        // is the on-device detector available to this browser?
     video: { name: project.videoName, w: video.videoWidth, h: video.videoHeight,
              duration: +(video.duration || 0).toFixed(2) },
     working: { W, H },
@@ -5227,13 +5338,15 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v3.7';
+const APP_BUILD = 'v4.0p1';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
   drawBoardCard,
   get voiceIds(){ return voiceIds; },
-  get trackReport(){ return lastTrackReport; } };
+  get trackReport(){ return lastTrackReport; },
+  lockon: { load: loadLockon, detect: lockonDetect, decode: lockonDecode,
+    nms: lockonNms, get state(){ return lockonState; }, get loadMs(){ return lockonLoadMs; } } };
 
 /* ---------------- "watch" front door ----------------
   Most of the family never edits anything — they watch. When the game already

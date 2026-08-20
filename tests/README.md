@@ -28,6 +28,10 @@ node multitrack.js     # multi-spotlight: two players followed in ONE pass on tw
 node smalltrack.js     # the real-world failure: a tiny player, a default ring, mown
                        # grass and look-alike team-mates — the ring must stay on HIM and
                        # not swap onto the team-mate crossing the other way
+node lockon.js         # Lock-On model runtime: the vendored detector boots from
+                       # file:// with zero network, YOLOX decode/NMS proved on
+                       # fabricated tensors, and index.html ALONE still runs the
+                       # v3.7 tracker (loader reports absent, report says so)
 node touch.js          # touch/iPad suite: responsive layout + tap interactions
 node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise
