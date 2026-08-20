@@ -9,10 +9,14 @@ You are picking up a working, fully-tested product. Before writing any code:
 
 1. Read `CLAUDE.md` (conventions, test workflow) and this file top to bottom — especially
    the decision log, which records ten builds of tracker lessons learned the hard way.
-2. Two epics are specced and ready below: **v4 "Lock-On"** (AI-assisted tracking that
-   holds one player for a whole clip) and **v5 "Reel Studio"** (recruiting and social
-   highlight packages). Each has its own kickoff prompt at the top of its spec. Do v4
-   first if both are open: Reel Studio's auto-reframe depends on tracking being solid.
+2. **v4 "Lock-On" is BUILT (phases 0–4, build `v4.0p3`) and waiting on one thing:
+   3–5 real clips with hand-dragged ground truth** in `tests/realeval/clips/`
+   (instructions in `tests/realeval/README.md`). The detection tracker ships off by
+   default until `node tests/realeval/run.js --path detect` beats the v3.7 baseline on
+   those clips — then the flip is a one-line change (`lockonPathOn`, plus a decision-log
+   row with the numbers). Do not flip it on synthetic evidence. **v5 "Reel Studio"** is
+   specced below and is the next epic to build; its auto-reframe consumes the tracking
+   path, so the flip decision should come first if the clips are available.
 3. The single most important lesson from v2.5–v3.7: **measure before building.** Every
    fixture must be validated against real footage numbers (a tracking report or counted
    pixels from real frames) before any conclusion is drawn from it. Nine builds chased
@@ -1128,14 +1132,16 @@ track" — a crossing is two tracked objects passing, not one template getting c
       at 0:12 — tap him to carry on" with one-tap resume that stitches the path.
       (c) *Whole clip:* the 25s cap goes; long passes run chunked with progress and
       cancel, memory bounded.
-- [ ] **Phase 4 — polish + regression gate.**
+- [x] **Phase 4 — polish + regression gate.**
       Eval suite in CI alongside the 462 existing checks. Tracking report gains
       per-track detection confidence. PLAN.md decision log updated with what the eval
       measured for every tuning choice.
-      *(Mostly in place: the eval selftest runs in `npm test`; detection reports
-      carry per-sample confidence, contested-margins and track counts. What
-      remains is the part only real clips can provide: the eval measurements for
-      the flip decision, logged per tuning choice.)*
+      *(Done as far as it can be without footage: the eval selftest runs in `npm
+      test` (the suite is 558 checks green), detection reports carry per-sample
+      confidence, contested-margins and track counts, and every tuning choice made
+      so far is in the decision log with its measurement. The real-clip eval
+      numbers — the epic's acceptance — land with the flip decision, once the
+      clips exist.)*
 
 **Acceptance:** on the real-clip eval set — zero identity switches through same-kit
 crossings; a 40s clip tracked end to end; leaving frame reported as lost within 1s with
