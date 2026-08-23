@@ -1,27 +1,10 @@
 {
  "build": "v4.0p3",
  "path": "template",
- "at": "2026-08-23T20:00:11.842Z",
+ "at": "2026-08-23T20:36:23.754Z",
  "cases": {
-  "occlusion-iphone": {
-   "notes": "occlusion clip; DRAFT ground truth pending parent verification",
-   "ranAs": "template",
-   "span": 14,
-   "scoredSamples": 45,
-   "meanErr": 0.3559,
-   "medianErr": 0.2968,
-   "p90Err": 0.6052,
-   "maxErr": 0.6172,
-   "onHimPct": 2.2,
-   "coverage": 0.652,
-   "switches": 0,
-   "switchTime": 0,
-   "lostReported": true,
-   "lostTime": 5,
-   "lostWithin": null
-  },
   "same-kit-iphone": {
-   "notes": "same-kit clip; DRAFT ground truth 0-5s only — crossing identity awaits parent confirmation",
+   "notes": "same-kit clip; ground truth 0-5s PARENT-VERIFIED 2026-08-23 (overlay video). Extension through the crossing (5s+) awaits hand-tracked keys",
    "ranAs": "template",
    "span": 5,
    "scoredSamples": 25,
