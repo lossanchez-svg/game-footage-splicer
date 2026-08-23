@@ -16,7 +16,9 @@ You are picking up a working, fully-tested product. Before writing any code:
    those clips — then the flip is a one-line change (`lockonPathOn`, plus a decision-log
    row with the numbers). Do not flip it on synthetic evidence. **v5 "Reel Studio"** is
    specced below and is the next epic to build; its auto-reframe consumes the tracking
-   path, so the flip decision should come first if the clips are available.
+   path, so the flip decision should come first if the clips are available. **v6
+   "Cutting Room"** (moment finding, auto-cut, and the opt-in Autopilot) is specced
+   after it and builds on both.
 3. The single most important lesson from v2.5–v3.7: **measure before building.** Every
    fixture must be validated against real footage numbers (a tracking report or counted
    pixels from real frames) before any conclusion is drawn from it. Nine builds chased
@@ -1329,6 +1331,110 @@ slide; 9:16 cuts keep the player in frame for ≥95% of their duration on the ev
 
 ---
 
+## Future epic: v6 — "Cutting Room" (find the moments, make the cuts, and an Autopilot)
+
+**Kickoff prompt for a fresh session:**
+> Read CLAUDE.md and PLAN.md. Implement the v6 "Cutting Room" epic exactly as specced in
+> PLAN.md, workstream by workstream (A→E). Build it after v5 Reel Studio, on top of the
+> v4 detection tracker. Workstreams A–C are gated the way v4 was: no suggestion feature
+> ships unless its eval shows it agreeing with the human's own past choices on real
+> footage. Run the full test suite before every push and update PLAN.md (checkboxes +
+> decision log) as you go.
+
+**The promise:** open a game, press **"Find his moments"**, and get back a checklist of
+candidate involvements — accept or reject each in seconds instead of scrubbing for
+hours. Accepted moments arrive already trimmed to the action. And for anyone who wants
+it, an opt-in **Autopilot** carries a game all the way to a finished draft reel —
+always a draft to review, never a decision made behind your back.
+
+**The standing guardrail, restated (it shapes every workstream):** this app's founding
+principle is that *choosing the moment is the coaching* — questions before answers,
+self-awareness through his own observation. So v6 automates **recall and mechanics**
+(finding candidates, tightening cuts, assembling drafts) and keeps **judgment** with
+the human by default. Full automation exists as a tier you deliberately switch on, and
+it is graded — not trusted.
+
+### Workstreams
+
+- [ ] **A — the ball joins the tracks.** YOLOX-Nano already knows COCO's "sports
+      ball" class; wire it into the detection pass as a second tracked object type.
+      A ball is small, fast and motion-blurred — much harder than a player — so this
+      gets its own eval before anything builds on it: hand-marked ball paths on the
+      realeval clips (same hand-dragged ground-truth method, a ring labelled `ball`),
+      scored by the same harness. From ball + his track, derive the **possession
+      signal**: stretches where the ball converges to his feet and travels with him.
+      Gate: ball-in-frame coverage and possession windows validated against
+      hand-marked truth on the real clips; numbers in the decision log.
+- [ ] **B — Moment Finder.** A whole-game scan (chunked, progress + cancel,
+      overnight-friendly on an hour of film) that emits candidate moments
+      `{start, end, why}`: on-ball touches (from A), sprints (track velocity), box
+      entries, defensive recovery runs, dense-action stretches near him. Presented as
+      a checklist with a 3-second preview each — accept turns one into a clip, reject
+      teaches nothing silently (rejections are counted, not learned from, so behaviour
+      stays predictable). **The gate is his own history:** run the finder over games
+      already broken down by hand — it must surface at least ~80% of the moments dad
+      chose himself, at a precision that keeps review under a few minutes per game
+      (roughly: no more than 3 rejects per accept). The clips he already saved ARE the
+      ground truth for "what this family calls a moment".
+- [ ] **C — Auto-Cut assist.** Proposed In/Out tightening for any clip, from track +
+      ball data: start on the pass that begins the move, end a beat after the payoff,
+      cut on the touch rather than mid-run; a speed-ramp suggestion for social cuts.
+      Always shown as a proposal ("Tighten to the action?") with one-tap accept and
+      undo. Gate: measured against the hand-set In/Out points of the existing clip
+      library — median difference from his own edits within ~1.5s per end — plus every
+      proposal is reversible.
+- [ ] **D — the metadata socket (import/export contract).** Two versioned files that
+      make outside intelligence pluggable without the app ever needing a network:
+      `filmroom-metadata.json` (everything about a season EXCEPT pixels — clips, tags,
+      ratings, notes, questions and his answers, moment-finder output, track summaries)
+      and `filmroom-reelplan.json` (ordered clip ids, chapters, per-clip trims, titles,
+      hooks, captions, distribution text). The app exports the first and **imports the
+      second into the reel builder as a reviewable draft**. This is the socket the
+      Autopilot plugs into — and the same socket a future on-device model would use.
+- [ ] **E — Autopilot (the full-automation option; OFF unless switched on).** A
+      documented Claude Code workflow (checked into the repo as `AUTOPILOT.md`) that
+      drives the whole line end to end on the user's own machine: read the metadata
+      export → run the Moment Finder over the new game → pick and order the reel with
+      coach/marketing judgment → write the reel plan → drive the app headlessly to
+      render (the same way `tests/` already drives it) → hand back a finished draft
+      mp4 **plus a review sheet**: what it chose, what it passed on, and the moments
+      it was unsure about, in plain words. Three privacy tiers, escalating only by
+      explicit choice:
+      - **E0 — metadata only (default):** the model reads numbers and words, never
+        pixels. Footage never leaves the machine, same as always.
+      - **E1 — stills on approval (per-run opt-in):** selected still frames of
+        candidate moments may be sent to the model for judgment calls (is this the
+        play to lead with; is the framing clean). Stills only, never video, and the
+        run says which frames went.
+      - **E2 — fully local (future):** swap the judgment calls to an on-device
+        multimodal model once one meets the same vendorable bar lockon.js did
+        (licence, size, offline). Full autonomy with the privacy rule fully intact —
+        this is the end state as models improve.
+      **The gate is edit-distance:** every Autopilot draft records how many human
+      corrections it took (reorders, swaps, re-trims, title rewrites). That number,
+      tracked release over release, IS the measure of "fully capable at a professional
+      level" — the epic's own definition, not a vibe. Hard rules: Autopilot output is
+      always a draft in the reel builder; it never exports on its own authority and
+      never posts anywhere.
+
+**Can it eventually make the whole video by itself?** Mechanically it already can —
+the render pipeline is drivable end to end today, headlessly, exactly the way the test
+suite drives it. What improves as models improve is the *judgment* (which moments,
+what story, what a scout wants next year) and, at E2, where that judgment runs. The
+edit-distance gate is designed so the answer is measured rather than argued: when
+drafts routinely need zero corrections and spot-checks stay clean, full automation has
+earned itself, one release at a time.
+
+**Acceptance:** on games already broken down by hand — Moment Finder recall ≥80% of
+his chosen moments at reviewable precision; auto-cut proposals within ~1.5s of his own
+trims at the median; ball/possession numbers published from the realeval harness; the
+reel-plan import round-trips into the builder losslessly; one full Autopilot E0 run
+produces a draft reel + review sheet with zero pixels leaving the machine; all
+existing suites green; the app alone (no Claude, no model files) still does everything
+it does today.
+
+---
+
 ## Roadmap
 
 ### Next (in order)
@@ -1549,6 +1655,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-20 | The 25s cap is removed on the detection path only | "Follow him" means to the end of the clip — that is the epic's promise. The template path keeps its cap because changing v3.7 behaviour without the eval is exactly what the gate forbids; long.webm (40s) proves the detection path runs end to end |
 | 2026-08-20 | Jersey-number OCR is deferred, not half-built | No vendorable OCR meets the offline/licence/size bar, and a guessed digit as an identity confirm is worse than no digit. Revisit only if the real-clip eval shows identity errors colour+motion cannot resolve |
 | 2026-08-20 | Phase 2-3 logic is proven with a SCRIPTED detector; model quality is not | The stub feeds the real app boxes from the fixtures' own motion expressions — dropouts, crossings, permanent exits — so association, occlusion carrying, hunting, loss honesty, resume stitching and the no-cap rule are tested against answers known by construction. YOLOX-on-real-players is the one question this cannot answer, and it is the question the realeval harness exists for |
+| 2026-08-23 | v6 planned: automation proposes, the human disposes — recall and mechanics automated, judgment kept by default | Choosing the moment IS the coaching (the founding guardrail), and full event-understanding from one sideline camera is research-grade anyway. A finder gated on agreeing with the moments dad already chose turns hours of scrubbing into minutes of choosing without becoming a different product |
+| 2026-08-23 | Autopilot (full automation) is a user-requested, opt-in tier, draft-only, graded by human edit-distance | User asked for the full-automation option (2026-08-23). "Professional level" is defined as a measured number — corrections per draft trending to zero — not a claim. Drafts land in the reel builder; nothing exports or posts on the machine's own authority |
+| 2026-08-23 | Agent involvement is metadata-first; pixels leave the machine only as per-run-approved stills, until an on-device model closes the gap (E2) | The privacy rule does not bend silently. The metadata socket (season JSON out, reel plan JSON in) gives an LLM everything judgment needs except pixels; the E1 stills tier makes any exception explicit and itemised; E2 is the end state where full autonomy and footage-never-leaves coexist |
 
 ## Working agreements for future sessions
 
