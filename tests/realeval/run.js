@@ -249,7 +249,9 @@ async function main(){
     try {
       const rc = await runCase(c, { path: usePath });
       results.push(rc);
-      fs.writeFileSync(path.join(OUT, `${c.name}-report.json`),
+      /* one report per tracker path — a template report and a detection report
+         for the same clip must never overwrite each other */
+      fs.writeFileSync(path.join(OUT, `${c.name}-${usePath}-report.json`),
         JSON.stringify(rc.report, null, 1));
       console.log(fmtCase(rc));
       for (const e of rc.pageErrors) console.log('    PAGE ' + e);
