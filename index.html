@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v3.7</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0p3</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -1885,6 +1885,22 @@ overlay.addEventListener('pointerdown', e => {
   const t = video.currentTime;
   const tool = ui.tool;
 
+  /* one-tap resume (v4): after a run ends lost, the toast's button arms this —
+     the next tap on the video says "he is HERE", pins the ring there, and the
+     pass carries on from that moment, stitching onto the path it already has */
+  if (ui.resumeTrack){
+    const r = ui.resumeTrack; ui.resumeTrack = null;
+    const spot = project.annotations.find(a => a.id === r.id && a.type === 'spot');
+    if (spot){
+      pushUndo();
+      setSpotKey(spot, t, p.x, p.y);
+      ui.selectedId = spot.id;
+      afterMutate();
+      autoTrack(spot, r.dir);
+      return;
+    }
+  }
+
   if (tool === 'select'){
     const sel = project.annotations.find(a => a.id === ui.selectedId);
     // dragging a selected spotlight = position it at this time (keyframe)
@@ -2158,6 +2174,546 @@ function thinSamples(pts, eps){
           ...thinSamples(pts.slice(idx), eps)];
 }
 
+/* ---------------- Lock-On model runtime (v4) ----------------
+   An optional on-device player detector: lockon.js next to this file carries
+   onnxruntime-web (MIT) and a YOLOX-Nano person model (Apache-2.0), gzipped
+   and base64'd so one <script src> works from file:// with zero network —
+   footage never leaves the machine, and this file alone keeps working when
+   lockon.js is absent or the browser is too old (the v3.7 tracker is the
+   automatic fallback; the model is an enhancement, never a requirement).
+   Loaded lazily on first use so opening the app stays instant. */
+const LOCKON_INPUT = 416;                 // the model's square input side
+let lockonState = 'untried';              // untried | loading | ready | absent
+let lockonRT = null;                      // { ort, model } from lockon.js
+let lockonSes = null;                     // cached InferenceSession
+let lockonLoadMs = null;                  // measured first-load cost
+let lockonLoading = null;                 // single-flight: concurrent callers share one load
+let lockonOverride = null;                // tests substitute a scripted detector here
+function loadLockon(){
+  if (lockonOverride){ lockonState = 'ready'; return Promise.resolve({ stub: true }); }
+  if (lockonLoading) return lockonLoading;
+  return lockonLoading = (async () => {
+    const t0 = performance.now();
+    lockonState = 'loading';
+    if (!window.__lockon){
+      await new Promise(res => {
+        const s = document.createElement('script');
+        s.src = 'lockon.js';
+        s.onload = res; s.onerror = res;
+        document.head.appendChild(s);
+      });
+    }
+    if (!window.__lockon){ lockonState = 'absent'; return null; }
+    try {
+      lockonRT = await window.__lockon.load();
+      lockonSes = await lockonRT.ort.InferenceSession.create(lockonRT.model,
+        { executionProviders: ['wasm'] });
+      lockonLoadMs = Math.round(performance.now() - t0);
+      lockonState = 'ready';
+      return lockonRT;
+    } catch (e) {
+      /* an old browser (no DecompressionStream / no WASM-SIMD) lands here —
+         the built-in tracker carries on exactly as before */
+      lockonState = 'absent'; lockonRT = lockonSes = null;
+      return null;
+    }
+  })();
+}
+/* YOLOX decode: raw output is [1, N, 85] over grids at strides 8/16/32 —
+   box centre = (grid + xy) * stride, size = exp(wh) * stride, and the score is
+   objectness x class probability. Persons are class 0. Pure so the tests can
+   feed it a fabricated tensor and know the right answer by construction. */
+function lockonDecode(data, S, thresh){
+  const out = [];
+  const strides = [8, 16, 32];
+  let i = 0;
+  for (const st of strides){
+    const g = Math.floor(S / st);
+    for (let gy = 0; gy < g; gy++)
+      for (let gx = 0; gx < g; gx++, i++){
+        const o = i * 85;
+        const score = data[o + 4] * data[o + 5];         // objectness x person
+        if (score < thresh) continue;
+        const bx = (data[o] + gx) * st, by = (data[o + 1] + gy) * st;
+        const bw = Math.exp(data[o + 2]) * st, bh = Math.exp(data[o + 3]) * st;
+        out.push({ x: bx - bw / 2, y: by - bh / 2, w: bw, h: bh, score });
+      }
+  }
+  return out;
+}
+function lockonNms(dets, iouMax){
+  const iou = (a, b) => {
+    const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
+    const x2 = Math.min(a.x + a.w, b.x + b.w), y2 = Math.min(a.y + a.h, b.y + b.h);
+    const ov = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+    return ov / Math.max(1e-6, a.w * a.h + b.w * b.h - ov);
+  };
+  const keep = [];
+  for (const d of [...dets].sort((a, b) => b.score - a.score))
+    if (keep.every(k => iou(k, d) < (iouMax || 0.45))) keep.push(d);
+  return keep;
+}
+const lockonCanvas = document.createElement('canvas');
+const lockonCtx = lockonCanvas.getContext('2d', { willReadFrequently: true });
+/* Detect people in a square crop of a source canvas, centred on (cx, cy) with
+   side `crop`, all in source pixels. Cropping at native resolution is what
+   keeps a far-away player detectable: downscaling a whole 1280px frame to 416
+   would shrink a 12px player to 4px, but a 416px crop around the play keeps
+   him at full size. Returns boxes in SOURCE coordinates. */
+async function lockonDetect(src, cx, cy, crop, thresh){
+  if (lockonOverride) return lockonOverride(src, cx, cy, crop, thresh);
+  if (lockonState !== 'ready') return null;
+  const S = LOCKON_INPUT;
+  crop = Math.max(64, Math.min(crop || S, Math.max(src.width, src.height)));
+  const x0 = clamp(Math.round(cx - crop / 2), 0, Math.max(0, src.width - crop));
+  const y0 = clamp(Math.round(cy - crop / 2), 0, Math.max(0, src.height - crop));
+  const cw = Math.min(crop, src.width), ch = Math.min(crop, src.height);
+  lockonCanvas.width = S; lockonCanvas.height = S;
+  lockonCtx.fillStyle = 'rgb(114,114,114)';           // YOLOX letterbox grey
+  lockonCtx.fillRect(0, 0, S, S);
+  const scale = Math.min(S / cw, S / ch);
+  lockonCtx.drawImage(src, x0, y0, cw, ch, 0, 0, Math.round(cw * scale), Math.round(ch * scale));
+  const d = lockonCtx.getImageData(0, 0, S, S).data;
+  const inp = new Float32Array(3 * S * S);            // CHW, RGB, raw 0-255
+  for (let i = 0, p = 0; i < S * S; i++, p += 4){
+    inp[i] = d[p]; inp[S * S + i] = d[p + 1]; inp[2 * S * S + i] = d[p + 2];
+  }
+  const feeds = {};
+  feeds[lockonSes.inputNames[0]] = new lockonRT.ort.Tensor('float32', inp, [1, 3, S, S]);
+  const res = await lockonSes.run(feeds);
+  const raw = res[lockonSes.outputNames[0]].data;
+  return lockonNms(lockonDecode(raw, S, thresh == null ? 0.35 : thresh), 0.45)
+    .map(b => ({ x: x0 + b.x / scale, y: y0 + b.y / scale,
+                 w: b.w / scale, h: b.h / scale, score: b.score }));
+}
+
+/* ---------------- tracking by detection (v4, Phases 2-3) ----------------
+   Ten builds of evidence say appearance matching cannot separate two players
+   in identical kit — there is nothing to separate. So when the on-device
+   detector is available, tracking works the way every serious tool works:
+   find ALL the players every frame, carry each one as its own track, and
+   "him" is simply which track the ring is bound to. A crossing is two tracks
+   passing each other, not one template getting confused.
+
+   OFF BY DEFAULT until the real-clip eval (tests/realeval/) shows this path
+   beating the v3.7 tracker on real footage — that is the epic's own gate, and
+   no synthetic fixture is allowed to open it. It turns on for a browser with
+   localStorage "filmroom:lockonPath" set to "on" (the eval runner does exactly
+   that, to measure both paths on the same clips). When the path is on but
+   nobody is detected where the ring was dropped, the run falls back to the
+   template tracker by itself — footage the detector cannot read never costs
+   anyone the tracker they already had. */
+function lockonPathOn(){
+  try { return localStorage.getItem('filmroom:lockonPath') === 'on'; }
+  catch (e) { return false; }
+}
+
+function lockonIou(a, b){
+  const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
+  const x2 = Math.min(a.x + a.w, b.x + b.w), y2 = Math.min(a.y + a.h, b.y + b.h);
+  const ov = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  return ov / Math.max(1e-6, a.w * a.h + b.w * b.h - ov);
+}
+
+/* Kit colour, from the pixels inside a detection box: mean chroma of the shirt
+   band and the shorts band, luma-normalised so sun and shade read the same.
+   This is what separates the two TEAMS; within a team it reads near-identical,
+   which is the honest answer — same-kit identity has to come from motion. */
+function lockonSig(img, box){
+  const band = (fy0, fy1) => {
+    let r = 0, g = 0, b = 0, n = 0;
+    const x0 = Math.max(0, Math.round(box.x + box.w * 0.2));
+    const x1 = Math.min(img.width - 1, Math.round(box.x + box.w * 0.8));
+    const y0 = Math.max(0, Math.round(box.y + box.h * fy0));
+    const y1 = Math.min(img.height - 1, Math.round(box.y + box.h * fy1));
+    for (let y = y0; y <= y1; y += 2)
+      for (let x = x0; x <= x1; x += 2){
+        const o = (y * img.width + x) * 4;
+        r += img.data[o]; g += img.data[o + 1]; b += img.data[o + 2]; n++;
+      }
+    const t = Math.max(1, r + g + b);
+    return n ? [r / t, g / t, b / t] : [1/3, 1/3, 1/3];
+  };
+  return [...band(0.15, 0.45), ...band(0.5, 0.75)];   // shirt, then shorts
+}
+function lockonSigDist(a, b){
+  if (!a || !b) return 0;
+  let s = 0;
+  for (let i = 0; i < 6; i++) s += Math.abs(a[i] - b[i]);
+  return s / 6;
+}
+const SAME_KIT = 0.06;   // sig distance below which colour cannot separate two players
+
+/* One step of SORT-style association: predict every track forward, pair tracks
+   with detections greedily by combined cost (overlap + distance + kit colour),
+   and report how contested each pairing was — the runner-up cost involving the
+   same track or detection is what says whether a same-kit neighbour could just
+   as well have taken it. Pure, so the tests can feed it fabricated streams and
+   know the right answer by construction. */
+function lockonStep(tracks, dets, gate){
+  const pairs = [];
+  for (const tr of tracks){
+    const px = tr.x + tr.vx, py = tr.y + tr.vy;
+    const pb = { x: px - tr.w / 2, y: py - tr.h / 2, w: tr.w, h: tr.h };
+    for (const d of dets){
+      const dist = Math.hypot(px - (d.x + d.w / 2), py - (d.y + d.h / 2));
+      if (dist > gate) continue;
+      /* colour SEPARATES the teams (a clearly different kit pays a cliff, not
+         a nudge — nearness must never buy a cross-team match); within a team
+         the sig difference is noise-sized and geometry decides */
+      const sd = lockonSigDist(tr.sig, d.sig);
+      const cost = (1 - lockonIou(pb, d)) * 0.5 + (dist / gate) * 0.5
+                 + sd * 2.0 + (sd > SAME_KIT * 2 ? 0.5 : 0);
+      pairs.push({ tr, d, cost });
+    }
+  }
+  pairs.sort((a, b) => a.cost - b.cost);
+  const usedT = new Set(), usedD = new Set(), matches = [];
+  for (const p of pairs){
+    if (usedT.has(p.tr) || usedD.has(p.d)) continue;
+    usedT.add(p.tr); usedD.add(p.d);
+    let second = Infinity;
+    for (const q of pairs)
+      if (q !== p && (q.tr === p.tr || q.d === p.d)) second = Math.min(second, q.cost);
+    matches.push({ tr: p.tr, d: p.d, cost: p.cost, margin: second - p.cost });
+  }
+  return { matches, usedD, usedT };
+}
+
+/* Where the detection pass may run to. Phase 3: the 25-second cap is GONE on
+   this path — "follow him" means to the end of the clip, unless the user set
+   an end on this spotlight. (The template path keeps its cap: changing v3.7
+   behaviour is exactly what the real-clip eval gate exists to judge.) */
+function trackLimitForDetect(spot, t0, dir){
+  const D = video.duration || 0;
+  if (dir < 0) return { t: 0, why: 'start' };
+  if (spot.endSet && spot.tEnd > t0 + 0.2)
+    return { t: Math.min(spot.tEnd, D || spot.tEnd), why: 'spotEnd' };
+  return { t: D || t0 + 25, why: 'clipEnd' };
+}
+
+/* The detection-led pass. Returns false, without side effects, if nobody is
+   detected where a ring sits — the caller then runs the template tracker. */
+async function autoTrackDetect(spots, dir){
+  const t0 = video.currentTime;
+  const st = spots.map(spot => {
+    const lim = trackLimitForDetect(spot, t0, dir);
+    return { spot, tEnd: lim.t, why: lim.why,
+             ok: dir > 0 ? lim.t > t0 + 0.15 : lim.t < t0 - 0.15 };
+  }).filter(x => x.ok);
+  if (!st.length) return false;
+
+  const hiRes = Math.min(1280, video.videoWidth || 1280);
+  const W = hiRes, H = Math.round(W * video.videoHeight / video.videoWidth);
+  trackCanvas.width = W; trackCanvas.height = H;
+  const grab = () => { trackCtx.drawImage(video, 0, 0, W, H); return trackCtx.getImageData(0, 0, W, H); };
+  const CROP = Math.min(LOCKON_INPUT, W);
+  const gate = clamp(Math.round(W * 0.09), 24, 120);  // how far anyone moves between samples
+
+  $('#trackPill').style.display = 'flex';
+  $('#trackPct').textContent = 'looking for him…';
+  await seekTo(t0);
+  let img = grab();
+
+  const detsAt = async (cx, cy) => {
+    const found = await lockonDetect(trackCanvas, cx, cy, CROP, 0.3) || [];
+    for (const d of found) if (!d.sig) d.sig = lockonSig(img, d);
+    return found;
+  };
+  /* which detected player is the ring on? the box that holds the ring point,
+     or whose feet are nearest to it within reach */
+  const bindTo = (dets, px, py, r) => {
+    let best = null, bestD = Infinity;
+    for (const d of dets){
+      const fx = d.x + d.w / 2, fy = d.y + d.h * 0.95;
+      const inside = px >= d.x - 2 && px <= d.x + d.w + 2 && py >= d.y - 2 && py <= d.y + d.h + 2;
+      const dd = Math.hypot(fx - px, fy - py);
+      const reach = Math.max(r * W * 3, d.h * 0.8);
+      if ((inside || dd < reach) && dd < bestD){ best = d; bestD = dd; }
+    }
+    return best;
+  };
+
+  let nextId = 1;
+  const tracks = [];
+  const mkTrack = d => {
+    const tr = { id: nextId++, x: d.x + d.w / 2, y: d.y + d.h / 2, w: d.w, h: d.h,
+                 vx: 0, vy: 0, hits: 1, missed: 0, sig: d.sig.slice(), det: d };
+    tracks.push(tr);
+    return tr;
+  };
+
+  for (const x of st){
+    const p0 = spotPos(x.spot, t0);
+    x.px = p0.x * W; x.py = p0.y * H;
+    const dets = await detsAt(x.px, x.py);
+    const his = bindTo(dets, x.px, x.py, x.spot.r || 0.035);
+    if (!his){ x.unbound = true; continue; }
+    for (const d of dets){
+      let tr = tracks.find(q =>
+        Math.hypot(q.x - (d.x + d.w / 2), q.y - (d.y + d.h / 2)) < Math.max(6, d.w * 0.4));
+      if (!tr) tr = mkTrack(d);
+      if (d === his) x.tr = tr;
+    }
+    x.sig0 = his.sig.slice();     // frozen: what his kit looked like at the start
+  }
+  if (st.some(x => x.unbound)){
+    /* all-or-nothing: mixing one detected player and one template-matched
+       player in a single pass would be two different kinds of answer */
+    $('#trackPill').style.display = 'none';
+    $('#trackPct').textContent = '0%';
+    return false;
+  }
+
+  ui.tracking = true; ui.trackCancel = false;
+  video.pause(); hideDecision();
+  pushUndo();
+
+  const dt = 1 / 8;
+  const T_LAST = dir > 0 ? Math.max(...st.map(x => x.tEnd)) : Math.min(...st.map(x => x.tEnd));
+  const MAX_OCCLUDE = 20, HUNT_FOR = 40;
+
+  for (const x of st){
+    const spot = x.spot;
+    x.lo = Math.min(t0, x.tEnd); x.hi = Math.max(t0, x.tEnd);
+    x.beforeKeys = spot.keys.filter(k => k.t < x.lo - 0.001);
+    x.afterKeys  = spot.keys.filter(k => k.t > x.hi + 0.001);
+    const fx = x.tr.x, fy = x.tr.y + x.tr.h * 0.45;   // the ring marks his feet
+    x.samples = [{ t: t0, x: fx / W, y: fy / H }];
+    x.lastGoodT = t0; x.lastGoodIdx = 0; x.lastGoodX = fx; x.lastGoodY = fy;
+    x.lost = false; x.done = false; x.hunt = false; x.hunted = 0; x.reFound = null;
+    x.occl = 0; x.uncertain = []; x.refinds = 0; x.trace = [];
+    /* fit the ring to the detected body — only ever pulling it in (v3.4 rule) */
+    const snug = clamp((x.tr.w * 0.75) / W, 0.010, 0.05);
+    if (snug < (spot.r || 0.035) * 0.8){ x.ringWas = spot.r || 0.035; spot.r = +snug.toFixed(4); }
+  }
+
+  window.__trackTraces = st.map(x => x.trace);
+  window.__trackTrace = st[0].trace;
+  lastTrackReport = {
+    build: APP_BUILD, lockon: lockonState, path: 'detection',
+    video: { name: project.videoName, w: video.videoWidth, h: video.videoHeight,
+             duration: +(video.duration || 0).toFixed(2) },
+    working: { W, H },
+    direction: dir > 0 ? 'forward' : 'backward',
+    startedAt: +t0.toFixed(3),
+    spots: st.map(x => ({ label: x.spot.label || '', ringR: x.spot.r || 0.035,
+      boundBox: { w: Math.round(x.tr.w), h: Math.round(x.tr.h) },
+      ringWas: x.ringWas || null, ringNow: x.spot.r || 0.035,
+      stopBecause: x.why, stopAt: +x.tEnd.toFixed(3) })),
+  };
+
+  /* while hunting, the whole frame is swept one tile per step — bounded cost,
+     full coverage within a couple of seconds */
+  const huntTiles = [];
+  for (let ty = CROP / 2; ty < H + CROP / 2; ty += CROP * 0.8)
+    for (let tx = CROP / 2; tx < W + CROP / 2; tx += CROP * 0.8)
+      huntTiles.push({ x: Math.min(tx, W - CROP / 2), y: Math.min(ty, H - CROP / 2) });
+  let huntTileIdx = 0;
+
+  let t = t0;
+  const more = () => dir > 0 ? t < T_LAST - 1e-3 : t > T_LAST + 1e-3;
+  while (more() && !ui.trackCancel && st.some(x => !x.done)){
+    t = dir > 0 ? Math.min(t + dt, T_LAST) : Math.max(t - dt, T_LAST);
+    await seekTo(t);
+    img = grab();
+
+    /* one detection sweep covers everyone whose crops overlap */
+    const centers = [];
+    for (const x of st){
+      if (x.done) continue;
+      let cx, cy;
+      if (x.hunt){
+        const tile = huntTiles[huntTileIdx++ % huntTiles.length];
+        cx = tile.x; cy = tile.y;
+      } else {
+        cx = clamp(x.tr.x + x.tr.vx, 0, W - 1); cy = clamp(x.tr.y + x.tr.vy, 0, H - 1);
+      }
+      if (!centers.some(c => Math.abs(c.x - cx) < CROP * 0.35 && Math.abs(c.y - cy) < CROP * 0.35))
+        centers.push({ x: cx, y: cy });
+    }
+    let dets = [];
+    for (const c of centers) dets = dets.concat(await detsAt(c.x, c.y));
+    dets = lockonNms(dets, 0.6);
+
+    const { matches, usedD, usedT } = lockonStep(tracks, dets, gate);
+    for (const m of matches){
+      const tr = m.tr, d = m.d;
+      const cx = d.x + d.w / 2, cy = d.y + d.h / 2;
+      tr.vx = clamp(tr.vx * 0.75 + (cx - tr.x) * 0.25, -gate, gate);
+      tr.vy = clamp(tr.vy * 0.75 + (cy - tr.y) * 0.25, -gate, gate);
+      tr.x = cx; tr.y = cy;
+      tr.w = tr.w * 0.8 + d.w * 0.2; tr.h = tr.h * 0.8 + d.h * 0.2;
+      for (let i = 0; i < 6; i++) tr.sig[i] = tr.sig[i] * 0.9 + d.sig[i] * 0.1;
+      tr.hits++; tr.missed = 0; tr.margin = m.margin; tr.score = d.score; tr.det = d;
+    }
+    for (const tr of tracks){
+      if (usedT.has(tr)) continue;
+      tr.missed++; tr.det = null; tr.margin = null;
+      tr.x = clamp(tr.x + tr.vx, 0, W - 1); tr.y = clamp(tr.y + tr.vy, 0, H - 1);
+      tr.vx *= 0.8; tr.vy *= 0.8;                    // a coasted guess fades (v3.6)
+    }
+    for (const d of dets) if (!usedD.has(d)) mkTrack(d);
+    for (let i = tracks.length - 1; i >= 0; i--)
+      if (tracks[i].missed > 12 && !st.some(x => x.tr === tracks[i])) tracks.splice(i, 1);
+
+    let worst = 1;
+    for (const x of st){
+      if (x.done) continue;
+      if (dir > 0 ? t > x.tEnd + 1e-3 : t < x.tEnd - 1e-3){ x.done = true; continue; }
+      const tr = x.tr;
+      let conf = 0, note;
+
+      if (tr.det){
+        /* seen. Is someone in the same kit close enough to take the ring?
+           That is a moment to FLAG, not to guess through (Phase 3a). */
+        let rival = null;
+        for (const o of tracks){
+          if (o === tr || o.missed > 2 || o.hits < 2) continue;
+          if (Math.hypot(o.x - tr.x, o.y - tr.y) < Math.max(tr.w, o.w) * 1.2 &&
+              lockonSigDist(o.sig, tr.sig) < SAME_KIT) rival = o;
+        }
+        const contested = (tr.margin != null && tr.margin < 0.15) || !!rival;
+        conf = contested ? 0.5 : Math.min(0.99, tr.score || 0.8);
+        if (contested){
+          const last = x.uncertain[x.uncertain.length - 1];
+          if (!last || t - last.until > 0.5) x.uncertain.push({ at: +t.toFixed(2), until: +t.toFixed(2) });
+          else last.until = +t.toFixed(2);
+        }
+        const fx = tr.x, fy = tr.y + tr.h * 0.45;
+        x.samples.push({ t, x: fx / W, y: fy / H, conf: +conf.toFixed(2) });
+        x.lastGoodT = t; x.lastGoodIdx = x.samples.length - 1;
+        x.lastGoodX = fx; x.lastGoodY = fy;
+        x.occl = 0;
+        if (x.hunt){ x.hunt = false; x.hunted = 0; x.refinds++; }
+        note = 'det';
+      } else if (!x.hunt){
+        /* not seen this frame. Behind someone — his prediction overlapping a
+           box that IS seen — is a crossing, not a loss: carry the track
+           through it. Unexplained absence goes to the hunt much sooner. */
+        const pb = { x: tr.x - tr.w / 2, y: tr.y - tr.h / 2, w: tr.w, h: tr.h };
+        const behind = tracks.some(o => o !== tr && o.det &&
+          lockonIou(pb, { x: o.x - o.w / 2, y: o.y - o.h / 2, w: o.w, h: o.h }) > 0.25);
+        if (++x.occl > MAX_OCCLUDE || (!behind && x.occl > 6)) x.hunt = true;
+        note = behind ? 'behind' : 'coast';
+      } else {
+        /* hunting (Phase 3b): a candidate has to wear his kit (the FROZEN
+           start-of-run signature — the adaptive one may have drifted), be
+           reachable from where he was last seen, and be found twice in the
+           same place before it counts (the v3.7 lesson, kept). */
+        let cand = null;
+        for (const d of dets){
+          const owner = tracks.find(o => o.det === d && o !== tr);
+          if (owner && owner.hits > 3) continue;   // an established somebody-else
+          if (lockonSigDist(d.sig, x.sig0) > SAME_KIT * 1.6) continue;
+          const dd = Math.hypot(d.x + d.w / 2 - x.lastGoodX, d.y + d.h / 2 - x.lastGoodY);
+          const reach = gate * 2 + gate * 8 * Math.abs(t - x.lastGoodT);
+          if (dd > reach) continue;
+          if (!cand || d.score > cand.score) cand = d;
+        }
+        const near = cand && x.reFound &&
+          Math.hypot(cand.x + cand.w / 2 - x.reFound.x, cand.y + cand.h / 2 - x.reFound.y) < gate * 0.8;
+        if (cand && near){
+          const dup = tracks.find(o => o !== tr && o.det === cand);
+          if (dup) tracks.splice(tracks.indexOf(dup), 1);
+          tr.x = cand.x + cand.w / 2; tr.y = cand.y + cand.h / 2;
+          tr.w = cand.w; tr.h = cand.h; tr.vx = 0; tr.vy = 0;
+          tr.missed = 0; tr.det = cand; tr.sig = cand.sig.slice();
+          x.hunt = false; x.hunted = 0; x.refinds++; x.reFound = null;
+          const fx = tr.x, fy = tr.y + tr.h * 0.45;
+          x.samples.push({ t, x: fx / W, y: fy / H, conf: 0.34 });
+          x.lastGoodT = t; x.lastGoodIdx = x.samples.length - 1;
+          x.lastGoodX = fx; x.lastGoodY = fy;
+        } else {
+          x.reFound = cand ? { x: cand.x + cand.w / 2, y: cand.y + cand.h / 2 } : null;
+          if (++x.hunted > HUNT_FOR){ x.lost = true; x.done = true; }
+        }
+        note = 'hunt';
+      }
+      x.trace.push({ t: +t.toFixed(3), conf: +conf.toFixed(2), note,
+        tracks: tracks.length, margin: tr.margin == null ? null : +tr.margin.toFixed(2),
+        x: +(tr.x / W).toFixed(3), y: +(tr.y / H).toFixed(3) });
+      x.spot.keys = [...x.beforeKeys, ...x.samples, ...x.afterKeys];   // live feedback
+      if (!x.done) worst = Math.min(worst, conf);
+    }
+
+    $('#trackPct').textContent = Math.round((t - t0) / Math.max(0.001, T_LAST - t0) * 100) + '%' +
+      (st.length > 1 ? ' · ' + st.length + ' players' : '') +
+      ' · ' + tracks.length + ' tracked · lock ' + Math.max(0, worst).toFixed(2);
+    await new Promise(r => requestAnimationFrame(r));
+  }
+
+  let followedTo = t0;
+  for (const x of st){
+    x.samples.length = x.lastGoodIdx + 1;
+    const path = dir > 0 ? x.samples : [...x.samples].reverse();
+    x.spot.keys = [...x.beforeKeys, ...thinSamples(path, 0.004), ...x.afterKeys];
+    if (dir > 0){
+      if (x.lastGoodT > x.spot.tEnd) x.spot.tEnd = Math.min(x.lastGoodT, video.duration || x.lastGoodT);
+      followedTo = Math.max(followedTo, x.lastGoodT);
+    } else {
+      if (x.lastGoodT < x.spot.tStart) x.spot.tStart = Math.max(0, x.lastGoodT);
+      followedTo = Math.min(followedTo === t0 ? t0 : followedTo, x.lastGoodT);
+    }
+  }
+  ui.tracking = false;
+  $('#trackPill').style.display = 'none';
+  for (const x of st) if (x.hunt) x.lost = true;    // still hunting at the end IS lost
+  lastTrackReport.result = st.map(x => ({
+    label: x.spot.label || '', lost: x.lost, lastGoodAt: +x.lastGoodT.toFixed(3),
+    refinds: x.refinds, uncertain: x.uncertain,
+    keys: x.spot.keys.length, samples: x.trace,
+  }));
+  lastTrackReport.cancelled = !!ui.trackCancel;
+  persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
+
+  await seekTo(ui.trackCancel ? video.currentTime : t0);
+  const secs = Math.abs(followedTo - t0);
+  const way = dir > 0 ? 'Followed' : 'Worked back';
+  const lostOne = st.find(x => x.lost);
+  const unsure = st.flatMap(x => x.uncertain);
+  if (ui.trackCancel){
+    toast('Stopped following. What it worked out so far was kept — press ⌘Z if you would rather undo it.', 5000);
+  } else if (lostOne){
+    /* Phase 3b: losing him ends with a way to carry on, never a dead end and
+       never a ring quietly parked somewhere he is not */
+    const spot = lostOne.spot, rdir = dir;
+    toast(way + ' ' + secs.toFixed(1) + ' seconds, to ' + fmtT(followedTo) +
+      ', then lost him. Scrub to where you can see him and tap him — it carries on from there.', 9000,
+      { label: '👆 Tap him to carry on', fn(){
+          ui.resumeTrack = { id: spot.id, dir: rdir };
+          toast('Scrub to where you can see him, then tap him on the video.', 6000);
+        } });
+  } else if (unsure.length){
+    toast(way + ' ' + (st.length > 1 ? 'all ' + st.length + ' of them' : 'him') + ' for ' +
+      secs.toFixed(1) + ' seconds. Around ' + fmtT(unsure[0].at) +
+      ' two players in the same colours crossed and it may have picked the wrong one — play that moment to check.', 8000);
+  } else {
+    toast(way + ' ' + (st.length > 1 ? 'all ' + st.length + ' of them' : 'him') + ' for ' +
+      secs.toFixed(1) + ' seconds. Press play to check it — you can still drag a ring anywhere it is not quite right.', 6500);
+  }
+  return true;
+}
+
+/* the entry point: the detection path when it is enabled and can see him, the
+   template tracker for everything else — and always when lockon.js is absent */
+async function autoTrack(arg, dir = 1){
+  const spots = (Array.isArray(arg) ? arg : [arg]).filter(a => a && a.type === 'spot');
+  if (!spots.length || ui.tracking || ui.exporting || ui.trackStarting) return;
+  ui.trackStarting = true;
+  try {
+    if (lockonPathOn() && video.videoWidth){
+      const rt = await loadLockon();
+      if (rt){
+        const ran = await autoTrackDetect(spots, dir);
+        if (ran) return;
+        toast('No player found where the ring is — using the classic tracker for this go.', 4000);
+      }
+    }
+  } finally { ui.trackStarting = false; }
+  return autoTrackTemplate(spots, dir);
+}
+
 /* How far should it follow? The old answer was "to this spotlight's End time",
    which defaults to 4 seconds after the ring was placed — so pressing Track on a
    fresh spotlight followed the player for four seconds and stopped, and pressing
@@ -2187,7 +2743,7 @@ function trackLimitFor(spot, t0, dir){
    dir = +1 follows him on from here; dir = -1 works backwards from here, for
    "he ends up in this space — show me the run that got him there". The matcher
    does not care which way time runs; only the bookkeeping does. */
-async function autoTrack(arg, dir = 1){
+async function autoTrackTemplate(arg, dir = 1){
   const spots = (Array.isArray(arg) ? arg : [arg]).filter(a => a && a.type === 'spot');
   if (!spots.length || ui.tracking || ui.exporting) return;
   const t0 = video.currentTime;
@@ -2703,6 +3259,8 @@ async function autoTrack(arg, dir = 1){
   window.__trackTraces = st.map(x => x.trace);
   lastTrackReport = {
     build: APP_BUILD,
+    lockon: lockonState,        // is the on-device detector available to this browser?
+    path: 'template',
     video: { name: project.videoName, w: video.videoWidth, h: video.videoHeight,
              duration: +(video.duration || 0).toFixed(2) },
     working: { W, H },
@@ -5145,6 +5703,7 @@ document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
   if (ui.tracking){ if (e.key === 'Escape') ui.trackCancel = true; return; }
+  if (ui.resumeTrack && e.key === 'Escape'){ ui.resumeTrack = null; return; }
   if (ui.session){
     if (e.key === 'Escape'){ e.preventDefault(); $('#sessBarEnd').click(); return; }
     if (ui.session.phase !== 'playing') return;       // modal phases own the keyboard
@@ -5227,13 +5786,17 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v3.7';
+const APP_BUILD = 'v4.0p3';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
   drawBoardCard,
   get voiceIds(){ return voiceIds; },
-  get trackReport(){ return lastTrackReport; } };
+  get trackReport(){ return lastTrackReport; },
+  lockon: { load: loadLockon, detect: lockonDetect, decode: lockonDecode,
+    nms: lockonNms, step: lockonStep, sigDist: lockonSigDist,
+    stub(fn){ lockonOverride = fn; if (fn) lockonState = 'ready'; },
+    get state(){ return lockonState; }, get loadMs(){ return lockonLoadMs; } } };
 
 /* ---------------- "watch" front door ----------------
   Most of the family never edits anything — they watch. When the game already

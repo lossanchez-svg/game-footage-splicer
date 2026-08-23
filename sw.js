@@ -6,8 +6,9 @@
    visit late. Someone testing a fix would run the old code, see the same bug,
    and reasonably conclude the fix did not work. Falling back to the cache when
    the network fails keeps it fully offline-capable. */
-const CACHE = 'filmroom-v2';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-512.png', './apple-touch-icon.png'];
+const CACHE = 'filmroom-v3';
+const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-512.png', './apple-touch-icon.png',
+  './lockon.js' /* the on-device player detector — cached so tracking works offline too */];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.allSettled(ASSETS.map(a => c.add(a)))));

@@ -28,6 +28,17 @@ node multitrack.js     # multi-spotlight: two players followed in ONE pass on tw
 node smalltrack.js     # the real-world failure: a tiny player, a default ring, mown
                        # grass and look-alike team-mates — the ring must stay on HIM and
                        # not swap onto the team-mate crossing the other way
+node lockon.js         # Lock-On model runtime: the vendored detector boots from
+                       # file:// with zero network, YOLOX decode/NMS proved on
+                       # fabricated tensors, and index.html ALONE still runs the
+                       # v3.7 tracker (loader reports absent, report says so)
+node lockontrack.js    # tracking-by-detection, end to end with a SCRIPTED
+                       # detector (boxes from the fixtures' own motion math):
+                       # off-by-default gate, identity through a crossing, both
+                       # players in one pass, occlusion carried + re-found,
+                       # honest loss + one-tap resume stitching, the 40s no-cap
+                       # clip, same-kit check-this-moment flags, association
+                       # unit checks (motion keeps identity, colour splits teams)
 node touch.js          # touch/iPad suite: responsive layout + tap interactions
 node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise
@@ -71,7 +82,20 @@ node bundle.js         # season bundles: the hand-rolled zip opened by a REAL un
 FFMPEG=... node muxer.js  # proves the hand-rolled mp4 writer against REAL H.264 + AAC:
                           # ffmpeg-encoded samples through buildMp4(), round-tripped
                           # through the app's demuxMp4Audio(), probe + full decode
+node realeval/selftest.js # proves the real-footage eval harness itself: scoring on
+                          # fabricated paths where the right answer is known (switch
+                          # detection, honest-loss accounting, the WIN/TIE/LOSS gate),
+                          # then a real tracking run over synthetic ground truth
 ```
+
+### Real-footage eval (`realeval/`)
+
+The gate for every v4+ tracker change: replays REAL clips (gitignored, never in
+the repo) through the tracker and scores them against hand-dragged ground-truth
+paths. `node realeval/run.js` runs the set; `--save-baseline` freezes the
+numbers a change must beat; `--gate` fails on any regression. See
+`realeval/README.md` for how to add clips and why synthetic fixtures alone are
+not trusted for real-footage conclusions.
 
 Notes
 - Chromium is resolved from `$CHROME_PATH`, else the newest `chromium*` under

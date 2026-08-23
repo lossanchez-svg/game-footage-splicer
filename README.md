@@ -19,7 +19,10 @@ spotlight a player, save a moment. Skip it any time; restart it later from **❓
 Bookmark the page and it's a daily tool.
 
 > Tip: `index.html` is fully self-contained — you can copy it anywhere (Desktop, iCloud
-> Drive, a second Mac) and it just works.
+> Drive, a second Mac) and it just works. If you copy it somewhere, bring `lockon.js`
+> along too when you can: it is an optional companion file holding an on-device player
+> spotter that future smart-tracking uses. Everything works without it, and nothing
+> about your footage ever leaves your computer either way.
 
 ## Using it on an iPad (or phone)
 
