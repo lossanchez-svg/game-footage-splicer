@@ -1180,6 +1180,34 @@ ground truth in `tests/realeval/clips/` per `tests/realeval/README.md` — at le
 same-kit crossing (with a second hand-tracked ring on the look-alike), one occlusion,
 one camera pan, one where he leaves the frame.
 
+**First real-clip eval (2026-08-24) — the gate held, and it said NO FLIP YET.** Two
+iPhone clips with parent-grade ground truth (same-kit crossing: hand-tracked in the app,
+111 keys over 15.4s; occlusion: the parent's hand-tracked ring recovered by
+colour-extracting their annotated export after the project download lost the keys —
+validated against detections, with the only gaps exactly spanning the occlusion):
+
+| clip (full span) | v3.7 template | v4 detection | verdict |
+| --- | --- | --- | --- |
+| same-kit crossing 15.4s | on-him 18.2%, mean err 0.159 | **on-him 42.9%, mean err 0.119** | WIN |
+| occlusion 14.2s | on-him 15.7%, mean err 0.156 | on-him 17.1%, **mean err 0.441** | LOSS |
+
+Mixed verdict → the detection path stays off, exactly as the gate requires. The
+occlusion diagnosis (per-sample report vs truth): detection binds and tracks him
+correctly to ~t=4 (err 0.04–0.1), then loses him through a **hard camera whip during
+the occlusion** — it walks left while the camera and player go right, hunts honestly
+for four seconds, then re-acquires the wrong thing near the frame edge and finishes
+confident (conf 0.6, err 0.7). The template tracker fails the same stretch less badly
+(err 0.156) because it wanders rather than commits. Both trackers report 100% coverage
+and never say lost — so the never-silently-wrong invariant is not yet real on this
+footage for either path. Tuning targets, in order: (1) the hunt's re-find kit-colour
+gate accepted a non-player candidate; (2) association/coast behaviour under whip pans
+(the same failure family as v2.9.1's pan fixture, now with real numbers); (3) consider
+camera-motion compensation from detection deltas. Also learned the hard way and now
+guarded in the harness workflow: ground truth recovered from annotated exports must
+discriminate the ring's pure yellow (R≥G) from a referee's yellow-green shirt, and
+"max step speed" sanity checks are meaningless under camera pans. Every number above
+is reproducible from the committed baseline plus `--path detect` on the same clips.
+
 **Phases 2 + 3 — shipped OFF-BY-DEFAULT (build `v4.0p3`), gated on real clips.**
 `autoTrackDetect` tracks by detection: every player near the play is detected per
 sample (native-resolution crops, shared across spotlights), carried as its own
@@ -1658,6 +1686,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-23 | v6 planned: automation proposes, the human disposes — recall and mechanics automated, judgment kept by default | Choosing the moment IS the coaching (the founding guardrail), and full event-understanding from one sideline camera is research-grade anyway. A finder gated on agreeing with the moments dad already chose turns hours of scrubbing into minutes of choosing without becoming a different product |
 | 2026-08-23 | Autopilot (full automation) is a user-requested, opt-in tier, draft-only, graded by human edit-distance | User asked for the full-automation option (2026-08-23). "Professional level" is defined as a measured number — corrections per draft trending to zero — not a claim. Drafts land in the reel builder; nothing exports or posts on the machine's own authority |
 | 2026-08-23 | Agent involvement is metadata-first; pixels leave the machine only as per-run-approved stills, until an on-device model closes the gap (E2) | The privacy rule does not bend silently. The metadata socket (season JSON out, reel plan JSON in) gives an LLM everything judgment needs except pixels; the E1 stills tier makes any exception explicit and itemised; E2 is the end state where full autonomy and footage-never-leaves coexist |
+| 2026-08-24 | First real-clip eval verdict: same-kit WIN, occlusion LOSS — detection stays off | The gate exists precisely for this: detection nearly doubles on-him time through the same-kit crossing (42.9% vs 18.2%) but collapses in the occlusion clip's camera whip (mean err 0.441 vs 0.156), re-acquiring the wrong target after an honest hunt. A mixed scoreboard does not flip a default; it hands the next session its tuning targets with numbers attached |
 
 ## Working agreements for future sessions
 
