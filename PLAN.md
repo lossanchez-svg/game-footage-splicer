@@ -1180,6 +1180,50 @@ ground truth in `tests/realeval/clips/` per `tests/realeval/README.md` — at le
 same-kit crossing (with a second hand-tracked ring on the look-alike), one occlusion,
 one camera pan, one where he leaves the frame.
 
+**Tuning session 1 (2026-08-24) — every change measured against the real clips, two
+reverted, three landed.** The ground truth itself was hardened first: the recovered
+occlusion ring path turned out to be contaminated by a SECOND pure-yellow object (an
+orange-vested spectator passed the colour filter and the "truth" flip-flopped between
+ring and vest at 4000px/s), so the extractor now demands the ring's exact signature
+(G>185, R≥G, R−G<70) and the corrected path has zero direction flips. All prior
+occlusion numbers were artefacts of that corruption; the baseline was re-measured
+(template: 21.4% on-him / err 0.128) and every comparison below is on corrected truth.
+
+Landed, each isolated and measured: **(1) hunt isolation** — a hunting spot's track no
+longer participates in ordinary association, so a stray detection can never silently
+re-capture it past the frozen-kit and found-twice checks (this was the wrong re-acquire
+at the frame edge); **(2) local-first re-finds** — hunt candidates are chosen by
+nearness to where he was last seen, never by detection score, and reach grows at
+gate×3/s not ×8 (a high-scoring look-alike across the pitch must never outbid a
+plausible candidate where he vanished); **(3) collapse-triggered full-frame sweep +
+matched-residual pan compensation** — when association collapses (a camera whip:
+every detection shifts together), the next step detects the whole frame, the median
+matched residual measures the pan (a wide pass may estimate it but its pairings are
+never committed as identity), and all tracks shift so association re-runs in
+pan-corrected space at the NORMAL gate.
+
+Reverted, each caught by the gate: a roaming coverage tile (stale tracks fed the pan
+estimator systematic fake offsets toward whatever the crops covered — same-kit fell
+42.9%→6.5% on-him) and gate-widening during sweeps (a doubled association gate in a
+packed same-kit group slid the ring onto a parallel team-mate — same-kit 53.2%→6.5%).
+
+Net, detection path before → after tuning: same-kit **42.9% → 53.2% on-him, err
+0.119 → 0.0525**; occlusion err **0.410 → 0.296** (on-him 30%, unchanged). Versus the
+v3.7 baseline the scoreboard is still mixed (same-kit WIN 53.2 vs 18.2; occlusion:
+on-him better 30 vs 21.4, mean err worse 0.296 vs 0.128) → **the flip stays closed.**
+The residual occlusion failure is now precisely characterised: perfect tracking to
+t=4.75 (err 0.00), then a sharp direction reversal beside a same-kit team-mate coming
+out of the occlusion — the velocity prior points at the team-mate, every contested
+match reinforces it, and appearance cannot arbitrate. The tracker DOES flag the whole
+window as check-this-moment (invariant 3a honoured — it is uncertain-wrong, never
+silent-wrong), but flagged-wrong still scores as wrong, correctly. Next candidates,
+recorded rather than attempted at midnight: multi-hypothesis carry-through for
+contested same-kit splits, the ball-possession signal (v6-A), and one GATE-DESIGN
+question to settle first: compareCase treats a coverage drop as a regression, which
+means an honest mid-clip "lost him" can never beat a wandering 100%-coverage baseline —
+that contradicts invariant 3a's "admitting uncertainty must score better than
+switching" and needs a deliberate decision before the next tuning round.
+
 **First real-clip eval (2026-08-24) — the gate held, and it said NO FLIP YET.** Two
 iPhone clips with parent-grade ground truth (same-kit crossing: hand-tracked in the app,
 111 keys over 15.4s; occlusion: the parent's hand-tracked ring recovered by
@@ -1687,6 +1731,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-23 | Autopilot (full automation) is a user-requested, opt-in tier, draft-only, graded by human edit-distance | User asked for the full-automation option (2026-08-23). "Professional level" is defined as a measured number — corrections per draft trending to zero — not a claim. Drafts land in the reel builder; nothing exports or posts on the machine's own authority |
 | 2026-08-23 | Agent involvement is metadata-first; pixels leave the machine only as per-run-approved stills, until an on-device model closes the gap (E2) | The privacy rule does not bend silently. The metadata socket (season JSON out, reel plan JSON in) gives an LLM everything judgment needs except pixels; the E1 stills tier makes any exception explicit and itemised; E2 is the end state where full autonomy and footage-never-leaves coexist |
 | 2026-08-24 | First real-clip eval verdict: same-kit WIN, occlusion LOSS — detection stays off | The gate exists precisely for this: detection nearly doubles on-him time through the same-kit crossing (42.9% vs 18.2%) but collapses in the occlusion clip's camera whip (mean err 0.441 vs 0.156), re-acquiring the wrong target after an honest hunt. A mixed scoreboard does not flip a default; it hands the next session its tuning targets with numbers attached |
+| 2026-08-24 | Tuning is one-change-at-a-time, and the gate reverted two of five | The first attempt applied three changes at once, improved the clip it aimed at and silently destroyed the other (42.9%→6.5%); only isolation exposed which parts helped. A roaming tile poisoning the pan estimator and a widened association gate sliding the ring onto a team-mate are both failure modes no synthetic fixture predicted |
+| 2026-08-24 | Pan compensation reads only matched-pair residuals; wide passes may estimate but never commit | Estimating camera motion from unmatched tracks' nearest detections measures where the crops are, not where the camera went. And committing wide-gate matches trades the identity guarantee for coverage — the one trade this tracker must never make |
+| 2026-08-24 | Recovered-ring ground truth demands the ring's exact colour signature | An orange safety vest and a referee's shirt both pass a naive yellow filter, and either one silently corrupts the truth every number rests on. G>185 ∧ R≥G ∧ R−G<70 admits #ffd60a and excludes both — verified by zero direction flips in the re-extracted path |
 
 ## Working agreements for future sessions
 

@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0p3</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0p4</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2512,15 +2512,22 @@ async function autoTrackDetect(spots, dir){
   let huntTileIdx = 0;
 
   let t = t0;
+  let sweep = false;      // full-frame detection next step (association just collapsed)
   const more = () => dir > 0 ? t < T_LAST - 1e-3 : t > T_LAST + 1e-3;
   while (more() && !ui.trackCancel && st.some(x => !x.done)){
     t = dir > 0 ? Math.min(t + dt, T_LAST) : Math.max(t - dt, T_LAST);
     await seekTo(t);
     img = grab();
 
-    /* one detection sweep covers everyone whose crops overlap */
+    /* one detection sweep covers everyone whose crops overlap. If association
+       collapsed last step — what a camera whip looks like, every detection
+       shifting together while predictions stay put — sweep the WHOLE frame,
+       because crops centred on stale predictions are blind to where everyone
+       now is. */
     const centers = [];
-    for (const x of st){
+    if (sweep){
+      for (const tile of huntTiles) centers.push({ x: tile.x, y: tile.y });
+    } else for (const x of st){
       if (x.done) continue;
       let cx, cy;
       if (x.hunt){
@@ -2536,7 +2543,57 @@ async function autoTrackDetect(spots, dir){
     for (const c of centers) dets = dets.concat(await detsAt(c.x, c.y));
     dets = lockonNms(dets, 0.6);
 
-    const { matches, usedD, usedT } = lockonStep(tracks, dets, gate);
+    /* a hunting spot's track is OFF the table for ordinary association: it
+       has been wrong for a while by definition, and letting any nearby new
+       detection re-capture it silently skips every identity check the hunt
+       exists to enforce (frozen kit signature, found-twice-in-the-same-
+       place). Re-finding him is the hunt's decision alone. */
+    const huntingTracks = new Set(st.filter(x => x.hunt && !x.done).map(x => x.tr));
+    const assocTracks = tracks.filter(tr => !huntingTracks.has(tr));
+    /* the sweep widens detection COVERAGE, never the association gate — a
+       doubled gate in a packed same-kit group invites exactly the swap the
+       whole design exists to prevent (measured: it slid the ring onto a
+       parallel team-mate); the pan shift below is what absorbs global motion */
+    let { matches, usedD, usedT } = lockonStep(assocTracks, dets, gate);
+
+    /* camera-motion compensation, read ONLY from confident evidence: the
+       median residual (detection minus prediction) across MATCHED pairs.
+       Players' own motions are outliers around the global shift, so when the
+       camera pans the median IS the pan. Estimating from anything less than
+       matched pairs was measured and reverted — stale tracks' nearest-
+       detection offsets all point at whatever region the crops happen to
+       cover, and that fake pan dragged the ring off a clip it used to hold.
+       On a real pan, every track (and where a hunted player was last seen)
+       shifts, then association runs again so tracks the raw gate missed get
+       their second chance in pan-corrected space. Velocities stay residual —
+       motion relative to the camera, which is what identity needs. */
+    let panX = 0, panY = 0;
+    {
+      /* during a hard whip nothing matches at the normal gate at all — so a
+         WIDE pass exists purely to measure the shift: its pairings feed the
+         median and are thrown away, never committed as identity (committing
+         wide-gate matches was measured sliding the ring onto a team-mate) */
+      let est = matches;
+      if (est.length < 3 && sweep) est = lockonStep(assocTracks, dets, gate * 3).matches;
+      if (est.length >= 3){
+        const rx = est.map(m => (m.d.x + m.d.w / 2) - (m.tr.x + m.tr.vx)).sort((a, b) => a - b);
+        const ry = est.map(m => (m.d.y + m.d.h / 2) - (m.tr.y + m.tr.vy)).sort((a, b) => a - b);
+        const px = rx[rx.length >> 1], py = ry[ry.length >> 1];
+        if (Math.hypot(px, py) > gate * 0.35){
+          panX = px; panY = py;
+          for (const tr of tracks){ tr.x = clamp(tr.x + panX, 0, W - 1); tr.y = clamp(tr.y + panY, 0, H - 1); }
+          for (const x of st){
+            x.lastGoodX = clamp(x.lastGoodX + panX, 0, W - 1);
+            x.lastGoodY = clamp(x.lastGoodY + panY, 0, H - 1);
+          }
+          ({ matches, usedD, usedT } = lockonStep(assocTracks, dets, gate));
+        }
+      }
+    }
+    sweep = (() => {
+      const live = assocTracks.filter(tr => tr.missed <= 4);
+      return live.length >= 3 && matches.length < live.length * 0.5;
+    })();
     for (const m of matches){
       const tr = m.tr, d = m.d;
       const cx = d.x + d.w / 2, cy = d.y + d.h / 2;
@@ -2601,15 +2658,21 @@ async function autoTrackDetect(spots, dir){
            start-of-run signature — the adaptive one may have drifted), be
            reachable from where he was last seen, and be found twice in the
            same place before it counts (the v3.7 lesson, kept). */
-        let cand = null;
+        let cand = null, candDd = Infinity;
         for (const d of dets){
           const owner = tracks.find(o => o.det === d && o !== tr);
           if (owner && owner.hits > 3) continue;   // an established somebody-else
           if (lockonSigDist(d.sig, x.sig0) > SAME_KIT * 1.6) continue;
           const dd = Math.hypot(d.x + d.w / 2 - x.lastGoodX, d.y + d.h / 2 - x.lastGoodY);
-          const reach = gate * 2 + gate * 8 * Math.abs(t - x.lastGoodT);
+          /* reach grows slowly, and the NEAREST wearer of his kit wins — not
+             the best-scoring one. Within a team the kit gate cannot separate
+             players (that is the whole same-kit problem), so distance from
+             where he was last seen is the only honest tiebreak; a
+             high-scoring look-alike across the pitch must never outbid a
+             plausible candidate right where he disappeared. */
+          const reach = gate * 2 + gate * 3 * Math.abs(t - x.lastGoodT);
           if (dd > reach) continue;
-          if (!cand || d.score > cand.score) cand = d;
+          if (dd < candDd){ cand = d; candDd = dd; }
         }
         const near = cand && x.reFound &&
           Math.hypot(cand.x + cand.w / 2 - x.reFound.x, cand.y + cand.h / 2 - x.reFound.y) < gate * 0.8;
@@ -2632,6 +2695,7 @@ async function autoTrackDetect(spots, dir){
       }
       x.trace.push({ t: +t.toFixed(3), conf: +conf.toFixed(2), note,
         tracks: tracks.length, margin: tr.margin == null ? null : +tr.margin.toFixed(2),
+        pan: (panX || panY) ? [Math.round(panX), Math.round(panY)] : undefined,
         x: +(tr.x / W).toFixed(3), y: +(tr.y / H).toFixed(3) });
       x.spot.keys = [...x.beforeKeys, ...x.samples, ...x.afterKeys];   // live feedback
       if (!x.done) worst = Math.min(worst, conf);
@@ -5786,7 +5850,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v4.0p3';
+const APP_BUILD = 'v4.0p4';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
