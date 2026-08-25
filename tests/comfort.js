@@ -202,6 +202,29 @@ const CONTRAST_AUDIT = `(() => {
     await page.$$eval('#trendBody .said', els => els.length) >= 2);
   await page.click('#trendClose');
 
+  // ---- Reel Studio, with a real plan on screen ----
+  await page.evaluate(() => {
+    localStorage.setItem('filmroom:playerCard', JSON.stringify({
+      name: 'Jude Sanchez', jersey: '81', gradYear: '2032',
+      positions: 'Winger', savedAt: new Date().toISOString() }));
+    localStorage.setItem('filmroom:reelStudio', JSON.stringify({
+      title: 'Season reel', savedAt: new Date().toISOString(),
+      items: [{ gameName: 'season1.mp4', date: Date.UTC(2026, 2, 1), clipId: 'a',
+        title: 'Great scan', rating: 'positive', tIn: 0, tOut: 2, trimIn: 0, trimOut: 2,
+        spotlight: true, freezeIntro: true, label: 'season1 · Mar 1, 2026',
+        tags: ['Scanned before receiving'], notes: '' }] }));
+  });
+  await page.reload();
+  await page.click('#btnStudio');
+  await page.waitForSelector('#studioModal.open');
+  await page.waitForTimeout(500);
+  bad = await page.evaluate(CONTRAST_AUDIT);
+  check('Reel Studio meets WCAG AA' + (bad.length ? ' — ' + bad.join(' | ') : ''),
+    bad.length === 0);
+  check('the storyboard actually rendered, so the audit above covered it',
+    await page.$$eval('#sbList .sbCard', els => els.length) === 1);
+  await page.click('#studioClose');
+
   // ---- the two onboarding surfaces are audited too ----
   await page.evaluate(() => {
     const p = window.__filmroom.getProject();

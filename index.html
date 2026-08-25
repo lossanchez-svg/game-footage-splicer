@@ -264,37 +264,76 @@
   body.bigText .kpi .fig{font-size:34px;}
   body.bigText .kpi .cap{font-size:14px;}
 
-  /* ---- Reel Studio (v5) ---- */
+  /* ---- Reel Studio (v5) — its own calm, premium register ----
+     Tokens first: the studio reads quieter and more spacious than the editing
+     surfaces around it, and every motion is one short ease-out. */
+  :root{
+    --st-gap:14px;            /* the studio's base spacing unit */
+    --st-radius:12px;
+    --st-ease:cubic-bezier(.2,.7,.3,1);
+    --st-fast:140ms;
+    --st-card:#161d27;        /* one step calmer than --bg3 */
+    --st-card-edge:#232c38;
+  }
   #studioModal .box{width:min(880px, 96vw);}
-  .sbList{margin-top:8px;}
-  .sbCard{display:flex; align-items:center; gap:10px; background:var(--bg3);
-    border:1px solid var(--line); border-radius:var(--radius); padding:9px 10px;
-    margin-bottom:6px;}
-  .sbCard.dragging{opacity:.45;}
+  #studioModal h3{letter-spacing:-.2px;}
+  #studioModal .trendHead{padding-bottom:10px; border-bottom:1px solid var(--line);
+    margin-bottom:10px;}
+  .sbList{margin-top:10px;}
+  .sbCard{display:flex; align-items:center; gap:12px; background:var(--st-card);
+    border:1px solid var(--st-card-edge); border-radius:var(--st-radius);
+    padding:11px 12px; margin-bottom:8px;
+    transition:transform var(--st-fast) var(--st-ease),
+      box-shadow var(--st-fast) var(--st-ease),
+      border-color var(--st-fast) var(--st-ease),
+      opacity var(--st-fast) var(--st-ease);
+    animation:sbIn 220ms var(--st-ease);}
+  @keyframes sbIn{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+  .sbCard:hover{transform:translateY(-1px); border-color:#31547a;
+    box-shadow:0 4px 14px rgba(0,0,0,.28);}
+  .sbCard.dragging{opacity:.45; transform:scale(.995);}
   .sbCard.missing{border-style:dashed; opacity:.75;}
-  .sbHandle{cursor:grab; color:var(--dim); font-size:16px; padding:6px 4px;
-    touch-action:none; user-select:none;}
-  .sbOrd{color:var(--dim); font-variant-numeric:tabular-nums; min-width:20px;
-    text-align:right; font-size:12px;}
+  .sbHandle{cursor:grab; color:var(--dim); font-size:16px; padding:8px 5px;
+    touch-action:none; user-select:none; border-radius:8px;
+    transition:background var(--st-fast) var(--st-ease);}
+  .sbHandle:hover{background:rgba(139,148,158,.12);}
+  .sbHandle:active{cursor:grabbing;}
+  .sbOrd{color:var(--dim); font-variant-numeric:tabular-nums; min-width:22px;
+    text-align:right; font-size:13px; font-weight:700; opacity:.75;}
   .sbMain{flex:1; min-width:0;}
-  .sbTitle{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .sbTitle{font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    letter-spacing:-.1px;}
   .sbSub{color:var(--dim); font-size:12px; display:flex; gap:8px; flex-wrap:wrap;
-    align-items:center;}
-  .sbSub input{font-size:12px; background:none; border:none; border-bottom:1px dashed var(--line);
-    color:var(--dim); padding:1px 2px; min-width:120px; flex:1;}
-  .sbCtl{display:flex; align-items:center; gap:4px; flex-wrap:wrap; justify-content:flex-end;}
-  .sbTog{padding:3px 8px; font-size:12px; border-radius:20px;}
-  .sbTog.on{background:var(--accent-btn); border-color:var(--accent-btn); color:#fff;}
-  .sbTrim{display:flex; align-items:center; gap:2px; color:var(--dim); font-size:12px;
-    font-variant-numeric:tabular-nums;}
+    align-items:center; margin-top:2px;}
+  .sbSub input{font-size:12px; background:none; border:none;
+    border-bottom:1px dashed transparent; color:var(--dim); padding:1px 2px;
+    min-width:120px; flex:1; transition:border-color var(--st-fast) var(--st-ease),
+      color var(--st-fast) var(--st-ease);}
+  .sbSub input:hover{border-bottom-color:var(--line);}
+  .sbSub input:focus{border-bottom-color:var(--accent2); color:var(--text); outline:none;}
+  .sbCtl{display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end;}
+  .sbTog{padding:4px 9px; font-size:12px; border-radius:20px;
+    transition:background var(--st-fast) var(--st-ease),
+      border-color var(--st-fast) var(--st-ease), color var(--st-fast) var(--st-ease);}
+  /* on = a quiet tint, not a solid block: with ring+intro on by default,
+     every card would otherwise shout five green pills at once */
+  .sbTog.on{background:rgba(63,185,80,.13); border-color:rgba(63,185,80,.55);
+    color:#57d06d;}
+  .sbTrim{display:flex; align-items:center; gap:3px; color:var(--dim); font-size:12px;
+    font-variant-numeric:tabular-nums; margin-top:6px;
+    animation:sbIn 180ms var(--st-ease);}
   body.bigText .sbSub, body.bigText .sbOrd, body.bigText .sbTog, body.bigText .sbTrim{font-size:14px;}
-  .sbDrop{height:3px; border-radius:2px; background:var(--accent2); margin:2px 0 8px;
-    display:none;}
-  .studioHint{color:var(--dim); font-size:12px; margin:6px 0;}
+  .studioHint{color:var(--dim); font-size:12.5px; margin:8px 0 6px; font-style:italic;}
   body.bigText .studioHint{font-size:14px;}
   .checkRow{display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;}
-  .checkRow .chip{cursor:default;}
+  .checkRow .chip{cursor:default; transition:border-color var(--st-fast) var(--st-ease),
+    color var(--st-fast) var(--st-ease);}
   .checkRow .chip.got{border-color:var(--pos); color:var(--pos);}
+  @media (prefers-reduced-motion: reduce){
+    .sbCard, .sbTrim{animation:none;}
+    .sbCard, .sbCard:hover, .sbHandle, .sbSub input, .sbTog, .checkRow .chip{transition:none;}
+    .sbCard:hover{transform:none;}
+  }
 
   .trendSection{margin-top:22px;}
   .trendSection h4{font-size:11px; text-transform:uppercase; letter-spacing:.8px;

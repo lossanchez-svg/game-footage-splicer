@@ -1511,11 +1511,23 @@ optional bring-your-own-audio explicitly out of v1 unless trivially cheap.
       READ ME FIRST.txt saying what each piece is for. Gated on the player card
       existing (the kit is written FROM it) with a plain-words toast otherwise.
       `tests/kit.js`, 15 checks incl. real `unzip` listing.)*
-- [ ] **E — Design-system pass.** Tokens (type scale, spacing, radii, motion), a
+- [x] **E — Design-system pass.** Tokens (type scale, spacing, radii, motion), a
       considered light+dark palette, micro-interactions on the storyboard, and a
       Reel Studio surface that reads as a distinct, calm, premium mode. Judged on
       walkthrough screenshots against the Meta/Apple/Google bar. The Grandma Test still
       applies: every next step visible, in plain words.
+      *(Shipped 2026-08-25. Studio design tokens (`--st-*`: spacing, radius, one
+      ease-out curve, one duration) and a calmer card surface one step below the
+      app's panels; micro-interactions throughout the storyboard — cards lift on
+      hover, enter with a 220ms rise, labels underline on focus, toggles and
+      checklist ticks transition — all behind `prefers-reduced-motion`. Toggle ON
+      state is a quiet green tint, not a solid block: with ring+intro on by default,
+      solid pills made every card shout. The light/dark palette decision is recorded
+      in the log: the app itself stays deliberately dark (a film room), and the
+      OUTWARD artifacts — the player page, the exports — are the considered light
+      surface. Judged on screenshots at each step; the Reel Studio surface is now
+      part of the comfort.js WCAG-AA contrast audit with a real plan rendered, so
+      the bar is enforced by the suite, not by one review.)*
 - [ ] **F — Tests + docs.** Suites for profile persistence, builder ordering, render
       correctness (muxer-level checks like `bundle.js` does), reframe-follows-track,
       one-pager integrity; README + walkthrough updates; PLAN.md log.
@@ -1874,6 +1886,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | A missing game's plays are named first; the render skips them only on a second press | Silently rendering 14 of 16 planned plays is the export equivalent of a silent tracker switch — the parent finds out from a coach. The first press names what cannot be read and relabels the button with what a second press will do; nothing proceeds on the machine's own judgment |
 | 2026-08-25 | The kit's chapter times come from the render's own arithmetic, never re-derived | Two implementations of "when does play 3 start" WILL drift the first time a card length changes, and a chapter that lands mid-play makes the whole description look sloppy to exactly the audience it is for. kitChapters mirrors the program math (3.0 opening, 1.4 freeze, trims); the test pins both to the same numbers |
 | 2026-08-25 | The player page is one file with everything inlined, hosted nowhere by us | A parent's hosting story is "attach it to the email" or "drag it onto any free host" — a page with external assets breaks in the first case and rots in the second. Data-URI photo + poster keep the promise the app has always made: nothing leaves the machine until the parent sends it |
+| 2026-08-25 | The app stays dark; the outward artifacts (player page, cards, exports) are the light surface | A film room is dark for the same reason a cinema is — the footage is the bright thing. Retrofitting a second in-app palette would double the AA audit surface for a mode nobody asked for, while the things a stranger sees (the coach's email attachment, the player page) already got the considered light treatment. If a light mode is ever wanted, it is a deliberate future decision, not a checkbox |
+| 2026-08-25 | Studio motion is one curve, one duration, and off under prefers-reduced-motion | Micro-interactions read premium only when they are uniform — five different easings read as jitter. One 140ms ease-out for state changes, one 220ms rise for entering cards, and the media query turns all of it off for anyone who asked their OS for less motion |
+| 2026-08-25 | New surfaces enter the contrast audit the day they ship | comfort.js now opens Reel Studio with a real plan rendered before auditing. The v2 lesson (an audit that does not walk a screen silently exempts it) applied while the paint is wet, not after a regression |
 
 ## Working agreements for future sessions
 
