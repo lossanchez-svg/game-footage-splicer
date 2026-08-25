@@ -34,6 +34,8 @@ const STUB = `(spec) => {
     matchBall: t => (t < 2 ? { x: 578 - 45 * t, y: 108 + 50 * Math.cos(1.1 * t) }
       : t <= 5 ? { x: 58 + 40 * t, y: 180 + 60 * Math.sin(t) }
       : { x: 600, y: 60 }),
+    /* stands still for 4s, then runs (v6-C: a clip with quiet air to trim) */
+    parkThenRun: t => (t < 4 ? { x: 100, y: 180 } : { x: 100 + 55 * (t - 4), y: 180 }),
     longBall: t => ({ x: 12 + 6.5 * t, y: 90 + 30 * Math.sin(0.4 * t) }),
     smHim: t => ({ x: 74 + 58 * t, y: 160 + 22 * Math.sin(1.5 * t) }),
     smOther: t => ({ x: 524 - 40 * t, y: 129 + 18 * Math.cos(1.2 * t) }),

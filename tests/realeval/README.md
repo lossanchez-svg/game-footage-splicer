@@ -142,6 +142,16 @@ and prints, per game: recall of his chosen moments (bar ≥80%) and review cost
 in candidates per accept (bar ≤4). The finder ships as an offer either way —
 this gate decides when its numbers are worth advertising.
 
+## The Auto-Cut gate (v6)
+
+`node realeval/autocut.js` measures the tightening proposals against the
+parent's own hand-set trims, on the same project+report pairs the Moment
+Finder gate uses: each saved clip is widened 3s per side (the loose cut a
+person starts from), the SHIPPED `proposeCut()` tightens it in the real page,
+and the proposal's ends are compared with where the parent actually cut.
+Ship bar: median within 1.5s per end. No-opinion clips are reported, not
+punished — a null is honest.
+
 ## The 9:16 reframe check (v5)
 
 `node realeval/reframe.js` measures the social cut's acceptance on the real

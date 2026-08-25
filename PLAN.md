@@ -1648,13 +1648,27 @@ it is graded — not trusted.
       accept) against any project with saved clips, replaying the SHIPPED arithmetic
       in the real page; the eval projects hold zero saved clips today, so the gate
       opens on the user's real games. `tests/moments.js`, 18 checks.)*
-- [ ] **C — Auto-Cut assist.** Proposed In/Out tightening for any clip, from track +
+- [x] **C — Auto-Cut assist.** Proposed In/Out tightening for any clip, from track +
       ball data: start on the pass that begins the move, end a beat after the payoff,
       cut on the touch rather than mid-run; a speed-ramp suggestion for social cuts.
       Always shown as a proposal ("Tighten to the action?") with one-tap accept and
       undo. Gate: measured against the hand-set In/Out points of the existing clip
       library — median difference from his own edits within ~1.5s per end — plus every
       proposal is reversible.
+      *(Built 2026-08-25; the gate instrument awaits hand-broken-down games, like
+      B's. `proposeCut(clip, report)` — pure, sharing ONE `traceSpeeds()` with the
+      Moment Finder — finds the active stretch (adaptive threshold, possession counts
+      as action), starts 1s before it, ends on the last touch + 0.8s when the ball
+      data shows one (else last activity + 1s), only ever proposes WITHIN the clip,
+      and returns null rather than nagging: short clip, uncovered span, already
+      tight. The proposal carries the ramp — the fastest 1.5s inside the kept range —
+      stored on the clip as `c.ramp` for the social cut to use. In the app the
+      "✂ Tighten to the action?" button exists only while a proposal does (a
+      tracking report covering the clip in this session); one tap trims via
+      `mutate()` and the toast's own Undo restores ends and ramp exactly.
+      `realeval/autocut.js` grades the shipped arithmetic in the real page: each of
+      his clips widened 3s per side, re-tightened, medians per end vs his real cuts
+      (bar 1.5s), no-opinion nulls reported apart. `tests/autocut.js`, 14 checks.)*
 - [ ] **D — the metadata socket (import/export contract).** Two versioned files that
       make outside intelligence pluggable without the app ever needing a network:
       `filmroom-metadata.json` (everything about a season EXCEPT pixels — clips, tags,
@@ -1961,6 +1975,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | The sprint threshold is adaptive above a floor; a quiet game yields nothing | "Fast for HIM in THIS game" is the right question (a U11 sprint is not a U17 sprint), but a pure percentile would crown the 85th percentile of strolling in a boring half. max(floor, p85) means excitement is never invented — the empty state says a quiet half can be honest |
 | 2026-08-25 | Box entries and true recovery runs are OUT of the finder's v1, said plainly | Both need pitch geometry a single sideline camera does not provide. Faking them from frame position would produce confident nonsense at exactly the moments a parent trusts the label — sustained sprints stand in as "a long hard run" until geometry exists, and the spec text stays in the workstream for when it does |
 | 2026-08-25 | Rejections are counted, never learned from; accepted clips name their provenance | Predictability is a feature: a finder that silently reweights after every "no" becomes unexplainable within a week. The counts are shown to the user in the tally ("the counts are only counts"), and an accepted clip's notes say the scan found it — choosing stays visibly the human's |
+| 2026-08-25 | Auto-Cut proposes only WITHIN the clip, and null is a first-class answer | Extending a clip touches footage the parent never chose to include — a different decision than trimming quiet air. And a proposal that always exists becomes noise: no coverage, too short, already tight are all "stay quiet", so the ✂ button's mere presence carries information |
+| 2026-08-25 | Auto-Cut's gate widens his clips 3s per side and re-tightens them | His hand-set trims are the only professional-grade cut data that exists for this footage. The widen-then-tighten experiment measures the exact question ("would the assist land where he did, starting from a loose cut?") without needing anyone to produce new ground truth |
+| 2026-08-25 | The speed-ramp is carried on the clip (c.ramp), never applied by the assist | A ramp is a taste decision for a social cut, not a trim. Storing the fastest stretch as data lets the studio's social render offer it later, while accepting a tighten today changes nothing about playback speed — one proposal, one meaning |
 
 ## Working agreements for future sessions
 

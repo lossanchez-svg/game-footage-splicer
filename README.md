@@ -176,6 +176,14 @@ no. Nothing is chosen for you and nothing changes behind your back — rejection
 only counted, and the tally says so. A long game takes a while to scan; the progress
 bar and Esc-to-cancel are the same ones tracking always had.
 
+### ✂ Tighten to the action — the cut assistant
+After a tracking run, any clip with quiet air around the play grows a small
+**✂ Tighten to the action?** offer in the clip list: one tap trims it to start just
+before the move and end a beat after his last touch, and the toast's **↩ Undo** puts
+it back exactly. It only appears when the tracking data actually covers the clip and
+actually has an opinion — no offer means the clip is already tight, too short, or not
+scanned yet.
+
 ### 🎬 Clip library
 Press **Start clip here** and **End clip here** around any moment, then **＋ Save clip**
 to keep it with tags:

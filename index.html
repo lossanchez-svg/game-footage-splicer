@@ -3384,17 +3384,17 @@ async function autoTrack(arg, dir = 1){
    games the parent already broke down by hand: the finder must surface what
    THEY chose, at a precision worth their minutes (v6-B gate: ~80% recall,
    no more than ~3 rejects per accept, measured by realeval/moments.js). */
-function momentCandidates(report, opts = {}){
+/* ground-ish speed per trace sample: his motion in the frame PLUS the
+   camera's own measured pan — a cameraman follows the play, so frame speed
+   alone under-reads exactly the runs that matter. Shared by the Moment
+   Finder and the Auto-Cut assist so there is exactly one copy of the
+   arithmetic (the kit-chapters lesson). */
+function traceSpeeds(report){
   const res = report && report.result && report.result[0];
-  if (!res || !res.samples || res.samples.length < 8) return [];
+  if (!res || !res.samples) return [];
   const W = (report.working && report.working.W) || 1280;
   const H = (report.working && report.working.H) || 720;
   const s = res.samples.filter(a => a.x != null && a.y != null);
-  if (s.length < 8) return [];
-
-  /* ground-ish speed: his motion in the frame PLUS the camera's own measured
-     pan — a cameraman follows the play, so frame speed alone under-reads
-     exactly the runs that matter */
   const sp = [];
   for (let i = 1; i < s.length; i++){
     const dt = Math.max(0.05, s[i].t - s[i - 1].t);
@@ -3403,6 +3403,14 @@ function momentCandidates(report, opts = {}){
     sp.push({ t: s[i].t, v, tracks: s[i].tracks || 0 });
   }
   for (let i = 1; i < sp.length; i++) sp[i].v = sp[i - 1].v * 0.5 + sp[i].v * 0.5;
+  return sp;
+}
+
+function momentCandidates(report, opts = {}){
+  const res = report && report.result && report.result[0];
+  if (!res || !res.samples || res.samples.length < 8) return [];
+  const sp = traceSpeeds(report);
+  if (sp.length < 7) return [];
 
   const vs = sp.map(a => a.v).sort((a, b) => a - b);
   const pct = f => vs[Math.min(vs.length - 1, Math.floor(vs.length * f))] || 0;
@@ -3449,6 +3457,61 @@ function momentCandidates(report, opts = {}){
   }
   return merged.map(m => ({ start: +m.start.toFixed(2), end: +m.end.toFixed(2),
     score: m.score, reasons: m.reasons, why: m.reasons.join(' · ') }));
+}
+
+/* ---------------- Auto-Cut assist (v6-C) ----------------
+   A proposed tightening of a clip's In/Out, from the same track + ball data:
+   start just before the action begins, end a beat after the payoff — cut on
+   the touch, not mid-run. PURE over (clip, report) so the gate can measure
+   its proposals against the parent's own hand-set trims (realeval/autocut.js:
+   median within ~1.5s per end). Returns null rather than nagging when the
+   report does not cover the clip, the clip is already short, or the proposal
+   would barely change anything. Only ever proposes WITHIN the clip. */
+function proposeCut(clip, report, opts = {}){
+  const res = report && report.result && report.result[0];
+  if (!res || !res.samples) return null;
+  const len = clip.tOut - clip.tIn;
+  if (len < (opts.minLen != null ? opts.minLen : 4)) return null;
+  const sp = traceSpeeds(report).filter(a => a.t >= clip.tIn - 0.01 && a.t <= clip.tOut + 0.01);
+  /* the report must actually cover most of the clip to have an opinion */
+  if (sp.length < 8 || sp[0].t > clip.tIn + 1.5 || sp[sp.length - 1].t < clip.tOut - 1.5) return null;
+
+  const vs = sp.map(a => a.v).sort((a, b) => a - b);
+  const pct = f => vs[Math.min(vs.length - 1, Math.floor(vs.length * f))] || 0;
+  const ACTIVE = Math.max(0.08, pct(0.7));
+  const poss = (res.possession || []).filter(w => w.end > clip.tIn && w.start < clip.tOut);
+  const inPoss = t => poss.some(w => t >= w.start && t <= w.end);
+  const active = sp.filter(a => a.v >= ACTIVE || inPoss(a.t));
+  if (!active.length) return null;
+
+  const A0 = active[0].t, A1 = active[active.length - 1].t;
+  /* end on the touch when the ball data shows one: the last possession end
+     inside the clip beats a raw activity tail */
+  const lastTouch = poss.length ? Math.max(...poss.map(w => w.end)) : null;
+  const endAnchor = (lastTouch != null && lastTouch >= A1 - 1.5) ? lastTouch : A1;
+  let tIn = clamp(A0 - 1.0, clip.tIn, clip.tOut - 1);
+  let tOut = clamp(endAnchor + (lastTouch != null && endAnchor === lastTouch ? 0.8 : 1.0),
+    tIn + (opts.minKeep != null ? opts.minKeep : 2), clip.tOut);
+  if (tIn <= clip.tIn + 0.5 && tOut >= clip.tOut - 0.5) return null;   // already tight
+
+  /* the fastest 1.5s inside the kept range: the speed-ramp suggestion for
+     a social cut (consumed by the studio; carried, never applied here) */
+  let ramp = null, best = -1;
+  for (const a of sp){
+    if (a.t < tIn || a.t + 1.5 > tOut) continue;
+    const win = sp.filter(b => b.t >= a.t && b.t <= a.t + 1.5);
+    const v = win.reduce((x, b) => x + b.v, 0) / Math.max(1, win.length);
+    if (v > best){ best = v; ramp = { start: +a.t.toFixed(2), end: +(a.t + 1.5).toFixed(2) }; }
+  }
+
+  const saved = len - (tOut - tIn);
+  return {
+    tIn: +tIn.toFixed(2), tOut: +tOut.toFixed(2), ramp,
+    saved: +saved.toFixed(1),
+    why: (poss.length ? 'the action starts and ends on his touches'
+      : 'the action sits in the middle of this clip')
+      + ' — about ' + saved.toFixed(0) + 's of quiet can go',
+  };
 }
 
 async function findHisMoments(){
@@ -4685,9 +4748,25 @@ function renderClipList(){
         <button class="miniBtn" data-act="compare" data-tip="Put this moment next to another clip and play them side by side.">⚖</button>
         <button class="miniBtn" data-act="voice" data-tip="Record yourself talking over this clip. Your voice goes into the video when you save it — so he hears the coaching even when you are not there.">🎤${voiceIds.has(c.id) ? '✓' : ''}</button>
         <button class="miniBtn" data-act="edit" data-tip="Change the name, the labels, the note or the question on this clip.">✏️ Edit</button>
+        ${proposeCut(c, lastTrackReport) ? '<button class="miniBtn" data-act="tighten" data-tip="The tracking data thinks this clip has quiet air around the action. One tap trims it to start just before the play and end a beat after — and Undo puts it straight back.">✂ Tighten to the action?</button>' : ''}
         <button class="miniBtn danger" data-act="del" data-tip="Delete this clip.">🗑</button>
       </div>`;
     el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
+    const tightenBtn = el.querySelector('[data-act=tighten]');
+    if (tightenBtn) tightenBtn.onclick = () => {
+      const prop = proposeCut(c, lastTrackReport);
+      if (!prop) return renderClipList();
+      const was = { tIn: c.tIn, tOut: c.tOut };
+      mutate(() => {
+        c.tIn = prop.tIn; c.tOut = prop.tOut;
+        if (prop.ramp) c.ramp = prop.ramp;   // the fastest bit — for social cuts
+      });
+      toast('Tightened: ' + prop.why + '. It now runs ' + fmtDur(c.tOut - c.tIn) + '.',
+        8000, { label: '↩ Undo', fn(){
+          mutate(() => { c.tIn = was.tIn; c.tOut = was.tOut; delete c.ramp; });
+          toast('Put back the way you had it.');
+        } });
+    };
     el.querySelector('[data-act=play]').onclick = () => playClip(c);
     el.querySelector('[data-act=export]').onclick = () => doExport(c.tIn, c.tOut, c.title, c);
     el.querySelector('[data-act=reel]').onclick = () => {
@@ -6907,6 +6986,7 @@ window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP
     photo: () => libIdb.get('playerPhoto'), sync: syncPlayerCardWithFolder },
   studio: { get: () => studio, pool: () => studioPool, suggestions: studioSuggestions,
     kit: () => studioKitParts() },
+  proposeCut,
   moments: { candidates: momentCandidates,
     open(cands){
       ui.momentCands = cands.map(c => ({ ...c, state: null }));
