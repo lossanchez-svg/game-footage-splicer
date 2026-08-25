@@ -167,6 +167,15 @@ shows a question — *"What are the options here? What would you do?"* — so he
 **before** seeing what actually happened. Then hit play and compare his answer with
 reality. This is the heart of building game IQ from film.
 
+### ✨ Find his moments — stop scrubbing
+Put a ring on him, press **✨ Find his moments** (Clips tab), and the game is scanned
+end to end — his time on the ball, his sprints, the busy spells around him — into a
+short list of candidate moments in plain words. ▶ plays a three-second look; **yes**
+saves it as an ordinary clip you can retitle and trim like any other; **no** is just
+no. Nothing is chosen for you and nothing changes behind your back — rejections are
+only counted, and the tally says so. A long game takes a while to scan; the progress
+bar and Esc-to-cancel are the same ones tracking always had.
+
 ### 🎬 Clip library
 Press **Start clip here** and **End clip here** around any moment, then **＋ Save clip**
 to keep it with tags:

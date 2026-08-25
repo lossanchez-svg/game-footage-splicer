@@ -132,6 +132,16 @@ The harness excludes that ring from him/decoys automatically and prints a
 `ball:` line per case — coverage where marked, mean error, on-ball % — plus
 the possession windows the tracker derived.
 
+## The Moment Finder gate (v6)
+
+`node realeval/moments.js` grades the finder against games already broken
+down by hand: a case folder whose project has his SAVED CLIPS (they are the
+ground truth for "what this family calls a moment") plus a detect report over
+the same span. It replays the SHIPPED `momentCandidates()` in the real page
+and prints, per game: recall of his chosen moments (bar ≥80%) and review cost
+in candidates per accept (bar ≤4). The finder ships as an offer either way —
+this gate decides when its numbers are worth advertising.
+
 ## The 9:16 reframe check (v5)
 
 `node realeval/reframe.js` measures the social cut's acceptance on the real

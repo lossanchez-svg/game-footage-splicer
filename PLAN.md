@@ -1619,7 +1619,7 @@ it is graded — not trusted.
       on-ball%) and prints ball + possession lines; selftest proves the scorer on
       fabricated paths; lockontrack S9 proves the whole chain with a scripted
       ball whose possession window is known by construction.)*
-- [ ] **B — Moment Finder.** A whole-game scan (chunked, progress + cancel,
+- [x] **B — Moment Finder.** A whole-game scan (chunked, progress + cancel,
       overnight-friendly on an hour of film) that emits candidate moments
       `{start, end, why}`: on-ball touches (from A), sprints (track velocity), box
       entries, defensive recovery runs, dense-action stretches near him. Presented as
@@ -1630,6 +1630,24 @@ it is graded — not trusted.
       chose himself, at a precision that keeps review under a few minutes per game
       (roughly: no more than 3 rejects per accept). The clips he already saved ARE the
       ground truth for "what this family calls a moment".
+      *(Built 2026-08-25; the recall gate is an instrument awaiting hand-broken-down
+      games. "✨ Find his moments" in the Clips tab: ring on him → one press runs the
+      detection tracker to the end of the game (its own progress + cancel carry the
+      long wait; a fresh scan spanning ≥60% of the game is reused instead of re-run)
+      → `momentCandidates()` — PURE over the tracking report — turns his path, the
+      camera's measured per-step pan (frame speed alone under-reads exactly the runs
+      the camera follows), the per-sample crowd count and the possession windows into
+      padded, merged candidates said in plain words ("he had the ball · a sprint").
+      The sprint threshold is adaptive above a floor, so a quiet game yields nothing
+      rather than its own 85th percentile of strolling. Checklist modal: ▶ 3-second
+      look, YES creates an ordinary clip (notes name the finder — provenance visible),
+      NO is counted only, and the tally says so out loud. Box entries and true
+      recovery runs need pitch geometry one sideline camera does not give — recorded
+      as out of v1 rather than faked; sustained sprints stand in as "a long hard run".
+      `realeval/moments.js` grades recall (≥80%) + review cost (≤4 candidates per
+      accept) against any project with saved clips, replaying the SHIPPED arithmetic
+      in the real page; the eval projects hold zero saved clips today, so the gate
+      opens on the user's real games. `tests/moments.js`, 18 checks.)*
 - [ ] **C — Auto-Cut assist.** Proposed In/Out tightening for any clip, from track +
       ball data: start on the pass that begins the move, end a beat after the payoff,
       cut on the touch rather than mid-run; a speed-ramp suggestion for social cuts.
@@ -1939,6 +1957,10 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | The ball rides the same inference and is invisible to player logic except through one filter | Class 32 comes out of the tensor the model already ran, so ball detection is free at decode time; kind:'ball' plus a single filter in detsAt means the entire v4 identity machinery is provably untouched — measured bit-identical player metrics on all three real clips with the ball on |
 | 2026-08-25 | The ball gets one dedicated magnified look per step; coverage numbers published honestly | Measured: a ~10px blurred ball is invisible to YOLOX-Nano in a 416 crop, and even 4× magnification finds nothing in the same-kit crowd (probed to threshold 0.03). A tighter crop at the ball's predicted spot (else his feet) lifted near-play coverage 17.7→31.3% pan, 0→9.7% same-kit, players unchanged. Recorded conclusion: possession is a sometimes-signal on real youth footage — the Moment Finder must treat it as one voice among several, never the backbone |
 | 2026-08-25 | A ball is only ever RECORDED when seen; a GT ring labelled "ball" is never him and never a decoy | A coasted ball is a guess and everything downstream (possession, moments) would inherit the guess — the honest-loss invariant applied to a second object. And counting the ball ring as a look-alike would fabricate identity switches in the eval, corrupting the very numbers the gate reads |
+| 2026-08-25 | The Moment Finder is pure over the tracking report; the gate replays the SHIPPED arithmetic in the real page | Purity is what makes the gate honest: realeval/moments.js grades the exact candidates a user would see, against games broken down by hand, with no second copy to drift (the kit-chapters lesson). It also makes the whole finder testable on constructed traces where the right answer is known |
+| 2026-08-25 | The sprint threshold is adaptive above a floor; a quiet game yields nothing | "Fast for HIM in THIS game" is the right question (a U11 sprint is not a U17 sprint), but a pure percentile would crown the 85th percentile of strolling in a boring half. max(floor, p85) means excitement is never invented — the empty state says a quiet half can be honest |
+| 2026-08-25 | Box entries and true recovery runs are OUT of the finder's v1, said plainly | Both need pitch geometry a single sideline camera does not provide. Faking them from frame position would produce confident nonsense at exactly the moments a parent trusts the label — sustained sprints stand in as "a long hard run" until geometry exists, and the spec text stays in the workstream for when it does |
+| 2026-08-25 | Rejections are counted, never learned from; accepted clips name their provenance | Predictability is a feature: a finder that silently reweights after every "no" becomes unexplainable within a week. The counts are shown to the user in the tally ("the counts are only counts"), and an accepted clip's notes say the scan found it — choosing stays visibly the human's |
 
 ## Working agreements for future sessions
 

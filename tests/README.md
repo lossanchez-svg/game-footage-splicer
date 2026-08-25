@@ -93,6 +93,12 @@ node kit.js            # the sharing kit (v5): YouTube title/description with ch
                        # his card, the self-contained one-page player site (poster
                        # frame baked in, nothing fetched), the zip verified by real
                        # unzip, and the no-card guard
+node moments.js        # the Moment Finder (v6): pure candidates on constructed
+                       # reports (possession + sprint found and padded, quiet game
+                       # yields nothing, pan counts toward speed), the recall/review-
+                       # cost gate arithmetic, and end to end with the scripted
+                       # detector — one press scans, YES becomes a clip, NO is only
+                       # counted
 node trends.js         # progress dashboard: cross-game totals from localStorage and the
                        # Games folder, a bar per game in date order, most-used labels,
                        # early-vs-recent movement, filters, and the CSV export
