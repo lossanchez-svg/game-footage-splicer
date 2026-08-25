@@ -264,6 +264,38 @@
   body.bigText .kpi .fig{font-size:34px;}
   body.bigText .kpi .cap{font-size:14px;}
 
+  /* ---- Reel Studio (v5) ---- */
+  #studioModal .box{width:min(880px, 96vw);}
+  .sbList{margin-top:8px;}
+  .sbCard{display:flex; align-items:center; gap:10px; background:var(--bg3);
+    border:1px solid var(--line); border-radius:var(--radius); padding:9px 10px;
+    margin-bottom:6px;}
+  .sbCard.dragging{opacity:.45;}
+  .sbCard.missing{border-style:dashed; opacity:.75;}
+  .sbHandle{cursor:grab; color:var(--dim); font-size:16px; padding:6px 4px;
+    touch-action:none; user-select:none;}
+  .sbOrd{color:var(--dim); font-variant-numeric:tabular-nums; min-width:20px;
+    text-align:right; font-size:12px;}
+  .sbMain{flex:1; min-width:0;}
+  .sbTitle{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .sbSub{color:var(--dim); font-size:12px; display:flex; gap:8px; flex-wrap:wrap;
+    align-items:center;}
+  .sbSub input{font-size:12px; background:none; border:none; border-bottom:1px dashed var(--line);
+    color:var(--dim); padding:1px 2px; min-width:120px; flex:1;}
+  .sbCtl{display:flex; align-items:center; gap:4px; flex-wrap:wrap; justify-content:flex-end;}
+  .sbTog{padding:3px 8px; font-size:12px; border-radius:20px;}
+  .sbTog.on{background:var(--accent-btn); border-color:var(--accent-btn); color:#fff;}
+  .sbTrim{display:flex; align-items:center; gap:2px; color:var(--dim); font-size:12px;
+    font-variant-numeric:tabular-nums;}
+  body.bigText .sbSub, body.bigText .sbOrd, body.bigText .sbTog, body.bigText .sbTrim{font-size:14px;}
+  .sbDrop{height:3px; border-radius:2px; background:var(--accent2); margin:2px 0 8px;
+    display:none;}
+  .studioHint{color:var(--dim); font-size:12px; margin:6px 0;}
+  body.bigText .studioHint{font-size:14px;}
+  .checkRow{display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;}
+  .checkRow .chip{cursor:default;}
+  .checkRow .chip.got{border-color:var(--pos); color:var(--pos);}
+
   .trendSection{margin-top:22px;}
   .trendSection h4{font-size:11px; text-transform:uppercase; letter-spacing:.8px;
     color:var(--dim); margin-bottom:2px;}
@@ -451,6 +483,7 @@
   <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
   <button id="btnBundle" data-tip="Pack everything from this game into one file to keep — the project, a spreadsheet of the moments, his answers, the boards and your voice-overs, and optionally a video of every moment.">📦 Keep this game</button>
   <div class="divider"></div>
+  <button id="btnStudio" data-tip="Build his recruiting reel from the best moments of the whole season — pick the plays, put them in order, and it remembers the plan.">🎬 Reel Studio</button>
   <button id="btnTrends" data-tip="How he is doing across every game you have broken down — what he does well, what keeps coming up, and what is getting better.">📈 Progress</button>
   <button id="btnTextSize" data-tip="Make everything on screen bigger — text, buttons, everything. Press it again to go back to normal.">Aa</button>
   <button id="btnHelp" data-tip="How everything works, plus a button to run the walkthrough again.">❓ Help</button>
@@ -966,6 +999,36 @@
 </div>
 
 <!-- ======================= PROGRESS DASHBOARD ======================= -->
+<!-- ======================= REEL STUDIO ======================= -->
+<div class="modal" id="studioModal">
+  <div class="box">
+    <div class="trendHead">
+      <h3 style="margin:0">🎬 Reel Studio</h3>
+      <span class="hint" style="margin:0" id="studioScope"></span>
+    </div>
+    <div class="hint" id="studioIntro">His recruiting reel, planned from the whole season. Pick the plays below, put them in order, trim them tight — the plan is saved as you go, and it becomes one video a coach can watch.</div>
+    <div class="fieldRow" style="margin-top:10px">
+      <label>Reel title</label>
+      <input type="text" id="studioTitle" style="flex:1" placeholder="e.g. Jude Sanchez — 2027 season" data-tip="What this reel is called. It goes on the opening card and in the file name when the video is made.">
+    </div>
+    <div class="studioHint" id="studioCoachHint">Your best play goes first — coaches decide in the first 30 seconds.</div>
+    <div id="studioChecklist" style="display:none"></div>
+    <div class="sbList" id="sbList"></div>
+    <div class="hint" id="sbEmpty">Nothing planned yet. Add plays from the season list below, or let it draft a starting order from his strengths — you rearrange, it remembers.</div>
+    <div class="chipRow" style="margin-top:8px">
+      <button class="primary" id="studioDraft" data-tip="Fill the storyboard with his strength clips from every game, in a sensible starting order. You drag them into the order you want — nothing is final.">✨ Draft it for me</button>
+      <button id="studioClear" style="display:none" data-tip="Empty the storyboard and start the plan again. The clips themselves stay in their games.">Start the plan over</button>
+    </div>
+    <div class="trendSection">
+      <h4>From his season</h4>
+      <div class="why" id="studioPoolWhy">Every moment you have saved, best material first — strengths, then teachable moments. Work-ons stay out of a recruiting reel.</div>
+      <div id="studioPool"></div>
+    </div>
+    <div class="hint" id="studioNext" style="margin-top:12px">📽 Making the storyboard into the finished video — 16:9 for coaches, 9:16 for socials — arrives with the next update. Your plan is saved and ready for it.</div>
+    <div class="foot"><button class="primary" id="studioClose" data-tip="Close the studio. The plan keeps itself saved — come back any time.">Close</button></div>
+  </div>
+</div>
+
 <div class="modal" id="trendModal">
   <div class="box">
     <div class="trendHead">
@@ -1721,6 +1784,7 @@ async function renderLibrary(){
   } catch(e){}
 
   syncPlayerCardWithFolder();   // his card travels with the folder; newest wins
+  syncStudioWithFolder();       // so does the reel plan
 
   const files = [], sidecars = new Set();
   try {
@@ -6221,6 +6285,7 @@ window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP
   setGameDir: d => { gameDir = d; },
   playerCard: { get: () => playerCard, lines: reelCardLines, fileBase: profileFileBase,
     photo: () => libIdb.get('playerPhoto'), sync: syncPlayerCardWithFolder },
+  studio: { get: () => studio, pool: () => studioPool, suggestions: studioSuggestions },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
   drawBoardCard,
   get voiceIds(){ return voiceIds; },
@@ -6586,6 +6651,410 @@ const RATING_META = [
   ['negative', '🔧 Work-ons',  'var(--neg)'],
   ['neutral',  '💡 Teachable', 'var(--warn)'],
 ];
+/* ---------------- Reel Studio (v5-B): the storyboard ----------------
+  The recruiting reel is planned across the WHOLE season, so it cannot live in
+  any one game's project. The plan lives in localStorage, travels with the
+  Games folder as reels.filmroom.json (newest savedAt wins, both ways — the
+  player-card rule), and stores a snapshot of each picked clip so the
+  storyboard renders even when a game's project is elsewhere; snapshots are
+  re-synced from the real clips every time the studio opens, and a clip whose
+  game has vanished is marked honestly rather than dropped. */
+const STUDIO_KEY = 'filmroom:reelStudio';
+const STUDIO_SIDECAR = 'reels.filmroom.json';
+let studio = null;            // { title, items:[...], savedAt }
+let studioPool = [];          // [{gameName, date, clip}] gathered when the studio opens
+let studioTrimOpen = null;    // which item id has its trim row unfolded
+
+function loadStudio(){
+  try { studio = JSON.parse(localStorage.getItem(STUDIO_KEY) || 'null'); } catch(e){ studio = null; }
+  if (!studio || !Array.isArray(studio.items)) studio = { title: '', items: [], savedAt: null };
+}
+function saveStudio(){
+  studio.savedAt = new Date().toISOString();
+  try { localStorage.setItem(STUDIO_KEY, JSON.stringify(studio)); } catch(e){}
+  writeStudioSidecar();
+}
+async function writeStudioSidecar(){
+  if (!gameDir || !studio || !studio.savedAt) return;
+  try {
+    if (!await canWriteFolder(gameDir)) return;
+    const h = await gameDir.getFileHandle(STUDIO_SIDECAR, { create:true });
+    const w = await h.createWritable();
+    await w.write(JSON.stringify(studio));
+    await w.close();
+  } catch(e){ /* no folder or no permission — localStorage carries on alone */ }
+}
+async function syncStudioWithFolder(){
+  if (!gameDir) return;
+  let filed = null;
+  try {
+    const h = await gameDir.getFileHandle(STUDIO_SIDECAR);
+    filed = JSON.parse(await (await h.getFile()).text());
+  } catch(e){}
+  if (filed && Array.isArray(filed.items) && savedAtOf(filed) > savedAtOf(studio)){
+    studio = filed;
+    try { localStorage.setItem(STUDIO_KEY, JSON.stringify(studio)); } catch(e){}
+    toast('🎬 His reel plan came along from your Games folder.');
+    if ($('#studioModal').classList.contains('open')) renderStudio();
+  } else if (studio && studio.savedAt && savedAtOf(studio) > savedAtOf(filed)){
+    writeStudioSidecar();
+  }
+}
+
+/* durations read rounded ("3:42"), unlike the frame-accurate transport clock */
+function fmtDur(t){
+  t = Math.round(Math.max(0, t || 0));
+  const m = Math.floor(t / 60), s = t % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function studioGameLabel(name, date){
+  const base = String(name || '').replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').trim();
+  if (!date) return base;
+  const d = new Date(date);
+  return base + ' · ' + MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+}
+
+async function studioCollect(){
+  const games = await collectGames();
+  const pool = [];
+  for (const g of games)
+    for (const c of g.clips)
+      pool.push({ gameName: g.name, date: g.date, clip: c });
+  return pool;
+}
+/* what makes one saved moment more reel-worthy than another, before a person
+   decides: a strength beats a teachable moment, and a play someone bothered to
+   diagram, question or annotate carries more evidence than a bare clip */
+function suggestScore(e){
+  return (e.clip.rating === 'positive' ? 200 : e.clip.rating === 'neutral' ? 100 : 0)
+    + (e.clip.boardId ? 20 : 0) + (e.clip.ask ? 10 : 0)
+    + Math.min(9, ((e.clip.notes || '').length) / 40);
+}
+function studioSuggestions(){
+  const used = new Set(studio.items.map(i => i.gameName + ' ' + i.clipId));
+  return studioPool
+    .filter(e => e.clip.rating !== 'negative')
+    .filter(e => !used.has(e.gameName + ' ' + e.clip.id))
+    .sort((a, b) => suggestScore(b) - suggestScore(a) || b.date - a.date);
+}
+function studioItemFrom(e){
+  return {
+    gameName: e.gameName, date: e.date, clipId: e.clip.id,
+    title: e.clip.title || 'Saved moment', rating: e.clip.rating,
+    tIn: e.clip.tIn, tOut: e.clip.tOut,
+    trimIn: e.clip.tIn, trimOut: e.clip.tOut,
+    spotlight: true, freezeIntro: true,
+    label: studioGameLabel(e.gameName, e.date),
+    tags: e.clip.tags || [], notes: e.clip.notes || '',
+  };
+}
+/* the plan holds snapshots; the games hold the truth. On open, every snapshot
+   is refreshed from its real clip, and one whose game is gone is marked. */
+function studioSyncSnapshots(){
+  for (const it of studio.items){
+    const e = studioPool.find(p => p.gameName === it.gameName && p.clip.id === it.clipId);
+    if (!e){ it.missing = true; continue; }
+    delete it.missing;
+    it.title = e.clip.title || it.title;
+    it.rating = e.clip.rating;
+    it.tags = e.clip.tags || []; it.notes = e.clip.notes || '';
+    if (e.clip.tIn !== it.tIn || e.clip.tOut !== it.tOut){
+      it.tIn = e.clip.tIn; it.tOut = e.clip.tOut;
+      it.trimIn = clamp(it.trimIn, it.tIn, it.tOut - 0.5);
+      it.trimOut = clamp(it.trimOut, it.trimIn + 0.5, it.tOut);
+    }
+  }
+}
+
+const studioSpan = it => Math.max(0, (it.trimOut - it.trimIn));
+function studioTotals(){
+  const media = studio.items.reduce((s, it) => s + studioSpan(it), 0);
+  const games = new Set(studio.items.map(i => i.gameName)).size;
+  return { n: studio.items.length, media, games };
+}
+
+/* the coaching that would otherwise be a tutorial, one quiet line at a time */
+function studioHintLine(){
+  const t = studioTotals();
+  if (!t.n) return 'Your best play goes first — coaches decide in the first 30 seconds.';
+  if (t.media > 330) return 'Over five and a half minutes — coaches rarely watch past five. Drop the maybes.';
+  if (t.n < 8) return '3–5 minutes is the sweet spot: 20–35 short plays, best first.';
+  return 'End on a high note — the last play is remembered too.';
+}
+
+/* what a coach looks for, by the position on his player card */
+const POSITION_CHECK = {
+  'Goalkeeper': [['Shot stopping', /save|stop|shot/i], ['Distribution', /distribut|throw|goal kick|pass/i], ['Commanding the box', /box|cross|claim|punch/i], ['1v1s', /1v1|one.v.one/i]],
+  'Defender': [['1v1 defending', /1v1|defend|tackle/i], ['Aerials', /aerial|header|head/i], ['First pass forward', /pass|forward|build/i], ['Recovery runs', /recover|track|chase/i]],
+  'Def Mid': [['Breaking up play', /intercept|tackle|break/i], ['Switching play', /switch|long|diagonal/i], ['Scanning', /scan|shoulder|check/i], ['Press resistance', /press|turn|escape/i]],
+  'Center Mid': [['Scanning', /scan|shoulder|check/i], ['Line-breaking passes', /line|break|through|split/i], ['Press resistance', /press|turn|escape/i], ['Work rate', /work|press|recover|track/i]],
+  'Attacking Mid': [['1v1s', /1v1|move|beat|dribbl/i], ['Final-third passes', /through|assist|final|key pass/i], ['Scanning', /scan|shoulder|check/i], ['Finishing', /finish|goal|shot/i]],
+  'Winger': [['1v1s', /1v1|move|beat|dribbl/i], ['Crosses', /cross|deliver/i], ['Runs in behind', /behind|run|depth/i], ['Work rate back', /track|recover|defend/i]],
+  'Striker': [['Finishing', /finish|goal|shot/i], ['Hold-up play', /hold|link|lay/i], ['Runs in behind', /behind|run|depth/i], ['Pressing', /press|chase/i]],
+};
+function studioChecklist(){
+  const pos = playerCard && String(playerCard.positions || '').split(/[,;·|]/)[0].trim();
+  const list = POSITION_CHECK[pos];
+  const host = $('#studioChecklist');
+  if (!list){ host.style.display = 'none'; return; }
+  const hay = studio.items.map(it =>
+    [it.title, it.notes, (it.tags || []).join(' ')].join(' ')).join('\n');
+  host.style.display = '';
+  host.innerHTML = '<div class="studioHint">What coaches look for in a ' +
+    escapeHtml(pos.toLowerCase()) + ' — covered so far:</div>';
+  const row = document.createElement('div');
+  row.className = 'checkRow';
+  for (const [label, re] of list){
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (re.test(hay) ? ' got' : '');
+    chip.textContent = (re.test(hay) ? '✓ ' : '') + label;
+    chip.setAttribute('data-tip', re.test(hay)
+      ? 'The plan already shows this — at least one picked play mentions it.'
+      : 'Nothing in the plan shows this yet. If he has a moment like it, a coach will look for it.');
+    row.appendChild(chip);
+  }
+  host.appendChild(row);
+}
+
+function renderStudio(){
+  $('#studioTitle').value = studio.title || '';
+  const t = studioTotals();
+  $('#studioScope').textContent = t.n
+    ? `${t.n} play${t.n === 1 ? '' : 's'} · ${fmtDur(t.media)} · from ${t.games} game${t.games === 1 ? '' : 's'}`
+    : '';
+  $('#studioCoachHint').textContent = studioHintLine();
+  $('#sbEmpty').style.display = t.n ? 'none' : '';
+  $('#studioDraft').style.display = t.n ? 'none' : '';
+  $('#studioClear').style.display = t.n ? '' : 'none';
+  studioChecklist();
+  renderStoryboard();
+  renderStudioPool();
+}
+
+function renderStoryboard(){
+  const host = $('#sbList');
+  host.innerHTML = '';
+  studio.items.forEach((it, i) => {
+    const card = document.createElement('div');
+    card.className = 'sbCard' + (it.missing ? ' missing' : '');
+    card.dataset.i = i;
+    const ratingMark = it.rating === 'positive' ? '👍' : it.rating === 'neutral' ? '💡' : '🎬';
+
+    const handle = document.createElement('span');
+    handle.className = 'sbHandle'; handle.textContent = '⠿';
+    handle.setAttribute('data-tip', 'Drag this play up or down to change its place in the reel.');
+    card.appendChild(handle);
+
+    const ord = document.createElement('span');
+    ord.className = 'sbOrd'; ord.textContent = (i + 1) + '.';
+    card.appendChild(ord);
+
+    const main = document.createElement('div');
+    main.className = 'sbMain';
+    const title = document.createElement('div');
+    title.className = 'sbTitle';
+    title.textContent = ratingMark + ' ' + it.title + (it.missing ? '  ⚠' : '');
+    if (it.missing) title.setAttribute('data-tip',
+      'The game this play belongs to is not in this browser or the Games folder any more. Its place in the plan is kept in case it comes back.');
+    main.appendChild(title);
+    const sub = document.createElement('div');
+    sub.className = 'sbSub';
+    const dur = document.createElement('span');
+    dur.textContent = fmtDur(studioSpan(it));
+    sub.appendChild(dur);
+    const lbl = document.createElement('input');
+    lbl.type = 'text'; lbl.value = it.label || '';
+    lbl.setAttribute('data-tip', 'The context line printed under this play — which game, when. Filled in from the game; change it to whatever a coach should read.');
+    lbl.onchange = () => { it.label = lbl.value.trim(); saveStudio(); };
+    sub.appendChild(lbl);
+    main.appendChild(sub);
+    if (studioTrimOpen === i){
+      const tr = document.createElement('div');
+      tr.className = 'sbTrim';
+      const mk = (txt, tip, fn) => {
+        const b = document.createElement('button');
+        b.className = 'miniBtn'; b.textContent = txt;
+        b.setAttribute('data-tip', tip); b.onclick = fn;
+        return b;
+      };
+      tr.append('Starts ' + (it.trimIn - it.tIn).toFixed(1) + 's in ');
+      tr.appendChild(mk('−½s', 'Start this play half a second earlier.', () => {
+        it.trimIn = clamp(it.trimIn - 0.5, it.tIn, it.trimOut - 0.5); saveStudio(); renderStudio();
+      }));
+      tr.appendChild(mk('+½s', 'Start this play half a second later — tighter is almost always better.', () => {
+        it.trimIn = clamp(it.trimIn + 0.5, it.tIn, it.trimOut - 0.5); saveStudio(); renderStudio();
+      }));
+      tr.append(' · ends ' + (it.tOut - it.trimOut).toFixed(1) + 's early ');
+      tr.appendChild(mk('−½s', 'End this play half a second sooner — cut it right after the moment lands.', () => {
+        it.trimOut = clamp(it.trimOut - 0.5, it.trimIn + 0.5, it.tOut); saveStudio(); renderStudio();
+      }));
+      tr.appendChild(mk('+½s', 'Let this play run half a second longer.', () => {
+        it.trimOut = clamp(it.trimOut + 0.5, it.trimIn + 0.5, it.tOut); saveStudio(); renderStudio();
+      }));
+      main.appendChild(tr);
+    }
+
+    card.appendChild(main);
+
+    const ctl = document.createElement('div');
+    ctl.className = 'sbCtl';
+    const tog = (on, txt, tip, fn) => {
+      const b = document.createElement('button');
+      b.className = 'miniBtn sbTog' + (on ? ' on' : '');
+      b.textContent = txt; b.setAttribute('data-tip', tip); b.onclick = fn;
+      return b;
+    };
+    ctl.appendChild(tog(it.spotlight, '🎯 Ring', it.spotlight
+      ? 'The spotlight ring is drawn on him in this play. Tap to leave it off.'
+      : 'The spotlight ring is off for this play. Tap to draw it on him.',
+      () => { it.spotlight = !it.spotlight; saveStudio(); renderStudio(); }));
+    ctl.appendChild(tog(it.freezeIntro, '⏸ Intro', it.freezeIntro
+      ? 'This play opens with a short freeze so a coach can find him first. Tap to skip it.'
+      : 'No freeze before this play. Tap to open it with a short “watch him” freeze.',
+      () => { it.freezeIntro = !it.freezeIntro; saveStudio(); renderStudio(); }));
+    ctl.appendChild(tog(studioTrimOpen === i, '✂ Trim', 'Trim where this play starts and ends, half a second at a time.',
+      () => { studioTrimOpen = studioTrimOpen === i ? null : i; renderStudio(); }));
+    const up = tog(false, '↑', 'Move this play earlier in the reel.', () => {
+      if (i === 0) return;
+      [studio.items[i-1], studio.items[i]] = [studio.items[i], studio.items[i-1]];
+      saveStudio(); renderStudio();
+    });
+    if (i === 0) up.disabled = true;
+    ctl.appendChild(up);
+    const down = tog(false, '↓', 'Move this play later in the reel.', () => {
+      if (i === studio.items.length - 1) return;
+      [studio.items[i+1], studio.items[i]] = [studio.items[i], studio.items[i+1]];
+      saveStudio(); renderStudio();
+    });
+    if (i === studio.items.length - 1) down.disabled = true;
+    ctl.appendChild(down);
+    const rm = tog(false, '✕', 'Take this play out of the plan. The clip itself stays in its game.', () => {
+      const snap = studio.items.splice(i, 1)[0];
+      if (studioTrimOpen === i) studioTrimOpen = null;
+      saveStudio(); renderStudio();
+      toast('Taken out of the plan.', 7000, { label: '↩ Undo', fn: () => {
+        studio.items.splice(Math.min(i, studio.items.length), 0, snap);
+        saveStudio(); renderStudio();
+      }});
+    });
+    rm.classList.add('danger');
+    ctl.appendChild(rm);
+    card.appendChild(ctl);
+
+    host.appendChild(card);
+    sbDragWire(card, handle, i);
+  });
+}
+
+/* drag to reorder: pointer-based so it works with a mouse and a finger alike */
+let sbDrag = null;
+function sbDragWire(card, handle, i){
+  handle.onpointerdown = ev => {
+    ev.preventDefault();
+    handle.setPointerCapture(ev.pointerId);
+    sbDrag = { from: i, to: i };
+    card.classList.add('dragging');
+  };
+  handle.onpointermove = ev => {
+    if (!sbDrag) return;
+    const cards = [...$('#sbList').children];
+    let to = studio.items.length - 1;
+    for (let k = 0; k < cards.length; k++){
+      const r = cards[k].getBoundingClientRect();
+      if (ev.clientY < r.top + r.height / 2){ to = k; break; }
+    }
+    if (to !== sbDrag.to){
+      sbDrag.to = to;
+      cards.forEach((c, k) => c.style.borderTop =
+        (k === to && to !== sbDrag.from) ? '2px solid var(--accent2)' : '');
+    }
+  };
+  handle.onpointerup = () => {
+    if (!sbDrag) return;
+    const { from, to } = sbDrag;
+    sbDrag = null;
+    card.classList.remove('dragging');
+    [...$('#sbList').children].forEach(c => c.style.borderTop = '');
+    if (to !== from){
+      const [moved] = studio.items.splice(from, 1);
+      studio.items.splice(to, 0, moved);
+      studioTrimOpen = null;
+      saveStudio();
+    }
+    renderStudio();
+  };
+}
+
+function renderStudioPool(){
+  const host = $('#studioPool');
+  host.innerHTML = '';
+  const sug = studioSuggestions();
+  if (!studioPool.length){
+    host.innerHTML = '<div class="hint">No saved moments yet anywhere. Break a game down first — save his best plays as clips — and they line up here.</div>';
+    return;
+  }
+  if (!sug.length){
+    host.innerHTML = '<div class="hint">Every strength and teachable moment of the season is already in the plan.</div>';
+    return;
+  }
+  for (const e of sug.slice(0, 40)){
+    const row = document.createElement('div');
+    row.className = 'annItem';
+    row.style.cssText = 'display:flex; align-items:center; gap:10px';
+    const mark = e.clip.rating === 'positive' ? '👍' : '💡';
+    const main = document.createElement('div');
+    main.style.cssText = 'flex:1; min-width:0';
+    const t1 = document.createElement('div');
+    t1.textContent = mark + ' ' + (e.clip.title || 'Saved moment');
+    t1.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600';
+    const t2 = document.createElement('div');
+    t2.textContent = studioGameLabel(e.gameName, e.date) + ' · ' + fmtDur(Math.max(0, e.clip.tOut - e.clip.tIn));
+    t2.style.cssText = 'color:var(--dim); font-size:12px';
+    main.appendChild(t1); main.appendChild(t2);
+    row.appendChild(main);
+    const add = document.createElement('button');
+    add.className = 'miniBtn';
+    add.textContent = '➕ Add';
+    add.setAttribute('data-tip', 'Put this play into the reel plan, at the end. Drag it into place from there.');
+    add.onclick = () => {
+      studio.items.push(studioItemFrom(e));
+      saveStudio(); renderStudio();
+    };
+    row.appendChild(add);
+    host.appendChild(row);
+  }
+}
+
+async function openStudio(){
+  $('#studioModal').classList.add('open');
+  $('#studioPool').innerHTML = '<div class="hint">Reading his season…</div>';
+  studioPool = await studioCollect();
+  studioSyncSnapshots();
+  renderStudio();
+}
+$('#btnStudio').onclick = openStudio;
+$('#studioClose').onclick = () => { $('#studioModal').classList.remove('open'); studioTrimOpen = null; };
+$('#studioTitle').onchange = () => { studio.title = $('#studioTitle').value.trim(); saveStudio(); };
+$('#studioDraft').onclick = () => {
+  const sug = studioSuggestions().slice(0, 20);
+  if (!sug.length) return toast('Nothing to draft from yet — save some clips in his games first, then come back.', 5000);
+  studio.items = sug.map(studioItemFrom);
+  saveStudio(); renderStudio();
+  toast('A starting order is drafted from his strengths. Put his single best play first — drag it to the top.', 6500);
+};
+$('#studioClear').onclick = () => {
+  if (!studio.items.length) return;
+  const snap = studio.items.slice();
+  studio.items = [];
+  studioTrimOpen = null;
+  saveStudio(); renderStudio();
+  toast('The plan is empty again.', 7000, { label: '↩ Undo', fn: () => {
+    studio.items = snap; saveStudio(); renderStudio();
+  }});
+};
+loadStudio();
+
 let trendGames = [];          // [{name, date, clips[], sessions}] newest last
 
 /* every project this browser knows about, plus anything in the Games folder */

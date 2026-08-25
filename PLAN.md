@@ -1446,13 +1446,30 @@ optional bring-your-own-audio explicitly out of v1 unless trivially cheap.
       `reelCardLines()` so tests assert language, not pixels — and reel exports are
       named "Name - Grad year - Position - Title". No card → everything exactly as
       before. `tests/profile.js`, 25 checks.)*
-- [ ] **B — Reel Builder.** A storyboard mode over the existing cross-game clip
+- [x] **B — Reel Builder.** A storyboard mode over the existing cross-game clip
       library: auto-suggested draft (strength-tagged and highly-rated clips, ordered
       best-first), drag to reorder, per-clip trim, spotlight toggle, freeze-frame intro
       toggle, context labels auto-filled from the game data. Coach-guidance built into
       the UI as quiet hints ("your best play goes first — scouts decide in 30 seconds"),
       never as a wall of text. Position-aware suggestions (GK/CB/FB/CM/W/ST attribute
       checklists).
+      *(Shipped 2026-08-25: 🎬 Reel Studio in the top bar — works with no video open,
+      because the reel is about the season, not a game. The pool reuses the trends
+      dashboard's collectGames (localStorage + Games folder sidecars); suggestions are
+      strengths first then teachables, scored up for boards/questions/notes, work-ons
+      never offered. "✨ Draft it for me" proposes, the person disposes: drag-handle
+      reorder (pointer events, finger-friendly) plus ↑↓, half-second trims folded
+      behind ✂ and bounded by the clip, 🎯 spotlight / ⏸ freeze-intro toggles stored
+      per play for the C render, labels auto-filled "game · date" and editable.
+      Coaching is one quiet contextual line (best-first / 3–5 min sweet spot / over
+      five minutes / end high), and the position checklist reads his player card and
+      ticks what the plan's titles+tags+notes already show. The plan stores clip
+      SNAPSHOTS re-synced from the real games on open — a vanished game marks its
+      plays ⚠ missing, never drops them. Persists as filmroom:reelStudio + travels
+      as reels.filmroom.json (newest savedAt wins, both ways). Removing a play and
+      clearing the plan carry their own Undo. Rendering the storyboard into the
+      finished video is Workstream C, and the surface says so plainly.
+      `tests/studio.js`, 32 checks.)*
 - [ ] **C — Render pipeline.** Extends the existing WebCodecs + hand-rolled muxer:
       title/outro/freeze-frame cards drawn by `drawScene`-grade canvas code (crisp
       typography, no clip-art), 16:9 master and 9:16 auto-reframe outputs, voice-over
@@ -1817,6 +1834,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | The player card's photo lives in IndexedDB; the card's JSON never carries it locally | The voice-over lesson applied before it bit: a photo as a data-URL would eat the localStorage quota autosave depends on, and a full card with photo is exactly the kind of thing that silently kills persistence months later. The folder sidecar DOES carry the photo (a real file has no quota), which is what lets the card travel between devices whole |
 | 2026-08-25 | The reel card's words come from reelCardLines(), separate from the drawing | The buildFastAudio lesson: what can actually be wrong is the LANGUAGE (whose name, which roster parts, in what order), and asserting pixels tests the canvas API instead. Tests read the lines; the draw function consumes them |
 | 2026-08-25 | player.filmroom.json lives in the Games folder ROOT, newest savedAt wins both ways | The card is about the player, not about any one game — pinning it to a game's sidecar would strand it on whichever video was open when it was filled in. Same conflict rule as game sidecars (newest wins, adopting says so), so there is exactly one continuity story to understand |
+| 2026-08-25 | The reel plan stores clip snapshots, re-synced from the real games each time the studio opens | The plan spans games whose projects live in other browsers and folder sidecars; referencing by id alone would blank the storyboard whenever a game is elsewhere. Snapshots keep it readable, re-syncing keeps it truthful, and a vanished game marks its plays ⚠ rather than silently dropping them — losing a parent's curation because a file moved is the storyboard equivalent of a silent tracker switch |
+| 2026-08-25 | Work-ons are never suggested for the recruiting reel; the draft proposes, the person decides | A recruiting reel is an argument FOR him — auto-inserting his worst moments because they were dutifully tagged would punish the discipline of honest tagging. And the draft is explicitly a starting order ("put his best play first — drag it to the top"): choosing the moment stays the parent's job, per the founding guardrail |
+| 2026-08-25 | Reel Studio coaching is one contextual line, chosen by the plan's current state | The research (best play first, 3–5 minutes, end high) has to reach a parent who will never read a guide. One quiet line that changes as the plan changes teaches at the moment it applies; four static paragraphs above the storyboard would be the wall of text the spec forbids |
 
 ## Working agreements for future sessions
 

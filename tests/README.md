@@ -72,6 +72,12 @@ node profile.js        # his player card (v5): save + reload persistence, the re
                        # leading with his name, coach-friendly file names, the photo
                        # shrunk into IndexedDB, and the card travelling with the Games
                        # folder (player.filmroom.json, newest savedAt wins, both ways)
+node studio.js         # Reel Studio storyboard (v5): season pool best-first with
+                       # work-ons excluded, draft + drag/button reorder, spotlight and
+                       # freeze-intro toggles, bounded half-second trims, editable
+                       # context labels, undo-able removes, the position checklist from
+                       # his player card, vanished games marked not dropped, and the
+                       # plan travelling via reels.filmroom.json
 node trends.js         # progress dashboard: cross-game totals from localStorage and the
                        # Games folder, a bar per game in date order, most-used labels,
                        # early-vs-recent movement, filters, and the CSV export

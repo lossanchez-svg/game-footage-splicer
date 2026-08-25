@@ -188,6 +188,18 @@ high note), give it a title, and **🎬 Save as one video** produces **one file*
 title card, then every clip with its own coaching card, decision-point freezes, and the
 game audio. AirDrop it once, AirPlay to the TV, and the whole week's review runs itself.
 
+### 🎬 Reel Studio — the recruiting reel, planned from the whole season
+**🎬 Reel Studio** in the top bar works across every game you have broken down — no
+video needs to be open. It lines up every strength and teachable moment of the season
+(work-ons stay out), and **✨ Draft it for me** proposes a starting order you then make
+yours: drag plays up and down, trim each one tighter half a second at a time, switch
+the spotlight ring or the "watch him first" freeze on or off per play, and reword the
+context line (which game, when) that gets printed under it. A quiet line of coaching
+keeps you honest — best play first, three to five minutes, end on a high — and if his
+player card names a position, a small checklist shows what a coach looks for and ticks
+what the plan already covers. The plan saves itself as you go and rides along in your
+Games folder. Turning it into the finished video arrives with the next update.
+
 ### 🎽 His player card — fill it in once
 In the Clips tab, **✎ Fill in his card** takes his name, number, grad year, positions,
 club, height, GPA, a photo, and how a coach reaches you. From then on every reel's
