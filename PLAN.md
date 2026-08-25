@@ -9,16 +9,20 @@ You are picking up a working, fully-tested product. Before writing any code:
 
 1. Read `CLAUDE.md` (conventions, test workflow) and this file top to bottom — especially
    the decision log, which records ten builds of tracker lessons learned the hard way.
-2. **v4 "Lock-On" is BUILT (phases 0–4, build `v4.0p3`) and waiting on one thing:
-   3–5 real clips with hand-dragged ground truth** in `tests/realeval/clips/`
-   (instructions in `tests/realeval/README.md`). The detection tracker ships off by
-   default until `node tests/realeval/run.js --path detect` beats the v3.7 baseline on
-   those clips — then the flip is a one-line change (`lockonPathOn`, plus a decision-log
-   row with the numbers). Do not flip it on synthetic evidence. **v5 "Reel Studio"** is
-   specced below and is the next epic to build; its auto-reframe consumes the tracking
-   path, so the flip decision should come first if the clips are available. **v6
-   "Cutting Room"** (moment finding, auto-cut, and the opt-in Autopilot) is specced
-   after it and builds on both.
+2. **v4 "Lock-On" is SHIPPED (build `v4.0`): detection tracking is ON by default
+   since 2026-08-25**, after the real-clip eval showed it beating the v3.7 template
+   tracker on every clip of the parent's acceptance set (numbers in "v4 progress"
+   and the decision log). The template tracker remains fully intact as the automatic
+   fallback (no `lockon.js`, old browser) and behind the
+   `localStorage["filmroom:lockonPath"] = "off"` switch; `run.js --path template`
+   still measures it. Every future tracker change faces the same gate: beat or match
+   `tests/realeval/baseline.json` on every clip or it does not ship. Two recorded
+   open items: a real 40s clip for the end-to-end acceptance line (40s proven on
+   synthetic `long.webm` only), and the occlusion clip's back half (an honest loss
+   at 8s — candidates: multi-hypothesis carry-through, the v6 ball signal).
+   **v5 "Reel Studio"** is specced below and is the next epic to build; its
+   auto-reframe consumes the tracking path. **v6 "Cutting Room"** (moment finding,
+   auto-cut, and the opt-in Autopilot) is specced after it and builds on both.
 3. The single most important lesson from v2.5–v3.7: **measure before building.** Every
    fixture must be validated against real footage numbers (a tracking report or counted
    pixels from real frames) before any conclusion is drawn from it. Nine builds chased
@@ -1069,7 +1073,7 @@ identical cannot be separated by appearance, and that needs motion.
 
 Suite: 462 checks green.
 
-## Current epic: v4 — "Lock-On" (AI-assisted tracking)
+## ✅ Shipped epic: v4 — "Lock-On" (AI-assisted tracking)
 
 **Kickoff prompt for a fresh session:**
 > Read CLAUDE.md and PLAN.md. Implement the v4 "Lock-On" epic exactly as specced in
@@ -1117,8 +1121,9 @@ track" — a crossing is two tracked objects passing, not one template getting c
       path untouched. Budget: detection at the pass's existing ~8fps working rate;
       first-run model load under 2s on a mid-range laptop.
 - [x] **Phase 2 — tracking-by-detection.** *(built and proven on scripted
-      detections; ships OFF by default behind the real-clip gate — see "v4
-      progress" below. Jersey-number OCR deferred, recorded in the log.)*
+      detections; shipped OFF by default behind the real-clip gate, flipped ON
+      2026-08-25 when the gate opened — see "v4 progress" below. Jersey-number
+      OCR deferred, recorded in the log.)*
       Per frame: detections → boxes. Association (SORT-style): constant-velocity
       prediction + IoU + appearance (torso colour split — shirt/shorts/socks separates
       teams; within a team, geometry decides). **Track every player near him, not just
@@ -1220,8 +1225,26 @@ first time.** Acceptance line-items: zero identity switches through the same-kit
 crossing ✓; leaves-frame loss within 1s (measured 0s) with one-tap resume ✓ (resume
 proven in lockontrack S3); whole-clip runs ✓ on these clips, 40s end-to-end proven on
 the synthetic long.webm only (no real 40s clip in the set yet — worth one when
-convenient); file:// without model files ✓; full suite green. The flip itself is a
-deliberate, user-approved change — recorded here when it happens.
+convenient); file:// without model files ✓; full suite green.
+
+**THE FLIP — executed 2026-08-25, user-approved (build `v4.0`).** `lockonPathOn()`
+now returns true unless `localStorage["filmroom:lockonPath"]` is `"off"`: detection
+is the default tracker, the template tracker is the automatic fallback (loader
+reports `lockon.js` absent, DecompressionStream missing, model boot failure) and the
+deliberate off switch. Eval semantics follow the new reality — `run.js --path
+template` forces the off switch, `--path detect` is what the app does on its own;
+`lockontrack.js` S0 proves the off switch restores the template path, S1 proves
+detection runs with no flag set at all. The flip surfaced one real UX hole the
+suite caught as a race: the model boot (1–3s on first press) happened before any
+feedback, so pressing Follow looked like nothing for seconds — the tracking pill
+now goes up in the click itself ("getting ready…"). The template suites
+(`tracking`/`hardtrack`/`multitrack`/`smalltrack`) pin the off switch: they are
+the fallback tracker's regression suites, and which path a COCO model picks on a
+synthetic fixture is an accident of the fixture (it sees the body-shaped player
+in `feet.webm`, nothing in the rectangles); `lockon.js` proves the default press
+with the real model and nobody detected hands itself to the template tracker.
+Ongoing rule, unchanged: any tracker change must beat or match the committed
+baseline on every real clip, verdicts measured as time-on-him, before it ships.
 
 **Tuning session 1 (2026-08-24) — every change measured against the real clips, two
 reverted, three landed.** The ground truth itself was hardened first: the recovered
@@ -1780,6 +1803,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | Exit prediction from tracked velocity was built and removed | The velocity EMA lags an exit dash, so the last SEEN speed never forecasts the exit — the heuristic never fired on the clip it was written for. Honest exits come from refusing bad re-finds until the run ends lost, not from predicting the future |
 | 2026-08-24 | Pan compensation reads only matched-pair residuals; wide passes may estimate but never commit | Estimating camera motion from unmatched tracks' nearest detections measures where the crops are, not where the camera went. And committing wide-gate matches trades the identity guarantee for coverage — the one trade this tracker must never make |
 | 2026-08-24 | Recovered-ring ground truth demands the ring's exact colour signature | An orange safety vest and a referee's shirt both pass a naive yellow filter, and either one silently corrupts the truth every number rests on. G>185 ∧ R≥G ∧ R−G<70 admits #ffd60a and excludes both — verified by zero direction flips in the re-extracted path |
+| 2026-08-25 | Detection tracking flipped to DEFAULT-ON (build v4.0), user-approved | The gate the epic was built around finally said yes: on parent-verified ground truth, detection beat the v3.7 template on every acceptance clip — same-kit 53.2% vs 18.2% time-on-him, pan/leaves-frame 96.4% vs 19.4% with the loss reported 0s after he exits, occlusion 52.5% vs 21.4% with an honest loss instead of confident wandering — and zero identity switches anywhere. The template tracker stays intact as automatic fallback and behind localStorage "filmroom:lockonPath"="off"; the same eval baseline now gates every future tracker change |
 
 ## Working agreements for future sessions
 

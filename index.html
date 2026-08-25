@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0p5</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2295,16 +2295,19 @@ async function lockonDetect(src, cx, cy, crop, thresh){
    "him" is simply which track the ring is bound to. A crossing is two tracks
    passing each other, not one template getting confused.
 
-   OFF BY DEFAULT until the real-clip eval (tests/realeval/) shows this path
-   beating the v3.7 tracker on real footage — that is the epic's own gate, and
-   no synthetic fixture is allowed to open it. It turns on for a browser with
-   localStorage "filmroom:lockonPath" set to "on" (the eval runner does exactly
-   that, to measure both paths on the same clips). When the path is on but
-   nobody is detected where the ring was dropped, the run falls back to the
-   template tracker by itself — footage the detector cannot read never costs
-   anyone the tracker they already had. */
+   ON BY DEFAULT since 2026-08-25: the real-clip eval (tests/realeval/) showed
+   this path beating the v3.7 tracker on every clip in the acceptance set —
+   same-kit crossing 53.2% vs 18.2% time-on-him, sustained pan 96.4% vs 19.4%
+   with leaving-frame reported lost instantly, occlusion 52.5% vs 21.4% with
+   an honest loss instead of confident wandering — zero identity switches
+   anywhere, on parent-verified ground truth. That was the epic's gate, and it
+   opened it. localStorage "filmroom:lockonPath" = "off" restores the old
+   tracker (the eval runner uses it to keep measuring both). When nobody is
+   detected where the ring was dropped, the run falls back to the template
+   tracker by itself — footage the detector cannot read never costs anyone the
+   tracker they already had. */
 function lockonPathOn(){
-  try { return localStorage.getItem('filmroom:lockonPath') === 'on'; }
+  try { return localStorage.getItem('filmroom:lockonPath') !== 'off'; }
   catch (e) { return false; }
 }
 
@@ -2785,6 +2788,11 @@ async function autoTrack(arg, dir = 1){
   ui.trackStarting = true;
   try {
     if (lockonPathOn() && video.videoWidth){
+      /* the detector can take a couple of seconds to get ready on the first
+         press — the pill goes up NOW, in the click itself, so pressing Follow
+         always answers instantly instead of looking like nothing happened */
+      $('#trackPill').style.display = 'flex';
+      $('#trackPct').textContent = 'getting ready…';
       const rt = await loadLockon();
       if (rt){
         const ran = await autoTrackDetect(spots, dir);
@@ -2835,10 +2843,12 @@ async function autoTrackTemplate(arg, dir = 1){
     const tEnd = lim.t;
     return { spot, tEnd, why: lim.why, ok: dir > 0 ? tEnd > t0 + 0.15 : tEnd < t0 - 0.15 };
   }).filter(x => x.ok);
-  if (!st.length)
+  if (!st.length){
+    $('#trackPill').style.display = 'none';   // may still say "getting ready…"
     return toast(dir > 0
       ? 'Move to where the play starts, then press Auto-track — it follows him from there.'
       : 'There is nothing before this point to work back through — move further into the game first.', 5500);
+  }
 
   ui.tracking = true; ui.trackCancel = false;
   video.pause(); hideDecision();
@@ -5868,7 +5878,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v4.0p5';
+const APP_BUILD = 'v4.0';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),

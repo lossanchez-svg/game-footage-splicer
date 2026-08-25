@@ -30,11 +30,13 @@ node smalltrack.js     # the real-world failure: a tiny player, a default ring, 
                        # not swap onto the team-mate crossing the other way
 node lockon.js         # Lock-On model runtime: the vendored detector boots from
                        # file:// with zero network, YOLOX decode/NMS proved on
-                       # fabricated tensors, and index.html ALONE still runs the
-                       # v3.7 tracker (loader reports absent, report says so)
+                       # fabricated tensors, a default Follow press with the real
+                       # model and nobody to detect hands itself to the template
+                       # tracker, and index.html ALONE still runs the v3.7
+                       # tracker (loader reports absent, report says so)
 node lockontrack.js    # tracking-by-detection, end to end with a SCRIPTED
                        # detector (boxes from the fixtures' own motion math):
-                       # off-by-default gate, identity through a crossing, both
+                       # default-on + the off switch, identity through a crossing, both
                        # players in one pass, occlusion carried + re-found,
                        # honest loss + one-tap resume stitching, the 40s no-cap
                        # clip, same-kit check-this-moment flags, association
@@ -103,6 +105,13 @@ Notes
 - Fixtures are WebM because Playwright's Chromium has no H.264 decoder. Real
   Chrome/Safari play mp4/mov fine — this is a test-environment limitation only.
 - The app exposes `window.__filmroom` (`getProject()`, `spotPos()`) for assertions.
+- The template-tracker suites (`tracking`, `hardtrack`, `multitrack`, `smalltrack`)
+  pin `filmroom:lockonPath` to `"off"`: detection is the app default since the
+  2026-08-25 flip, and which path a COCO model picks on a synthetic fixture is an
+  accident of the fixture (it sees the body-shaped player in `feet.webm`, nothing
+  in the rectangles). They regression-test the fallback everyone without
+  `lockon.js` still gets; the detection path has `lockon.js`/`lockontrack.js`
+  and the realeval harness.
 - Exit code 0 = all green; anything printed as `FAIL`/collected error is a real problem.
 
 ### Fixture difficulty

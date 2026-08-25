@@ -102,21 +102,22 @@ a real Chrome.
    say.
 4. Paste the per-clip numbers into PLAN.md's decision log entry for the change.
 
-## Judging the v4 detection path (the flip decision)
+## The two trackers (the flip happened 2026-08-25)
 
-The v4 tracking-by-detection path ships **off by default** until this harness
-shows it winning. With the real clips in place:
+Detection is the app's default tracker since 2026-08-25 — this harness showed
+it beating the template tracker on every clip in the acceptance set (numbers
+in PLAN.md's decision log). Both stay measurable:
 
 ```sh
-node realeval/run.js --save-baseline          # the v3.7 template tracker
-node realeval/run.js --path detect            # the same clips, detection-led
+node realeval/run.js --save-baseline          # whatever baseline you're gating against
+node realeval/run.js --path detect            # detection-led (the app default)
+node realeval/run.js --path template          # the v3.7 tracker, forced via the off switch
 ```
 
 Each case prints `[ran as: detection]` (or `template`, if nobody was detected
-at the anchor and the run fell back). If detection beats or matches the
-baseline on every clip — and shows zero identity switches through the same-kit
-crossings — flip the default (see PLAN.md) and record the numbers in the
-decision log. If it loses anywhere, it stays off and the numbers say why.
+at the anchor and the run fell back). Every future tracker change still faces
+the same rule: beat or match the committed baseline on every clip, with the
+verdict measured as time-on-him, or it does not ship.
 
 `baseline.json` and `out/` hold only numbers about tracker runs (positions,
 scores, times) — never frames or footage. `out/` also keeps the app's own

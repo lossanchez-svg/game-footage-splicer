@@ -20,8 +20,8 @@ Bookmark the page and it's a daily tool.
 
 > Tip: `index.html` is fully self-contained — you can copy it anywhere (Desktop, iCloud
 > Drive, a second Mac) and it just works. If you copy it somewhere, bring `lockon.js`
-> along too when you can: it is an optional companion file holding an on-device player
-> spotter that future smart-tracking uses. Everything works without it, and nothing
+> along too when you can: it holds the on-device player spotter that smart tracking
+> uses. Everything still works without it (the classic tracker takes over), and nothing
 > about your footage ever leaves your computer either way.
 
 ## Using it on an iPad (or phone)
@@ -83,8 +83,14 @@ The best path depends on the device — each one leads with its strongest option
 ### ✏️ Telestration (drawing on the video)
 - **🔦 Spotlight** — a colored ring + name that **follows a player**. Drop it on your
   son and hit **🎯 Auto-track** — it follows him from wherever you are until it loses him,
-  with nothing to set up first and nothing to place by hand (and it tells you where to
-  pick him up again if it does lose him in a crowd). Want it to stop at a particular
+  with nothing to set up first and nothing to place by hand. Since v4 it tracks by
+  actually *seeing the players*: a small on-device spotter (the `lockon.js` file next to
+  `index.html`) finds everyone in the frame and the ring stays with *him* — through
+  teammates in the same kit crossing him, through him disappearing behind someone, and
+  through the camera swinging. If he runs out of the picture it says so straight away,
+  and when it does lose him you just tap him where you can see him and it carries on.
+  Nothing changes about privacy: the spotter runs entirely on your computer, and if the
+  file is missing the classic tracker takes over on its own. Want it to stop at a particular
   moment? Set *Disappears here* first and it respects that. Two players to follow — him
   and the defender? Put a ring on each and press **🎯 Follow everyone on screen**: they
   are tracked in a single pass, which is barely slower than doing one. And when the moment

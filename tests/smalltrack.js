@@ -9,6 +9,12 @@
   t=7 while reporting a lock of 0.9+ and a cheerful "Followed him" message.
   Confident, wrong, and silent about it.
 */
+/* Since the 2026-08-25 flip, detection tracking is the app default — so this
+   suite pins "filmroom:lockonPath" to "off" in every scenario: it is the
+   TEMPLATE tracker's regression suite (still the fallback everyone without
+   lockon.js gets), and which path a COCO model picks on a synthetic fixture is
+   an accident of the fixture (it sees the body-shaped player in feet.webm and
+   nothing in the rectangles). The detection path has its own suites. */
 const path = require('path');
 const { APP, FIXTURES, launch } = require('./common');
 
@@ -21,7 +27,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
   const { browser, page, errors, check } = await launch();
 
   await page.goto(APP);
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('filmroom:tourDone', '1'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', SMALL);
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -79,7 +85,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      with the camera, rather than the player. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'pan.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -120,7 +126,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      match. This guards that it does not. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'trees.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -161,7 +167,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      are "inside the picture" and "lost him". */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'exit.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -242,7 +248,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      noisy, textured grass, crossing each other at the same depth. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'faint.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -320,7 +326,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      Measured with a square template: err 0.142 at t=5 and 0.403 at t=7. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'body.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -371,7 +377,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      may stop it early, and when one does the message now says so. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'small.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -422,7 +428,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      and each has to prove on the next frame that it can find him at all. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'canopy.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -478,7 +484,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      works, so asking anyone to go and find a button was the bug. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'small.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -525,7 +531,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      of 0.859 and no loss — confident and completely wrong. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'feet.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -580,7 +586,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      seconds, which is longer than coasting can bridge. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'hide.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
@@ -635,7 +641,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      showing nothing, which makes tracking him by hand impossible. */
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'small.webm'));
   await page.waitForSelector('#videoWrap', { state: 'visible' });
