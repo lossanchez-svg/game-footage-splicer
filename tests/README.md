@@ -58,6 +58,9 @@ node comfort.js        # comfort mode + accessibility: the Aa text-size toggle (
 node cmdbar.js         # the ⌘K command bar: opens from anywhere, finds actions and
                        # saved clips by their plain words, runs the real button
                        # handlers, never stacks over a dialog, leaves plain-K alone
+node micromenu.js      # the timeline clip micro-menu: hover shows the clip's own
+                       # actions (same dispatcher as the sidebar), seek clicks and
+                       # the quick-mark chips are untouched, mouse only
 node friction.js       # friction backlog: no control fails silently without a video,
                        # every delete is undoable from its own message (even after later
                        # edits), whole-game export states its length

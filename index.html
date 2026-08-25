@@ -444,6 +444,20 @@
     font-size:14px; line-height:1.4; box-shadow:0 8px 28px rgba(0,0,0,.55);
     pointer-events:none;}
 
+  /* ---------- timeline clip micro-menu ---------- */
+  #microMenu{position:fixed; z-index:56; display:none; background:var(--bg3);
+    border:1px solid var(--line); border-radius:10px; padding:8px 10px;
+    box-shadow:0 8px 22px rgba(0,0,0,.5); animation:mmIn 120ms ease-out;}
+  @keyframes mmIn{from{opacity:0; transform:translateY(3px);} to{opacity:1;}}
+  #microMenu .mmTitle{display:flex; align-items:center; gap:7px; margin-bottom:7px;
+    max-width:360px;}
+  #microMenu .mmDot{width:10px; height:10px; border-radius:50%; flex:none;}
+  #mmName{font-weight:600; font-size:13px; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap;}
+  #microMenu .mmRow{display:flex; gap:5px; flex-wrap:wrap;}
+  body.bigText #mmName{font-size:16px;}
+  @media (prefers-reduced-motion: reduce){ #microMenu{animation:none;} }
+
   /* ---------- ⌘K command bar ---------- */
   #cmdModal .box{padding:12px; width:min(560px, 94vw);}
   #cmdInput{width:100%; font-size:16px; padding:10px 12px;}
@@ -1234,6 +1248,12 @@
 </div>
 
 <div id="tipBubble" role="tooltip"></div>
+
+<!-- micro-menu that fades in over a clip block on the timeline (mouse only) -->
+<div id="microMenu">
+  <div class="mmTitle"><span class="mmDot" id="mmDot"></span><span id="mmName"></span><span class="timeTag" id="mmTime"></span></div>
+  <div class="mmRow" id="mmRow"></div>
+</div>
 
 <!-- ⌘K command bar: type a few letters of anything the app can do, press Return -->
 <div class="modal" id="cmdModal" style="z-index:85">
@@ -2110,6 +2130,7 @@ function hideTlHover(){ tlHover.style.display = 'none'; }
 function showTlHover(e){
   if (e.pointerType !== 'mouse' || e.buttons) return hideTlHover();
   if (!video.duration || ui.session || ui.tracking || ui.exporting) return hideTlHover();
+  if (e.target.closest && e.target.closest('.tlClip')) return hideTlHover();   // menu's turf
   tlHoverAt = timeFromClientX(e.clientX);
   $('#tlHoverT').textContent = fmtT(tlHoverAt);
   tlHover.style.display = 'flex';
@@ -2128,6 +2149,63 @@ timeline.addEventListener('pointerdown', hideTlHover);
 $('#tlHoverIn').onclick = () => { video.currentTime = tlHoverAt; $('#btnMarkIn').click(); };
 $('#tlHoverOut').onclick = () => { video.currentTime = tlHoverAt; $('#btnMarkOut').click(); };
 
+/* micro-menu on the timeline's clip blocks — the same actions as the sidebar card,
+   right where you spotted the clip. Every button routes through clipAction(), so
+   behavior is identical. Mouse hover only: on touch the Clips tab stays the way in. */
+const microMenu = $('#microMenu');
+let mmShowTimer = null, mmHideTimer = null;
+function hideMicroMenu(){ microMenu.style.display = 'none'; }
+function showMicroMenu(bar){
+  const c = project.clips.find(x => x.id === bar.dataset.clipId);
+  if (!c) return;
+  const colors = {positive:'var(--pos)', negative:'var(--neg)', neutral:'var(--warn)'};
+  $('#mmDot').style.background = colors[c.rating] || 'var(--neu)';
+  $('#mmName').textContent = c.title;
+  $('#mmTime').textContent = fmtT(c.tIn) + '–' + fmtT(c.tOut);
+  const acts = [
+    ['play', '▶ Play', 'Play just this moment, over and over, so you can watch it a few times and talk about it.'],
+    ['edit', '✏️ Edit', 'Change the name, the labels, the note or the question on this clip.'],
+    ['reel', (project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel',
+      'Add this moment to this week’s set, for one video or one guided session.'],
+  ];
+  if (proposeCut(c, lastTrackReport))
+    acts.push(['tighten', '✂ Tighten to the action?',
+      'The tracking data thinks this clip has quiet air around the action. One tap trims it to start just before the play and end a beat after — and Undo puts it straight back.']);
+  const row = $('#mmRow');
+  row.innerHTML = '';
+  for (const [act, label, tip] of acts){
+    const b = document.createElement('button');
+    b.className = 'miniBtn';
+    b.textContent = label;
+    b.dataset.tip = tip;
+    b.onclick = () => { hideMicroMenu(); clipAction(act, c); };
+    row.appendChild(b);
+  }
+  const r = bar.getBoundingClientRect();
+  microMenu.style.display = 'block';
+  const w = microMenu.offsetWidth;
+  microMenu.style.left = clamp(r.left + r.width/2 - w/2, 8, innerWidth - w - 8) + 'px';
+  microMenu.style.top = (r.top - microMenu.offsetHeight - 6) + 'px';
+}
+$('#tlClips').addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse') return;
+  const bar = e.target.closest('.tlClip');
+  if (!bar) return;
+  clearTimeout(mmShowTimer); clearTimeout(mmHideTimer);
+  hideTlHover();                              // the quick-mark chips yield to the menu
+  mmShowTimer = setTimeout(() => showMicroMenu(bar), 150);   // hover intent, not flicker
+});
+$('#tlClips').addEventListener('pointerout', e => {
+  if (e.target.closest && e.target.closest('.tlClip')){
+    clearTimeout(mmShowTimer);
+    clearTimeout(mmHideTimer);
+    mmHideTimer = setTimeout(hideMicroMenu, 250);   // long enough to reach the menu
+  }
+});
+microMenu.addEventListener('pointerenter', () => clearTimeout(mmHideTimer));
+microMenu.addEventListener('pointerleave', () => { mmHideTimer = setTimeout(hideMicroMenu, 120); });
+timeline.addEventListener('pointerdown', hideMicroMenu);
+
 function renderTimelineMarks(){
   const D = video.duration || 1;
   const clipsEl = $('#tlClips'), annsEl = $('#tlAnns');
@@ -2140,6 +2218,7 @@ function renderTimelineMarks(){
     d.style.width = ((c.tOut-c.tIn)/D*100) + '%';
     d.style.background = colors[c.rating] || 'var(--neu)';
     d.title = c.title;
+    d.dataset.clipId = c.id;
     clipsEl.appendChild(d);
   }
   for (const a of project.annotations){

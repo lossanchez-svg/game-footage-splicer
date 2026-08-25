@@ -1815,8 +1815,14 @@ export renderers are frozen so old exports keep matching the editor.
       sessions/tracking/export. In the Help table and README. No proactive hint —
       it must never become a step Grandma needs. Verified by `tests/cmdbar.js`
       (15 checks) + full UI regression set green.
-- [ ] Sprint 4 — timeline clip hover micro-menu (desktop hover only; touch keeps the
-      sidebar path)
+- [x] **Sprint 4 — timeline clip micro-menu (shipped).** Hovering a clip block on the
+      timeline fades in a small menu naming the clip (rating dot, title, times) with
+      ▶ Play · ✏️ Edit · ➕/✓ Reel — plus ✂ Tighten only when `proposeCut()` has a
+      proposal — every button routed through `clipAction()`, with the sidebar's own
+      tip sentences. 150ms hover-intent delay, grace timers to reach the menu,
+      reduced-motion honored. The seek click is untouched, the quick-mark chips
+      yield while over a block, and it is mouse-only: on touch the Clips tab stays
+      the way in. Verified by `tests/micromenu.js` (12 checks) + regression set.
 - [ ] Sprint 5 — smart-drop zones over the stage + drag-clip-card-to-reel
 - [ ] Sprint 6 — progressive disclosure: clip cards two-tier, top-bar 📦 Project
       group, spotlight fine-tune fold; test-suite selector updates
