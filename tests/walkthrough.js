@@ -113,6 +113,21 @@ const shot = async (page, name) =>
   await shot(page, 'undo_toast');
   check('the delete offers a way back', await page.$('.toast .toastBtn') !== null);
   await page.click('.toast .toastBtn');
+  await page.waitForTimeout(300);
+
+  // 12. the reel studio, where the season becomes a recruiting reel
+  await page.evaluate(() => [...document.querySelectorAll('.toast')].forEach(t => t.remove()));
+  await page.click('#btnStudio');
+  await page.waitForSelector('#studioModal.open');
+  await page.waitForTimeout(400);
+  await page.click('#studioDraft').catch(() => {});   // draft if the pool has anything
+  await page.waitForTimeout(400);
+  await shot(page, 'reel_studio');
+  check('the studio explains itself before anything is planned',
+    /season/i.test(await page.textContent('#studioIntro')));
+  check('one quiet line of coaching, not a wall of text',
+    (await page.textContent('#studioCoachHint')).length < 120);
+  await page.click('#studioClose');
 
   console.log('\nscreenshots written to ' + OUT + '/walk_*.png');
   console.log('--- errors collected:', errors.length);

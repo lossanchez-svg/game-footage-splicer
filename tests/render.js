@@ -18,7 +18,7 @@
 */
 const path = require('path');
 const fs = require('fs');
-const { APP, FIXTURES, launch } = require('./common');
+const { APP, FIXTURES, OUT, launch } = require('./common');
 
 const ENC_STUB = () => {
   window.__fakeEnc = { frames: 0, keys: 0, samples: [] };
@@ -191,6 +191,14 @@ const openStudio = async page => {
        have added its 3.2s freeze — either would blow the tolerance. */
     check(`the program is opening + freeze + plays + contact card (${enc.frames} ≈ 372 frames)`,
       enc.frames >= 355 && enc.frames <= 390);
+    /* muxer-level: the studio output goes through the same hand-rolled mp4
+       writer proven against real H.264 in muxer.js — probe the container */
+    const saved = path.join(OUT, 'studio_reel.mp4');
+    await dl.saveAs(saved);
+    const head = fs.readFileSync(saved);
+    check(`the reel is a real mp4 container (${head.slice(4, 8)} box up front, ${head.length} bytes)`,
+      head.length > 5000 && head.slice(4, 8).toString() === 'ftyp' &&
+      head.includes(Buffer.from('moov')) && head.includes(Buffer.from('mdat')));
     check('no page errors while rendering across two games', pageErrors.length === 0);
     await ctx.close();
   }

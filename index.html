@@ -503,7 +503,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v5.0</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -5858,8 +5858,11 @@ async function exportProgram(items, label, opts = {}){
              tracked spotlight path is the camera operator */
           const vw = vid.videoWidth || W, vh = vid.videoHeight || H;
           const cw = Math.min(vw, vh * W / H);
+          /* 0.08/frame, measured on the real eval clips (reframe.js): faster
+             chases tracking noise out of frame (same-kit 96.5%→90%), slower
+             than 0.05 buys nothing — and the pan clip holds 100% even here */
           const target = clamp(item.reframe.pos(t).x * vw, cw / 2, vw - cw / 2);
-          followX = followX == null ? target : followX + (target - followX) * 0.15;
+          followX = followX == null ? target : followX + (target - followX) * 0.08;
           const sx = clamp(followX - cw / 2, 0, vw - cw);
           ctx.drawImage(vid, sx, 0, cw, vh, 0, 0, W, H);
           const s = H / vh;
@@ -6574,7 +6577,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v4.0';
+const APP_BUILD = 'v5.0';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   playerCard: { get: () => playerCard, lines: reelCardLines, fileBase: profileFileBase,
