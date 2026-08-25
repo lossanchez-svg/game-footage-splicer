@@ -21,6 +21,8 @@ never leaves the machine.
   files, only active when hosted (e.g. GitHub Pages for iPad home-screen install);
   `index.html` must always keep working standalone from `file://`
 - `PLAN.md` — product plan / roadmap / architecture / decisions
+- `AUTOPILOT.md` — the opt-in v6 Autopilot recipe (draft-only, E0 metadata-first);
+  its hard rules are asserted by `tests/autopilot.js`, so edit both together
 - `README.md` — user-facing docs (keep in sync when features change)
 - `tests/` — Playwright smoke tests + fixture generation (see `tests/README.md`)
 

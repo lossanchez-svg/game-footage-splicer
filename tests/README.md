@@ -40,7 +40,10 @@ node lockontrack.js    # tracking-by-detection, end to end with a SCRIPTED
                        # players in one pass, occlusion carried + re-found,
                        # honest loss + one-tap resume stitching, the 40s no-cap
                        # clip, same-kit check-this-moment flags, association
-                       # unit checks (motion keeps identity, colour splits teams)
+                       # unit checks (motion keeps identity, colour splits teams),
+                       # and the ball (v6): a scripted ball tracked alongside
+                       # without touching player identity, with the possession
+                       # window known by construction
 node touch.js          # touch/iPad suite: responsive layout + tap interactions
 node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise
@@ -90,6 +93,27 @@ node kit.js            # the sharing kit (v5): YouTube title/description with ch
                        # his card, the self-contained one-page player site (poster
                        # frame baked in, nothing fetched), the zip verified by real
                        # unzip, and the no-card guard
+node moments.js        # the Moment Finder (v6): pure candidates on constructed
+                       # reports (possession + sprint found and padded, quiet game
+                       # yields nothing, pan counts toward speed), the recall/review-
+                       # cost gate arithmetic, and end to end with the scripted
+                       # detector — one press scans, YES becomes a clip, NO is only
+                       # counted
+node autocut.js        # Auto-Cut assist (v6): pure tightening proposals with
+                       # constructed answers (start before the action, end a beat
+                       # after the touch, the ramp inside the kept range), the
+                       # knows-when-to-stay-quiet nulls, the median-per-end gate
+                       # arithmetic, and the one-tap trim + Undo in the app
+node socket.js         # the metadata socket (v6): the season exported as words and
+                       # numbers with never a pixel (no photo, no data: URIs), the
+                       # reel-plan import as a reviewable draft (resolved snapshots,
+                       # clamped trims, unknown plays marked not dropped, Undo),
+                       # plain-words refusals, and the lossless round trip
+node autopilot.js      # Autopilot (v6): the hard rules asserted IN AUTOPILOT.md
+                       # itself (draft-only, never posts, tiers, E0 no pixels), the
+                       # edit-distance ledger counted through real UI corrections,
+                       # and the headless render driver end to end — plan in,
+                       # "DRAFT - …" mp4 out, multi-game plans refused toward the app
 node trends.js         # progress dashboard: cross-game totals from localStorage and the
                        # Games folder, a bar per game in date order, most-used labels,
                        # early-vs-recent movement, filters, and the CSV export

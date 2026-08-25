@@ -26,8 +26,17 @@ You are picking up a working, fully-tested product. Before writing any code:
    with matching chapters, coach email, one-page player site). Its acceptance status
    sits at the end of the v5 section — the one open measurement (occlusion clip's
    9:16 in-frame %) is bounded by the same v4 occlusion item above; `tests/realeval/
-   reframe.js` re-measures it in one command. **v6 "Cutting Room"** (moment finding,
-   auto-cut, and the opt-in Autopilot) is the next epic to build.
+   reframe.js` re-measures it in one command. **v6 "Cutting Room" is SHIPPED as
+   well (build `v6.0`, 2026-08-25)**: the ball rides the detection pass with honest
+   coverage numbers, "✨ Find his moments" scans a game into a yes/no checklist,
+   "✂ Tighten to the action?" proposes trims, the metadata socket exports the
+   season as words-and-numbers and imports reel plans as drafts, and `AUTOPILOT.md`
+   documents the opt-in E0 workflow with the app-measured edit-distance ledger.
+   Three v6 gates are INSTRUMENTS awaiting the user's data (see the v6 acceptance
+   status): ball accuracy needs hand-marked `ball` rings on the eval clips, and the
+   finder-recall + auto-cut gates need one hand-broken-down game (a project with
+   his saved clips) in `tests/realeval/clips/`. Nothing further is specced — the
+   next epic is the user's call.
 3. The single most important lesson from v2.5–v3.7: **measure before building.** Every
    fixture must be validated against real footage numbers (a tracking report or counted
    pixels from real frames) before any conclusion is drawn from it. Nine builds chased
@@ -1564,7 +1573,7 @@ re-measures it in one command once that item is solved.
 
 ---
 
-## Future epic: v6 — "Cutting Room" (find the moments, make the cuts, and an Autopilot)
+## ✅ Shipped epic: v6 — "Cutting Room" (find the moments, make the cuts, and an Autopilot)
 
 **Kickoff prompt for a fresh session:**
 > Read CLAUDE.md and PLAN.md. Implement the v6 "Cutting Room" epic exactly as specced in
@@ -1589,7 +1598,7 @@ it is graded — not trusted.
 
 ### Workstreams
 
-- [ ] **A — the ball joins the tracks.** YOLOX-Nano already knows COCO's "sports
+- [x] **A — the ball joins the tracks.** YOLOX-Nano already knows COCO's "sports
       ball" class; wire it into the detection pass as a second tracked object type.
       A ball is small, fast and motion-blurred — much harder than a player — so this
       gets its own eval before anything builds on it: hand-marked ball paths on the
@@ -1598,7 +1607,28 @@ it is graded — not trusted.
       signal**: stretches where the ball converges to his feet and travels with him.
       Gate: ball-in-frame coverage and possession windows validated against
       hand-marked truth on the real clips; numbers in the decision log.
-- [ ] **B — Moment Finder.** A whole-game scan (chunked, progress + cancel,
+      *(Built and instrumented 2026-08-25; accuracy gate OPEN pending the user's
+      hand-marked ball paths. Class 32 rides the SAME inference (decode emits
+      `kind:'ball'`, NMS per kind, every player consumer stays ball-blind by one
+      filter); one greedy ball track — wide gate, honest recording only when seen,
+      pan-compensated with everyone else — lands in the report as `report.ball`
+      {coverage, samples}, and `possessionWindows()` (pure, proven on constructed
+      paths) reports per-spot possession. Measured on the real clips, player metrics
+      BIT-IDENTICAL with the ball riding along (WIN vs baseline on all three):
+      near-play ball coverage 17.7% pan / 0% same-kit / 0.9% occlusion at first —
+      the ball is tiny, blurred, and invisible to the model even at 4× crop
+      magnification in the same-kit crowd (probed at threshold 0.03) — then one
+      measured change, a dedicated MAGNIFIED ball look per step (a tighter crop at
+      the ball's predicted spot, else his feet), lifted it to 31.3% / 9.7% / 2.7%
+      with player numbers unchanged, and a plausible possession window appeared on
+      the pan clip. Honest reading: possession is a sometimes-signal on this
+      footage, so the Moment Finder (B) must treat it as one voice among several,
+      never the backbone. `realeval` now scores a GT ring labelled `ball`
+      (excluded from him/decoys; scoreBall: coverage-where-visible, meanErr,
+      on-ball%) and prints ball + possession lines; selftest proves the scorer on
+      fabricated paths; lockontrack S9 proves the whole chain with a scripted
+      ball whose possession window is known by construction.)*
+- [x] **B — Moment Finder.** A whole-game scan (chunked, progress + cancel,
       overnight-friendly on an hour of film) that emits candidate moments
       `{start, end, why}`: on-ball touches (from A), sprints (track velocity), box
       entries, defensive recovery runs, dense-action stretches near him. Presented as
@@ -1609,14 +1639,46 @@ it is graded — not trusted.
       chose himself, at a precision that keeps review under a few minutes per game
       (roughly: no more than 3 rejects per accept). The clips he already saved ARE the
       ground truth for "what this family calls a moment".
-- [ ] **C — Auto-Cut assist.** Proposed In/Out tightening for any clip, from track +
+      *(Built 2026-08-25; the recall gate is an instrument awaiting hand-broken-down
+      games. "✨ Find his moments" in the Clips tab: ring on him → one press runs the
+      detection tracker to the end of the game (its own progress + cancel carry the
+      long wait; a fresh scan spanning ≥60% of the game is reused instead of re-run)
+      → `momentCandidates()` — PURE over the tracking report — turns his path, the
+      camera's measured per-step pan (frame speed alone under-reads exactly the runs
+      the camera follows), the per-sample crowd count and the possession windows into
+      padded, merged candidates said in plain words ("he had the ball · a sprint").
+      The sprint threshold is adaptive above a floor, so a quiet game yields nothing
+      rather than its own 85th percentile of strolling. Checklist modal: ▶ 3-second
+      look, YES creates an ordinary clip (notes name the finder — provenance visible),
+      NO is counted only, and the tally says so out loud. Box entries and true
+      recovery runs need pitch geometry one sideline camera does not give — recorded
+      as out of v1 rather than faked; sustained sprints stand in as "a long hard run".
+      `realeval/moments.js` grades recall (≥80%) + review cost (≤4 candidates per
+      accept) against any project with saved clips, replaying the SHIPPED arithmetic
+      in the real page; the eval projects hold zero saved clips today, so the gate
+      opens on the user's real games. `tests/moments.js`, 18 checks.)*
+- [x] **C — Auto-Cut assist.** Proposed In/Out tightening for any clip, from track +
       ball data: start on the pass that begins the move, end a beat after the payoff,
       cut on the touch rather than mid-run; a speed-ramp suggestion for social cuts.
       Always shown as a proposal ("Tighten to the action?") with one-tap accept and
       undo. Gate: measured against the hand-set In/Out points of the existing clip
       library — median difference from his own edits within ~1.5s per end — plus every
       proposal is reversible.
-- [ ] **D — the metadata socket (import/export contract).** Two versioned files that
+      *(Built 2026-08-25; the gate instrument awaits hand-broken-down games, like
+      B's. `proposeCut(clip, report)` — pure, sharing ONE `traceSpeeds()` with the
+      Moment Finder — finds the active stretch (adaptive threshold, possession counts
+      as action), starts 1s before it, ends on the last touch + 0.8s when the ball
+      data shows one (else last activity + 1s), only ever proposes WITHIN the clip,
+      and returns null rather than nagging: short clip, uncovered span, already
+      tight. The proposal carries the ramp — the fastest 1.5s inside the kept range —
+      stored on the clip as `c.ramp` for the social cut to use. In the app the
+      "✂ Tighten to the action?" button exists only while a proposal does (a
+      tracking report covering the clip in this session); one tap trims via
+      `mutate()` and the toast's own Undo restores ends and ramp exactly.
+      `realeval/autocut.js` grades the shipped arithmetic in the real page: each of
+      his clips widened 3s per side, re-tightened, medians per end vs his real cuts
+      (bar 1.5s), no-opinion nulls reported apart. `tests/autocut.js`, 14 checks.)*
+- [x] **D — the metadata socket (import/export contract).** Two versioned files that
       make outside intelligence pluggable without the app ever needing a network:
       `filmroom-metadata.json` (everything about a season EXCEPT pixels — clips, tags,
       ratings, notes, questions and his answers, moment-finder output, track summaries)
@@ -1624,7 +1686,19 @@ it is graded — not trusted.
       hooks, captions, distribution text). The app exports the first and **imports the
       second into the reel builder as a reviewable draft**. This is the socket the
       Autopilot plugs into — and the same socket a future on-device model would use.
-- [ ] **E — Autopilot (the full-automation option; OFF unless switched on).** A
+      *(Shipped 2026-08-25. In the studio: "📋 Save the season as data" writes
+      `filmroom-metadata` v1 — his card WITHOUT the photo (the photo is pixels),
+      every game's clips/tags/ratings/notes, his questions and answers, moment
+      accept/reject counts, spot-track summaries, and the current reel plan by
+      reference (game + clipId + trims + toggles) — the export is asserted to
+      contain no `data:` URI anywhere. "📥 Load a reel plan" reads `filmroom-reelplan`
+      v1 into the storyboard as a DRAFT: items resolved against the real pool
+      (snapshots refreshed, trims clamped into the actual clip), unknown plays kept
+      and marked ⚠ (the storyboard's missing semantics), the previous plan one
+      toast-Undo away. Wrong format / newer version / empty plan are refused in
+      plain words with the current plan untouched. Round trip proven lossless.
+      `tests/socket.js`, 19 checks.)*
+- [x] **E — Autopilot (the full-automation option; OFF unless switched on).** A
       documented Claude Code workflow (checked into the repo as `AUTOPILOT.md`) that
       drives the whole line end to end on the user's own machine: read the metadata
       export → run the Moment Finder over the new game → pick and order the reel with
@@ -1649,6 +1723,21 @@ it is graded — not trusted.
       level" — the epic's own definition, not a vibe. Hard rules: Autopilot output is
       always a draft in the reel builder; it never exports on its own authority and
       never posts anywhere.
+      *(Shipped 2026-08-25 as E0. `AUTOPILOT.md` in the repo root is the whole
+      recipe — the hard rules in writing (draft-only, never posts, tiers escalating
+      only by explicit per-run choice, E2 explicitly "do not simulate"), the run
+      steps, the review-sheet format with a "Not sure" section, and the ledger
+      protocol. The app side: every imported plan is FINGERPRINTED
+      (`studio.imported`), and the next season-data export carries
+      `reelPlan.editsSinceImport` — removals, additions, reorders (LCS), re-trims,
+      retitle — so the report card is measured by the app, never self-graded by the
+      session. The render leg is `tests/autopilot/render.js`: drives the real app
+      headlessly (plan in → "DRAFT - …" mp4 out, never overwriting, one game per
+      run with multi-game plans refused toward the app's own button; real Chrome
+      via CHROME_PATH for H.264, `--check` says so). `tests/autopilot.js` asserts
+      the DOCUMENT's promises as tests, counts a real UI correction session
+      (reorder + retrim + retitle = 3) in the ledger, and runs the driver end to
+      end with the stub encoder. 14 checks.)*
 
 **Can it eventually make the whole video by itself?** Mechanically it already can —
 the render pipeline is drivable end to end today, headlessly, exactly the way the test
@@ -1665,6 +1754,23 @@ reel-plan import round-trips into the builder losslessly; one full Autopilot E0 
 produces a draft reel + review sheet with zero pixels leaving the machine; all
 existing suites green; the app alone (no Claude, no model files) still does everything
 it does today.
+
+**Acceptance status (2026-08-25, epic shipped, build v6.0):** ball/possession numbers
+published ✓ (near-play coverage 31.3% pan / 9.7% same-kit / 2.7% occlusion after the
+measured magnified-look change; player tracking bit-identical; ACCURACY awaits the
+user's hand-marked `ball` rings — `realeval` scores them the moment they exist).
+Reel-plan round trip ✓ (lossless, proven). Autopilot E0 machinery ✓ end to end (plan
+imported as draft → real-app headless render → "DRAFT - …" mp4, zero pixels read at
+any point; the first full JUDGMENT run happens on the user's machine per AUTOPILOT.md
+and its edit count becomes the ledger's first entry). All suites green ✓ (719 checks
+before this closeout, more after). App-alone ✓ (the lockon-absent path is tested
+every run). The two measured-against-his-history gates — finder recall ≥80% and
+auto-cut medians ≤1.5s — are INSTRUMENTS awaiting data: both run over any game
+folder that has his saved clips plus a detect report (`realeval/moments.js`,
+`realeval/autocut.js`); the eval clips carry no saved clips, so these numbers are
+honestly unmeasured until the user drops in a broken-down game. The finder and
+assist ship as offers either way — the gates decide when their numbers are worth
+advertising, not whether a parent may use them.
 
 ---
 
@@ -1915,6 +2021,23 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | The app stays dark; the outward artifacts (player page, cards, exports) are the light surface | A film room is dark for the same reason a cinema is — the footage is the bright thing. Retrofitting a second in-app palette would double the AA audit surface for a mode nobody asked for, while the things a stranger sees (the coach's email attachment, the player page) already got the considered light treatment. If a light mode is ever wanted, it is a deliberate future decision, not a checkbox |
 | 2026-08-25 | Studio motion is one curve, one duration, and off under prefers-reduced-motion | Micro-interactions read premium only when they are uniform — five different easings read as jitter. One 140ms ease-out for state changes, one 220ms rise for entering cards, and the media query turns all of it off for anyone who asked their OS for less motion |
 | 2026-08-25 | New surfaces enter the contrast audit the day they ship | comfort.js now opens Reel Studio with a real plan rendered before auditing. The v2 lesson (an audit that does not walk a screen silently exempts it) applied while the paint is wet, not after a regression |
+| 2026-08-25 | The ball rides the same inference and is invisible to player logic except through one filter | Class 32 comes out of the tensor the model already ran, so ball detection is free at decode time; kind:'ball' plus a single filter in detsAt means the entire v4 identity machinery is provably untouched — measured bit-identical player metrics on all three real clips with the ball on |
+| 2026-08-25 | The ball gets one dedicated magnified look per step; coverage numbers published honestly | Measured: a ~10px blurred ball is invisible to YOLOX-Nano in a 416 crop, and even 4× magnification finds nothing in the same-kit crowd (probed to threshold 0.03). A tighter crop at the ball's predicted spot (else his feet) lifted near-play coverage 17.7→31.3% pan, 0→9.7% same-kit, players unchanged. Recorded conclusion: possession is a sometimes-signal on real youth footage — the Moment Finder must treat it as one voice among several, never the backbone |
+| 2026-08-25 | A ball is only ever RECORDED when seen; a GT ring labelled "ball" is never him and never a decoy | A coasted ball is a guess and everything downstream (possession, moments) would inherit the guess — the honest-loss invariant applied to a second object. And counting the ball ring as a look-alike would fabricate identity switches in the eval, corrupting the very numbers the gate reads |
+| 2026-08-25 | The Moment Finder is pure over the tracking report; the gate replays the SHIPPED arithmetic in the real page | Purity is what makes the gate honest: realeval/moments.js grades the exact candidates a user would see, against games broken down by hand, with no second copy to drift (the kit-chapters lesson). It also makes the whole finder testable on constructed traces where the right answer is known |
+| 2026-08-25 | The sprint threshold is adaptive above a floor; a quiet game yields nothing | "Fast for HIM in THIS game" is the right question (a U11 sprint is not a U17 sprint), but a pure percentile would crown the 85th percentile of strolling in a boring half. max(floor, p85) means excitement is never invented — the empty state says a quiet half can be honest |
+| 2026-08-25 | Box entries and true recovery runs are OUT of the finder's v1, said plainly | Both need pitch geometry a single sideline camera does not provide. Faking them from frame position would produce confident nonsense at exactly the moments a parent trusts the label — sustained sprints stand in as "a long hard run" until geometry exists, and the spec text stays in the workstream for when it does |
+| 2026-08-25 | Rejections are counted, never learned from; accepted clips name their provenance | Predictability is a feature: a finder that silently reweights after every "no" becomes unexplainable within a week. The counts are shown to the user in the tally ("the counts are only counts"), and an accepted clip's notes say the scan found it — choosing stays visibly the human's |
+| 2026-08-25 | Auto-Cut proposes only WITHIN the clip, and null is a first-class answer | Extending a clip touches footage the parent never chose to include — a different decision than trimming quiet air. And a proposal that always exists becomes noise: no coverage, too short, already tight are all "stay quiet", so the ✂ button's mere presence carries information |
+| 2026-08-25 | Auto-Cut's gate widens his clips 3s per side and re-tightens them | His hand-set trims are the only professional-grade cut data that exists for this footage. The widen-then-tighten experiment measures the exact question ("would the assist land where he did, starting from a loose cut?") without needing anyone to produce new ground truth |
+| 2026-08-25 | The speed-ramp is carried on the clip (c.ramp), never applied by the assist | A ramp is a taste decision for a social cut, not a trim. Storing the fastest stretch as data lets the studio's social render offer it later, while accepting a tighten today changes nothing about playback speed — one proposal, one meaning |
+| 2026-08-25 | The metadata export carries the reel plan by reference, never a copy of the pool | Ids + trims + toggles are the plan; duplicating clip content into it would let the two copies disagree by the next edit. The importer resolves references against the live pool, so a plan is always shown against the season as it IS — and a play this browser cannot see is marked, exactly like the storyboard's missing semantics |
+| 2026-08-25 | The socket refuses newer versions instead of guessing at them | A version-99 reelplan probably carries fields this build has never heard of; half-importing it would show a draft that silently dropped the Autopilot's decisions. "Update the app first" is the only honest answer, and the version field exists precisely so it can be said |
+| 2026-08-25 | No pixels in the metadata file — the photo stays home | filmroom-metadata.json is the E0 boundary made literal: an Autopilot reading it can know everything the family WROTE and nothing the camera SAW. The export is tested to contain no data: URI so the boundary cannot rot silently |
+| 2026-08-25 | The Autopilot's report card is measured by the APP, never self-graded by the session | A model asked "how good was your draft?" will answer optimistically and honestly believe it. The app fingerprints every imported plan and counts the human's actual corrections (removals, additions, LCS reorders, re-trims, retitle) into the next metadata export — the ledger the epic's "fully capable" definition reads |
+| 2026-08-25 | AUTOPILOT.md's promises are asserted by the test suite | "Draft-only" and "never posts anywhere" are worthless as vibes in a doc nobody re-reads. tests/autopilot.js greps the document for its own hard rules, so weakening the contract breaks the build — the jargon-ban lesson applied to a safety promise |
+| 2026-08-25 | The headless renderer does one game per run and refuses more, toward the app's own button | Serving multi-game footage into a headless page means base64-ing gigabytes through an init script — a memory cliff dressed as a feature. The app's real 🎬 button with the real Games folder already renders multi-game plans; the driver says so instead of half-working |
+| 2026-08-25 | The default ending of an Autopilot run is the PARENT pressing Make the reel | Even with a perfect draft, the render click is where review actually happens — the drag-what's-wrong moment. The headless render exists for the explicitly-asked hands-off case and still only writes "DRAFT - " files that never overwrite anything |
 
 ## Working agreements for future sessions
 

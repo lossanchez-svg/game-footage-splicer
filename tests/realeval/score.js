@@ -163,6 +163,37 @@ function scoreCase(opts){
   better than being confidently wrong). The scorer already enforces that for
   position error; this enforces it for the verdict.
 */
+/* ball scoring (v6-A): the hand-marked ball ring only exists where the ball
+   is visible, so coverage asks "of the moments the parent could see it, how
+   many did the tracker record a ball near in time?" and error is measured
+   only where both exist. tol defaults looser than the player's — a ball is
+   a handful of pixels. */
+function scoreBall(gtKeys, samples, opts = {}){
+  if (!gtKeys || gtKeys.length < 2) return null;
+  samples = samples || [];
+  const tol = opts.tol != null ? opts.tol : 0.04;
+  const near = opts.near != null ? opts.near : 0.35;
+  let covered = 0;
+  for (const k of gtKeys)
+    if (samples.some(s => Math.abs(s.t - k.t) <= near)) covered++;
+  const t0 = gtKeys[0].t, t1 = gtKeys[gtKeys.length - 1].t;
+  const errs = [];
+  for (const s of samples){
+    if (s.t < t0 - 0.05 || s.t > t1 + 0.05) continue;
+    errs.push(hyp(s, interp(gtKeys, s.t)));
+  }
+  errs.sort((a, b) => a - b);
+  const mean = errs.length ? errs.reduce((a, b) => a + b, 0) / errs.length : null;
+  return {
+    gtKeys: gtKeys.length,
+    samples: samples.length,
+    coverage: +(covered / gtKeys.length).toFixed(3),
+    meanErr: mean == null ? null : +mean.toFixed(4),
+    p90Err: errs.length ? +errs[Math.min(errs.length - 1, Math.floor(errs.length * 0.9))].toFixed(4) : null,
+    onBallPct: errs.length ? +(errs.filter(e => e <= tol).length / errs.length * 100).toFixed(1) : null,
+  };
+}
+
 function compareCase(cur, base){
   const onSec = c => (c.onHimPct == null ? 0 : c.onHimPct / 100) * (c.coverage || 0);
   const reasons = [];
@@ -185,4 +216,4 @@ function compareCase(cur, base){
   return { verdict: better ? 'WIN' : 'TIE', reasons: [] };
 }
 
-module.exports = { interp, scoreCase, compareCase };
+module.exports = { interp, scoreCase, compareCase, scoreBall };

@@ -503,7 +503,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v5.0</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v6.0</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -770,6 +770,13 @@
         </div>
       </div>
       <div class="section">
+        <h4>✨ His moments</h4>
+        <div class="hint" id="momentsHint">Put a ring on him, press the button, and the game is scanned for the stretches worth a look — time on the ball, sprints, busy spells around him. You say yes or no to each; a yes becomes a clip. Choosing still belongs to you.</div>
+        <div class="chipRow" style="margin-top:6px">
+          <button class="primary" id="btnFindMoments" data-tip="Scan this game for candidate moments — his sprints, his time on the ball, the busy stretches around him — and go through them with a quick yes or no instead of scrubbing the whole film.">✨ Find his moments</button>
+        </div>
+      </div>
+      <div class="section">
         <h4>🎽 Player card</h4>
         <div class="hint" id="profileHint">Fill this in once — his name, number and grad year, the way a coach would ask for them. The opening card of every reel and the name of every saved video use it from then on.</div>
         <div id="profileSummary" style="display:none"></div>
@@ -944,6 +951,21 @@
   </div>
 </div>
 
+<!-- ======================= MOMENT FINDER ======================= -->
+<div class="modal" id="momentsModal">
+  <div class="box">
+    <div class="trendHead">
+      <h3 style="margin:0">✨ His moments</h3>
+      <span class="hint" style="margin:0" id="momentsScope"></span>
+    </div>
+    <div class="hint" id="momentsIntro">Candidate moments from the scan, in game order. ▶ plays a three-second look; a yes becomes an ordinary clip you can retitle, tag and trim like any other. No is just no.</div>
+    <div id="momentsList" style="margin-top:10px"></div>
+    <div class="hint" id="momentsEmpty" style="display:none">The scan found nothing that stood out in this stretch. That can be honest (a quiet half) or the tracker may not have held him — check the ring followed him, then try again.</div>
+    <div class="hint" id="momentsTally" style="margin-top:8px"></div>
+    <div class="foot"><button class="primary" id="momentsClose" data-tip="Close the list. Anything you said yes to is already saved in his clips; the rest stays here until the next scan.">Done</button></div>
+  </div>
+</div>
+
 <!-- ======================= PLAYER CARD ======================= -->
 <div class="modal" id="profileModal">
   <div class="box">
@@ -1068,6 +1090,9 @@
       <button class="primary" id="studioMake" data-tip="Make the storyboard into one full-quality video: his opening card, every play with its freeze and context line, and the contact card at the end. The footage is read from your Games folder — nothing is uploaded anywhere.">🎬 Make the reel</button>
       <button id="studioSocial" data-tip="Make the tall phone-shaped cut of the same plays for Instagram, TikTok or Shorts: the picture follows him automatically, the reel title opens as a hook, each play is captioned, and his handle sits in the corner.">📱 Make the social cut</button>
       <button id="studioKit" data-tip="One zip with everything that goes around the reel: YouTube words with chapter times that match it, an email to a coach with his details written in, and his one-page player site as a single file you can attach or host anywhere.">✉️ Save the sharing kit</button>
+      <button id="studioData" data-tip="Save everything about the season EXCEPT the film — clips, labels, notes, his questions and answers, the plan — as one data file another program can read, like the Autopilot recipe in the project. No video, no pictures, and nothing is sent anywhere.">📋 Save the season as data</button>
+      <button id="studioPlanPick" data-tip="Read a reel plan file — like one the Autopilot recipe writes — into the storyboard as a draft for you to review and rearrange. Your current plan stays one Undo away.">📥 Load a reel plan</button>
+      <input type="file" id="studioPlanFile" accept="application/json,.json" style="display:none">
     </div>
     <div class="hint" id="studioNext">Both files are full quality and named after him. The reel is the wide one for coaches, with his cards and the game sound; the social cut is the tall one where the picture follows him on its own. Keep the social plan short — under a minute is what gets watched.</div>
     <div class="foot"><button class="primary" id="studioClose" data-tip="Close the studio. The plan keeps itself saved — come back any time.">Close</button></div>
@@ -2606,6 +2631,9 @@ function thinSamples(pts, eps){
    automatic fallback; the model is an enhancement, never a requirement).
    Loaded lazily on first use so opening the app stays instant. */
 const LOCKON_INPUT = 416;                 // the model's square input side
+const LOCKON_BALL_THRESH = 0.2;           // balls are small, fast and blurred —
+                                          // start permissive; the real-clip eval
+                                          // owns this number (v6-A gate)
 let lockonState = 'untried';              // untried | loading | ready | absent
 let lockonRT = null;                      // { ort, model } from lockon.js
 let lockonSes = null;                     // cached InferenceSession
@@ -2644,9 +2672,12 @@ function loadLockon(){
 }
 /* YOLOX decode: raw output is [1, N, 85] over grids at strides 8/16/32 —
    box centre = (grid + xy) * stride, size = exp(wh) * stride, and the score is
-   objectness x class probability. Persons are class 0. Pure so the tests can
-   feed it a fabricated tensor and know the right answer by construction. */
-function lockonDecode(data, S, thresh){
+   objectness x class probability. Persons are class 0; COCO's "sports ball"
+   is class 32 (v6 — the ball joins the tracks) and rides the SAME inference
+   for free: ball detections carry kind:'ball' so every player consumer can
+   filter them out with one test. Pure so the tests can feed it a fabricated
+   tensor and know the right answer by construction. */
+function lockonDecode(data, S, thresh, ballThresh){
   const out = [];
   const strides = [8, 16, 32];
   let i = 0;
@@ -2656,10 +2687,15 @@ function lockonDecode(data, S, thresh){
       for (let gx = 0; gx < g; gx++, i++){
         const o = i * 85;
         const score = data[o + 4] * data[o + 5];         // objectness x person
-        if (score < thresh) continue;
+        const ball = ballThresh != null ? data[o + 4] * data[o + 37] : 0;
+        if (score < thresh && (ballThresh == null || ball < ballThresh)) continue;
         const bx = (data[o] + gx) * st, by = (data[o + 1] + gy) * st;
         const bw = Math.exp(data[o + 2]) * st, bh = Math.exp(data[o + 3]) * st;
-        out.push({ x: bx - bw / 2, y: by - bh / 2, w: bw, h: bh, score });
+        if (score >= thresh)
+          out.push({ x: bx - bw / 2, y: by - bh / 2, w: bw, h: bh, score });
+        if (ballThresh != null && ball >= ballThresh)
+          out.push({ x: bx - bw / 2, y: by - bh / 2, w: bw, h: bh,
+                     score: ball, kind: 'ball' });
       }
   }
   return out;
@@ -2683,8 +2719,8 @@ const lockonCtx = lockonCanvas.getContext('2d', { willReadFrequently: true });
    keeps a far-away player detectable: downscaling a whole 1280px frame to 416
    would shrink a 12px player to 4px, but a 416px crop around the play keeps
    him at full size. Returns boxes in SOURCE coordinates. */
-async function lockonDetect(src, cx, cy, crop, thresh){
-  if (lockonOverride) return lockonOverride(src, cx, cy, crop, thresh);
+async function lockonDetect(src, cx, cy, crop, thresh, opts){
+  if (lockonOverride) return lockonOverride(src, cx, cy, crop, thresh, opts);
   if (lockonState !== 'ready') return null;
   const S = LOCKON_INPUT;
   crop = Math.max(64, Math.min(crop || S, Math.max(src.width, src.height)));
@@ -2705,9 +2741,16 @@ async function lockonDetect(src, cx, cy, crop, thresh){
   feeds[lockonSes.inputNames[0]] = new lockonRT.ort.Tensor('float32', inp, [1, 3, S, S]);
   const res = await lockonSes.run(feeds);
   const raw = res[lockonSes.outputNames[0]].data;
-  return lockonNms(lockonDecode(raw, S, thresh == null ? 0.35 : thresh), 0.45)
-    .map(b => ({ x: x0 + b.x / scale, y: y0 + b.y / scale,
-                 w: b.w / scale, h: b.h / scale, score: b.score }));
+  const dec = lockonDecode(raw, S, thresh == null ? 0.35 : thresh,
+    opts && opts.ball != null ? opts.ball : null);
+  /* NMS per kind — a ball box must never suppress the player carrying it */
+  const kept = [
+    ...lockonNms(dec.filter(d => !d.kind), 0.45),
+    ...lockonNms(dec.filter(d => d.kind === 'ball'), 0.45),
+  ];
+  return kept.map(b => ({ x: x0 + b.x / scale, y: y0 + b.y / scale,
+                          w: b.w / scale, h: b.h / scale, score: b.score,
+                          ...(b.kind ? { kind: b.kind } : {}) }));
 }
 
 /* ---------------- tracking by detection (v4, Phases 2-3) ----------------
@@ -2732,6 +2775,42 @@ async function lockonDetect(src, cx, cy, crop, thresh){
 function lockonPathOn(){
   try { return localStorage.getItem('filmroom:lockonPath') !== 'off'; }
   catch (e) { return false; }
+}
+
+/* possession (v6-A): the stretches where the ball sits at his feet and
+   travels with him — derived purely from two sampled paths in normalized
+   coordinates, so the eval harness can prove it on constructed paths where
+   the right answer is known. reach ≈ a stride on sideline footage; the real
+   clips own the numbers once ball ground truth exists (the v6-A gate). */
+function possessionWindows(his, ball, opts = {}){
+  const reach = opts.reach != null ? opts.reach : 0.05;
+  const minDur = opts.minDur != null ? opts.minDur : 0.4;
+  const joinGap = opts.joinGap != null ? opts.joinGap : 0.6;
+  if (!his || !ball || his.length < 2 || !ball.length) return [];
+  const at = t => {
+    if (t <= his[0].t) return his[0];
+    if (t >= his[his.length - 1].t) return his[his.length - 1];
+    for (let i = 0; i < his.length - 1; i++){
+      if (t >= his[i].t && t <= his[i + 1].t){
+        const f = (t - his[i].t) / Math.max(1e-6, his[i + 1].t - his[i].t);
+        return { x: his[i].x + (his[i + 1].x - his[i].x) * f,
+                 y: his[i].y + (his[i + 1].y - his[i].y) * f };
+      }
+    }
+    return his[his.length - 1];
+  };
+  const t0 = his[0].t, t1 = his[his.length - 1].t;
+  const wins = [];
+  for (const b of ball){
+    if (b.t < t0 - 0.05 || b.t > t1 + 0.05) continue;
+    const h = at(b.t);
+    if (Math.hypot(h.x - b.x, h.y - b.y) > reach) continue;
+    const last = wins[wins.length - 1];
+    if (last && b.t - last.end <= joinGap) last.end = b.t;
+    else wins.push({ start: b.t, end: b.t });
+  }
+  return wins.filter(w => w.end - w.start >= minDur)
+    .map(w => ({ start: +w.start.toFixed(2), end: +w.end.toFixed(2) }));
 }
 
 function lockonIou(a, b){
@@ -2841,10 +2920,54 @@ async function autoTrackDetect(spots, dir){
   await seekTo(t0);
   let img = grab();
 
+  /* the ball rides the same inference (v6-A): ball detections are split off
+     here so every player consumer below stays ball-blind, and the step's
+     balls feed one lightweight ball track of their own */
+  let stepBalls = [];
   const detsAt = async (cx, cy) => {
-    const found = await lockonDetect(trackCanvas, cx, cy, CROP, 0.3) || [];
-    for (const d of found) if (!d.sig) d.sig = lockonSig(img, d);
-    return found;
+    const found = await lockonDetect(trackCanvas, cx, cy, CROP, 0.3,
+      { ball: LOCKON_BALL_THRESH }) || [];
+    const players = [];
+    for (const d of found){
+      if (d.kind === 'ball'){ stepBalls.push(d); continue; }
+      if (!d.sig) d.sig = lockonSig(img, d);
+      players.push(d);
+    }
+    return players;
+  };
+
+  /* one ball, tracked greedily: continuity within a wide gate (a ball outruns
+     any player), re-acquired on the clearest detection after a real absence,
+     and only ever RECORDED when actually seen — a coasted ball is a guess and
+     guesses feed nothing downstream */
+  const ballTrack = { x: 0, y: 0, vx: 0, vy: 0, alive: false, missed: 0, samples: [] };
+  const ballStep = (t, balls) => {
+    balls = lockonNms(balls, 0.5);
+    let pick = null;
+    if (ballTrack.alive){
+      const px = ballTrack.x + ballTrack.vx, py = ballTrack.y + ballTrack.vy;
+      let bd = gate * 2.5;
+      for (const b of balls){
+        const d = Math.hypot(b.x + b.w / 2 - px, b.y + b.h / 2 - py);
+        if (d < bd){ bd = d; pick = b; }
+      }
+    }
+    if (!pick && balls.length && (!ballTrack.alive || ballTrack.missed > 4))
+      pick = balls.reduce((p, q) => (q.score > p.score ? q : p));
+    if (pick){
+      const cx = pick.x + pick.w / 2, cy = pick.y + pick.h / 2;
+      if (ballTrack.alive && ballTrack.missed === 0){
+        ballTrack.vx = clamp(ballTrack.vx * 0.5 + (cx - ballTrack.x) * 0.5, -gate * 2.5, gate * 2.5);
+        ballTrack.vy = clamp(ballTrack.vy * 0.5 + (cy - ballTrack.y) * 0.5, -gate * 2.5, gate * 2.5);
+      } else { ballTrack.vx = 0; ballTrack.vy = 0; }
+      ballTrack.x = cx; ballTrack.y = cy;
+      ballTrack.alive = true; ballTrack.missed = 0;
+      ballTrack.samples.push({ t: +t.toFixed(3), x: +(cx / W).toFixed(4),
+        y: +(cy / H).toFixed(4), conf: +pick.score.toFixed(2) });
+    } else if (ballTrack.alive){
+      ballTrack.missed++;
+      if (ballTrack.missed > 10) ballTrack.alive = false;
+    }
   };
   /* which detected player is the ring on? the box that holds the ring point,
      or whose feet are nearest to it within reach */
@@ -2944,6 +3067,7 @@ async function autoTrackDetect(spots, dir){
     t = dir > 0 ? Math.min(t + dt, T_LAST) : Math.max(t - dt, T_LAST);
     await seekTo(t);
     img = grab();
+    stepBalls = [];
 
     /* one detection sweep covers everyone whose crops overlap. If association
        collapsed last step — what a camera whip looks like, every detection
@@ -3012,6 +3136,10 @@ async function autoTrackDetect(spots, dir){
             x.lastGoodX = clamp(x.lastGoodX + panX, 0, W - 1);
             x.lastGoodY = clamp(x.lastGoodY + panY, 0, H - 1);
           }
+          if (ballTrack.alive){
+            ballTrack.x = clamp(ballTrack.x + panX, 0, W - 1);
+            ballTrack.y = clamp(ballTrack.y + panY, 0, H - 1);
+          }
           ({ matches, usedD, usedT } = lockonStep(assocTracks, dets, gate));
         }
       }
@@ -3030,6 +3158,22 @@ async function autoTrackDetect(spots, dir){
       for (let i = 0; i < 6; i++) tr.sig[i] = tr.sig[i] * 0.9 + d.sig[i] * 0.1;
       tr.hits++; tr.missed = 0; tr.margin = m.margin; tr.score = d.score; tr.det = d;
     }
+    /* one dedicated MAGNIFIED look for the ball: a ball is a tenth of a
+       player's size, so it earns a tighter crop — at its predicted spot when
+       tracked, else at his feet, the likeliest place for it to matter. The
+       person threshold is pushed to 1 so this pass costs no player work. */
+    {
+      const zx = ballTrack.alive ? clamp(ballTrack.x + ballTrack.vx, 0, W - 1)
+        : (st[0].done || st[0].hunt ? null : st[0].tr.x);
+      const zy = ballTrack.alive ? clamp(ballTrack.y + ballTrack.vy, 0, H - 1)
+        : (st[0].done || st[0].hunt ? null : st[0].tr.y + st[0].tr.h * 0.45);
+      if (zx != null){
+        const zoom = await lockonDetect(trackCanvas, zx, zy,
+          Math.max(96, Math.round(CROP / 2)), 1.01, { ball: LOCKON_BALL_THRESH }) || [];
+        for (const d of zoom) if (d.kind === 'ball') stepBalls.push(d);
+      }
+    }
+    ballStep(t, stepBalls);   // the ball's own little track, from the same pass
     for (const tr of tracks){
       if (usedT.has(tr)) continue;
       tr.missed++; tr.det = null; tr.margin = null;
@@ -3171,7 +3315,15 @@ async function autoTrackDetect(spots, dir){
     label: x.spot.label || '', lost: x.lost, lastGoodAt: +x.lastGoodT.toFixed(3),
     refinds: x.refinds, uncertain: x.uncertain,
     keys: x.spot.keys.length, samples: x.trace,
+    /* v6-A: where the ball was at his feet and moving with him */
+    possession: possessionWindows(x.samples, ballTrack.samples),
   }));
+  /* the ball's own record: coverage is honest (recorded only when seen) */
+  lastTrackReport.ball = {
+    coverage: +(ballTrack.samples.length /
+      Math.max(1, Math.round(Math.abs(T_LAST - t0) / dt))).toFixed(3),
+    samples: ballTrack.samples,
+  };
   lastTrackReport.cancelled = !!ui.trackCancel;
   persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
 
@@ -3226,6 +3378,243 @@ async function autoTrack(arg, dir = 1){
   } finally { ui.trackStarting = false; }
   return autoTrackTemplate(spots, dir);
 }
+
+/* ---------------- the Moment Finder (v6-B) ----------------
+   Recall is automated; judgment is not. This turns a tracking run's own
+   artifacts — his path, the camera's measured pan, the crowd count, the ball
+   possession windows — into candidate moments {start, end, why}, each said
+   in plain words. PURE over the report, so the gate can replay it against
+   games the parent already broke down by hand: the finder must surface what
+   THEY chose, at a precision worth their minutes (v6-B gate: ~80% recall,
+   no more than ~3 rejects per accept, measured by realeval/moments.js). */
+/* ground-ish speed per trace sample: his motion in the frame PLUS the
+   camera's own measured pan — a cameraman follows the play, so frame speed
+   alone under-reads exactly the runs that matter. Shared by the Moment
+   Finder and the Auto-Cut assist so there is exactly one copy of the
+   arithmetic (the kit-chapters lesson). */
+function traceSpeeds(report){
+  const res = report && report.result && report.result[0];
+  if (!res || !res.samples) return [];
+  const W = (report.working && report.working.W) || 1280;
+  const H = (report.working && report.working.H) || 720;
+  const s = res.samples.filter(a => a.x != null && a.y != null);
+  const sp = [];
+  for (let i = 1; i < s.length; i++){
+    const dt = Math.max(0.05, s[i].t - s[i - 1].t);
+    const px = s[i].pan ? s[i].pan[0] / W : 0, py = s[i].pan ? s[i].pan[1] / H : 0;
+    const v = Math.hypot((s[i].x - s[i - 1].x + px) / dt, (s[i].y - s[i - 1].y + py) / dt);
+    sp.push({ t: s[i].t, v, tracks: s[i].tracks || 0 });
+  }
+  for (let i = 1; i < sp.length; i++) sp[i].v = sp[i - 1].v * 0.5 + sp[i].v * 0.5;
+  return sp;
+}
+
+function momentCandidates(report, opts = {}){
+  const res = report && report.result && report.result[0];
+  if (!res || !res.samples || res.samples.length < 8) return [];
+  const sp = traceSpeeds(report);
+  if (sp.length < 7) return [];
+
+  const vs = sp.map(a => a.v).sort((a, b) => a - b);
+  const pct = f => vs[Math.min(vs.length - 1, Math.floor(vs.length * f))] || 0;
+  /* adaptive above a floor: "fast for HIM in THIS game", but a quiet game
+     must yield nothing rather than its own 85th percentile of strolling */
+  const SPRINT = Math.max(opts.sprint != null ? opts.sprint : 0.16, pct(0.85));
+  const ts = sp.map(a => a.tracks).sort((a, b) => a - b);
+  const BUSY = Math.max(4, ts[Math.min(ts.length - 1, Math.floor(ts.length * 0.8))] || 0);
+
+  const stretches = (test, minDur) => {
+    const out = []; let cur = null;
+    for (const a of sp){
+      if (test(a)){ if (!cur) cur = { start: a.t, end: a.t }; else cur.end = a.t; }
+      else if (cur){ out.push(cur); cur = null; }
+    }
+    if (cur) out.push(cur);
+    return out.filter(w => w.end - w.start >= minDur);
+  };
+
+  const cands = [];
+  for (const w of (res.possession || []))
+    cands.push({ start: w.start, end: w.end, score: 3, reasons: ['he had the ball'] });
+  for (const w of stretches(a => a.v >= SPRINT, 0.8))
+    cands.push({ start: w.start, end: w.end, score: 2,
+      reasons: [w.end - w.start >= 2 ? 'a long hard run' : 'a sprint'] });
+  for (const w of stretches(a => a.tracks >= BUSY && a.v >= pct(0.5), 1.0))
+    cands.push({ start: w.start, end: w.end, score: 1,
+      reasons: ['a busy stretch right around him'] });
+
+  /* pad into playable moments (the play starts before the burst), then merge */
+  const before = opts.padBefore != null ? opts.padBefore : 2.0;
+  const after = opts.padAfter != null ? opts.padAfter : 1.5;
+  const pad = cands.map(c => ({ ...c, reasons: [...c.reasons],
+    start: Math.max(0, c.start - before), end: c.end + after }))
+    .sort((a, b) => a.start - b.start);
+  const merged = [];
+  for (const c of pad){
+    const last = merged[merged.length - 1];
+    if (last && c.start <= last.end + 0.3){
+      last.end = Math.max(last.end, c.end);
+      last.score += c.score;
+      for (const r of c.reasons) if (!last.reasons.includes(r)) last.reasons.push(r);
+    } else merged.push(c);
+  }
+  return merged.map(m => ({ start: +m.start.toFixed(2), end: +m.end.toFixed(2),
+    score: m.score, reasons: m.reasons, why: m.reasons.join(' · ') }));
+}
+
+/* ---------------- Auto-Cut assist (v6-C) ----------------
+   A proposed tightening of a clip's In/Out, from the same track + ball data:
+   start just before the action begins, end a beat after the payoff — cut on
+   the touch, not mid-run. PURE over (clip, report) so the gate can measure
+   its proposals against the parent's own hand-set trims (realeval/autocut.js:
+   median within ~1.5s per end). Returns null rather than nagging when the
+   report does not cover the clip, the clip is already short, or the proposal
+   would barely change anything. Only ever proposes WITHIN the clip. */
+function proposeCut(clip, report, opts = {}){
+  const res = report && report.result && report.result[0];
+  if (!res || !res.samples) return null;
+  const len = clip.tOut - clip.tIn;
+  if (len < (opts.minLen != null ? opts.minLen : 4)) return null;
+  const sp = traceSpeeds(report).filter(a => a.t >= clip.tIn - 0.01 && a.t <= clip.tOut + 0.01);
+  /* the report must actually cover most of the clip to have an opinion */
+  if (sp.length < 8 || sp[0].t > clip.tIn + 1.5 || sp[sp.length - 1].t < clip.tOut - 1.5) return null;
+
+  const vs = sp.map(a => a.v).sort((a, b) => a - b);
+  const pct = f => vs[Math.min(vs.length - 1, Math.floor(vs.length * f))] || 0;
+  const ACTIVE = Math.max(0.08, pct(0.7));
+  const poss = (res.possession || []).filter(w => w.end > clip.tIn && w.start < clip.tOut);
+  const inPoss = t => poss.some(w => t >= w.start && t <= w.end);
+  const active = sp.filter(a => a.v >= ACTIVE || inPoss(a.t));
+  if (!active.length) return null;
+
+  const A0 = active[0].t, A1 = active[active.length - 1].t;
+  /* end on the touch when the ball data shows one: the last possession end
+     inside the clip beats a raw activity tail */
+  const lastTouch = poss.length ? Math.max(...poss.map(w => w.end)) : null;
+  const endAnchor = (lastTouch != null && lastTouch >= A1 - 1.5) ? lastTouch : A1;
+  let tIn = clamp(A0 - 1.0, clip.tIn, clip.tOut - 1);
+  let tOut = clamp(endAnchor + (lastTouch != null && endAnchor === lastTouch ? 0.8 : 1.0),
+    tIn + (opts.minKeep != null ? opts.minKeep : 2), clip.tOut);
+  if (tIn <= clip.tIn + 0.5 && tOut >= clip.tOut - 0.5) return null;   // already tight
+
+  /* the fastest 1.5s inside the kept range: the speed-ramp suggestion for
+     a social cut (consumed by the studio; carried, never applied here) */
+  let ramp = null, best = -1;
+  for (const a of sp){
+    if (a.t < tIn || a.t + 1.5 > tOut) continue;
+    const win = sp.filter(b => b.t >= a.t && b.t <= a.t + 1.5);
+    const v = win.reduce((x, b) => x + b.v, 0) / Math.max(1, win.length);
+    if (v > best){ best = v; ramp = { start: +a.t.toFixed(2), end: +(a.t + 1.5).toFixed(2) }; }
+  }
+
+  const saved = len - (tOut - tIn);
+  return {
+    tIn: +tIn.toFixed(2), tOut: +tOut.toFixed(2), ramp,
+    saved: +saved.toFixed(1),
+    why: (poss.length ? 'the action starts and ends on his touches'
+      : 'the action sits in the middle of this clip')
+      + ' — about ' + saved.toFixed(0) + 's of quiet can go',
+  };
+}
+
+async function findHisMoments(){
+  if (!project.videoName || !video.videoWidth)
+    return toast('Open a game video first — the finder needs film to scan.', 5000);
+  const spots = project.annotations.filter(a => a.type === 'spot');
+  if (!spots.length)
+    return toast('Put a ring on him first — pick Spotlight and tap him. The finder needs to know who to watch.', 6500);
+  const spot = spots.find(a => a.id === ui.selectedId) ||
+    spots.reduce((p, q) => ((q.keys || []).length > (p.keys || []).length ? q : p));
+
+  /* a fresh scan of most of this game can be reused; otherwise run one from
+     the ring — the tracker's own progress + cancel carry the long wait */
+  const rep = lastTrackReport;
+  const span = rep && rep.result && rep.result[0] && rep.video &&
+    rep.video.name === project.videoName
+    ? Math.abs(rep.result[0].lastGoodAt - rep.startedAt) : 0;
+  if (!(span > (video.duration || 0) * 0.6)){
+    const from = (spot.keys && spot.keys.length ? spot.keys[0].t : spot.tStart) || 0;
+    await seekTo(Math.min(from, Math.max(0, (video.duration || 1) - 1)));
+    await autoTrack(spot);
+    if (ui.trackCancel) return;
+  }
+  ui.momentCands = momentCandidates(lastTrackReport).map(c => ({ ...c, state: null }));
+  renderMoments();
+  $('#momentsModal').classList.add('open');
+}
+
+function renderMoments(){
+  const host = $('#momentsList');
+  host.innerHTML = '';
+  const cands = ui.momentCands || [];
+  $('#momentsEmpty').style.display = cands.length ? 'none' : '';
+  $('#momentsScope').textContent = cands.length
+    ? cands.length + ' to look at · ' + fmtT(cands[0].start) + ' to ' + fmtT(cands[cands.length - 1].end)
+    : '';
+  const stats = project.momentStats || { accepted: 0, rejected: 0 };
+  $('#momentsTally').textContent = (stats.accepted || stats.rejected)
+    ? `You have said yes to ${stats.accepted} and no to ${stats.rejected} in this game. The counts are only counts — nothing changes behind your back.`
+    : '';
+  cands.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'annItem';
+    row.style.cssText = 'display:flex; align-items:center; gap:10px' +
+      (c.state === 'rejected' ? '; opacity:.45' : '');
+    const main = document.createElement('div');
+    main.style.cssText = 'flex:1; min-width:0';
+    const l1 = document.createElement('div');
+    l1.style.fontWeight = '600';
+    l1.textContent = fmtT(c.start) + ' – ' + fmtT(c.end) +
+      (c.state === 'accepted' ? '  ·  ✓ saved as a clip' : c.state === 'rejected' ? '  ·  passed on' : '');
+    const l2 = document.createElement('div');
+    l2.style.cssText = 'color:var(--dim); font-size:12px';
+    l2.textContent = c.why;
+    main.appendChild(l1); main.appendChild(l2);
+    row.appendChild(main);
+    const mk = (txt, tip, fn) => {
+      const b = document.createElement('button');
+      b.className = 'miniBtn'; b.textContent = txt;
+      b.setAttribute('data-tip', tip); b.onclick = fn;
+      return b;
+    };
+    row.appendChild(mk('▶', 'Play a three-second look at this moment, right here under the list.', () => {
+      clearTimeout(ui.momentPrevT);
+      video.currentTime = c.start;
+      video.play();
+      const ms = (Math.min(c.end, c.start + 3) - c.start) * 1000;
+      ui.momentPrevT = setTimeout(() => video.pause(), Math.max(400, ms));
+    }));
+    if (c.state !== 'accepted')
+      row.appendChild(mk('➕ Yes, keep it', 'Save this moment as an ordinary clip — retitle, tag and trim it like any other.', () => {
+        mutate(() => {
+          project.clips.push({ id: uid(), tIn: +c.start.toFixed(2), tOut: +c.end.toFixed(2),
+            title: c.reasons[0].charAt(0).toUpperCase() + c.reasons[0].slice(1) + ' at ' + fmtT(c.start),
+            rating: 'neutral', tags: [], notes: 'Found by the moment scan — ' + c.why + '.',
+            ask: '', position: $('#clipPosition').value, format: $('#clipFormat').value });
+          project.clips.sort((a, b) => a.tIn - b.tIn);
+          project.momentStats = project.momentStats || { accepted: 0, rejected: 0 };
+          project.momentStats.accepted++;
+        });
+        c.state = 'accepted';
+        renderMoments();
+      }));
+    if (c.state == null)
+      row.appendChild(mk('✕ Not one', 'Pass on this moment. It is only counted — nothing is learned from it silently, so the finder stays predictable.', () => {
+        c.state = 'rejected';
+        project.momentStats = project.momentStats || { accepted: 0, rejected: 0 };
+        project.momentStats.rejected++;
+        persist();
+        renderMoments();
+      }));
+    host.appendChild(row);
+  });
+}
+$('#btnFindMoments').onclick = findHisMoments;
+$('#momentsClose').onclick = () => {
+  clearTimeout(ui.momentPrevT);
+  video.pause();
+  $('#momentsModal').classList.remove('open');
+};
 
 /* How far should it follow? The old answer was "to this spotlight's End time",
    which defaults to 4 seconds after the ring was placed — so pressing Track on a
@@ -4362,9 +4751,25 @@ function renderClipList(){
         <button class="miniBtn" data-act="compare" data-tip="Put this moment next to another clip and play them side by side.">⚖</button>
         <button class="miniBtn" data-act="voice" data-tip="Record yourself talking over this clip. Your voice goes into the video when you save it — so he hears the coaching even when you are not there.">🎤${voiceIds.has(c.id) ? '✓' : ''}</button>
         <button class="miniBtn" data-act="edit" data-tip="Change the name, the labels, the note or the question on this clip.">✏️ Edit</button>
+        ${proposeCut(c, lastTrackReport) ? '<button class="miniBtn" data-act="tighten" data-tip="The tracking data thinks this clip has quiet air around the action. One tap trims it to start just before the play and end a beat after — and Undo puts it straight back.">✂ Tighten to the action?</button>' : ''}
         <button class="miniBtn danger" data-act="del" data-tip="Delete this clip.">🗑</button>
       </div>`;
     el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
+    const tightenBtn = el.querySelector('[data-act=tighten]');
+    if (tightenBtn) tightenBtn.onclick = () => {
+      const prop = proposeCut(c, lastTrackReport);
+      if (!prop) return renderClipList();
+      const was = { tIn: c.tIn, tOut: c.tOut };
+      mutate(() => {
+        c.tIn = prop.tIn; c.tOut = prop.tOut;
+        if (prop.ramp) c.ramp = prop.ramp;   // the fastest bit — for social cuts
+      });
+      toast('Tightened: ' + prop.why + '. It now runs ' + fmtDur(c.tOut - c.tIn) + '.',
+        8000, { label: '↩ Undo', fn(){
+          mutate(() => { c.tIn = was.tIn; c.tOut = was.tOut; delete c.ramp; });
+          toast('Put back the way you had it.');
+        } });
+    };
     el.querySelector('[data-act=play]').onclick = () => playClip(c);
     el.querySelector('[data-act=export]').onclick = () => doExport(c.tIn, c.tOut, c.title, c);
     el.querySelector('[data-act=reel]').onclick = () => {
@@ -6577,19 +6982,32 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v5.0';
+const APP_BUILD = 'v6.0';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   playerCard: { get: () => playerCard, lines: reelCardLines, fileBase: profileFileBase,
     photo: () => libIdb.get('playerPhoto'), sync: syncPlayerCardWithFolder },
   studio: { get: () => studio, pool: () => studioPool, suggestions: studioSuggestions,
     kit: () => studioKitParts() },
+  proposeCut,
+  socket: { metadata: buildMetadataExport,
+    async importPlan(p){
+      if (!studioPool.length) studioPool = await studioCollect();
+      return importReelPlan(p);
+    } },
+  moments: { candidates: momentCandidates,
+    open(cands){
+      ui.momentCands = cands.map(c => ({ ...c, state: null }));
+      renderMoments();
+      $('#momentsModal').classList.add('open');
+    } },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
   drawBoardCard,
   get voiceIds(){ return voiceIds; },
   get trackReport(){ return lastTrackReport; },
   lockon: { load: loadLockon, detect: lockonDetect, decode: lockonDecode,
     nms: lockonNms, step: lockonStep, sigDist: lockonSigDist,
+    possession: possessionWindows,
     stub(fn){ lockonOverride = fn; if (fn) lockonState = 'ready'; },
     get state(){ return lockonState; }, get loadMs(){ return lockonLoadMs; } } };
 
@@ -7726,6 +8144,157 @@ player page.html   — his one-page player site. Send it as an attachment or put
   toast('The sharing kit is saved — YouTube words with chapters, a coach email, and his player page, all in one zip.', 6500);
 }
 $('#studioKit').onclick = studioSaveKit;
+
+/* ---------------- the metadata socket (v6-D) ----------------
+  Two versioned files make outside intelligence pluggable with no network and
+  no pixels: filmroom-metadata.json carries everything about the season
+  EXCEPT pictures (clips, tags, ratings, notes, his questions and answers,
+  moment counts, track summaries, the current reel plan — and never the
+  photo, which is pixels), and filmroom-reelplan.json comes back the other
+  way: an ordered plan the storyboard loads as a DRAFT for the person to
+  review. This is the socket AUTOPILOT.md plugs into — and the same socket a
+  future on-device model would use. */
+const METADATA_FORMAT = 'filmroom-metadata';
+const REELPLAN_FORMAT = 'filmroom-reelplan';
+const SOCKET_VERSION = 1;
+
+async function buildMetadataExport(){
+  const games = await collectGames();
+  const out = {
+    format: METADATA_FORMAT, version: SOCKET_VERSION,
+    exportedAt: new Date().toISOString(), app: APP_BUILD,
+    player: null, reelPlan: null, games: [],
+  };
+  if (playerCard){
+    const p = { ...playerCard };
+    delete p.photo;                       // pixels never ride the metadata file
+    out.player = p;
+  }
+  if (studio && studio.items.length){
+    out.reelPlan = { title: studio.title || '', savedAt: studio.savedAt,
+      items: studio.items.map(it => ({ game: it.gameName, clipId: it.clipId,
+        trimIn: it.trimIn, trimOut: it.trimOut, spotlight: it.spotlight,
+        freezeIntro: it.freezeIntro, label: it.label || '' })) };
+    const edits = planEdits();
+    if (edits) out.reelPlan.editsSinceImport = edits;   // the Autopilot's report card
+  }
+  for (const g of games){
+    const proj = await studioLoadProjectFor(g.name);
+    out.games.push({
+      name: g.name, date: g.date,
+      clips: g.clips.map(c => ({ id: c.id, tIn: c.tIn, tOut: c.tOut,
+        title: c.title || '', rating: c.rating || '', tags: c.tags || [],
+        notes: c.notes || '', ask: c.ask || '', position: c.position || '',
+        format: c.format || '', ramp: c.ramp || null, boardId: c.boardId || null })),
+      sessions: (g.sessions || []).map(s => ({ when: s.when, title: s.title,
+        workOn: s.workOn || '', wentWell: s.wentWell || [],
+        answers: (s.entries || []).map(e => ({ clipId: e.clipId, title: e.title,
+          question: e.question || '', answer: e.answer || '' })) })),
+      momentStats: (proj && proj.momentStats) || null,
+      tracks: proj ? proj.annotations.filter(a => a.type === 'spot' && a.keys && a.keys.length >= 2)
+        .map(s => ({ label: s.label || '', from: +s.tStart.toFixed(2),
+          to: +s.tEnd.toFixed(2), keys: s.keys.length })) : [],
+    });
+  }
+  return out;
+}
+async function saveMetadataExport(){
+  const data = await buildMetadataExport();
+  if (!data.games.length && !data.player)
+    return toast('There is nothing to save as data yet — break a game down or fill in his card first.', 5500);
+  const base = profileFileBase('season data') ||
+    ((project.videoName || 'filmroom').replace(/\.[^.]+$/, '') + ' - season data');
+  downloadBlob(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }),
+    base + '.json');
+  toast('The season is saved as one data file — every clip, label, note and answer, and none of the film. Nothing was sent anywhere.', 6500);
+}
+
+function importReelPlan(parsed){
+  if (!parsed || parsed.format !== REELPLAN_FORMAT)
+    return { error: 'That file is not a reel plan. A reel plan file says "' + REELPLAN_FORMAT + '" inside.' };
+  if (+parsed.version > SOCKET_VERSION)
+    return { error: 'That reel plan was made by a newer Film Room than this one — update the app first.' };
+  if (!Array.isArray(parsed.items) || !parsed.items.length)
+    return { error: 'That reel plan has no plays in it.' };
+  const prev = { title: studio.title, items: studio.items };
+  const items = parsed.items.map(raw => {
+    const e = studioPool.find(p => p.gameName === raw.game && p.clip.id === raw.clipId);
+    if (e){
+      const it = studioItemFrom(e);
+      if (raw.trimIn != null) it.trimIn = clamp(raw.trimIn, it.tIn, it.tOut - 0.5);
+      if (raw.trimOut != null) it.trimOut = clamp(raw.trimOut, it.trimIn + 0.5, it.tOut);
+      if (raw.spotlight != null) it.spotlight = !!raw.spotlight;
+      if (raw.freezeIntro != null) it.freezeIntro = !!raw.freezeIntro;
+      if (raw.label) it.label = String(raw.label);
+      return it;
+    }
+    /* a play this browser cannot see yet: kept and marked, never dropped */
+    return { gameName: raw.game, date: 0, clipId: raw.clipId,
+      title: raw.title || 'A play from ' + String(raw.game).replace(/\.[^.]+$/, ''),
+      rating: '', tIn: raw.trimIn || 0, tOut: raw.trimOut || 4,
+      trimIn: raw.trimIn || 0, trimOut: raw.trimOut || 4,
+      spotlight: raw.spotlight !== false, freezeIntro: raw.freezeIntro !== false,
+      label: raw.label || '', tags: [], notes: '', missing: true };
+  });
+  studio.title = parsed.title || studio.title;
+  studio.items = items;
+  /* the edit-distance ledger (v6-E): remember what the imported draft looked
+     like, so the next metadata export can say how many human corrections it
+     took — the Autopilot's own report card, measured not argued */
+  studio.imported = { at: new Date().toISOString(), title: studio.title,
+    fp: items.map(planFingerprint) };
+  saveStudio();
+  return { prev, loaded: items.length, missing: items.filter(i => i.missing).length };
+}
+const planFingerprint = it =>
+  ({ id: it.gameName + '/' + it.clipId,
+     trim: (+it.trimIn).toFixed(1) + '-' + (+it.trimOut).toFixed(1) });
+/* how far the human moved the plan since the Autopilot drafted it: removals,
+   additions, reorders (common plays out of sequence), re-trims, a retitle */
+function planEdits(){
+  if (!studio || !studio.imported) return null;
+  const was = studio.imported.fp, now = studio.items.map(planFingerprint);
+  const wasIds = was.map(f => f.id), nowIds = now.map(f => f.id);
+  const removed = wasIds.filter(id => !nowIds.includes(id)).length;
+  const added = nowIds.filter(id => !wasIds.includes(id)).length;
+  const a = wasIds.filter(id => nowIds.includes(id));
+  const b = nowIds.filter(id => wasIds.includes(id));
+  const L = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      L[i][j] = a[i - 1] === b[j - 1] ? L[i - 1][j - 1] + 1 : Math.max(L[i - 1][j], L[i][j - 1]);
+  const reordered = a.length - L[a.length][b.length];
+  const retrimmed = now.filter(f => {
+    const w = was.find(x => x.id === f.id);
+    return w && w.trim !== f.trim;
+  }).length;
+  const retitled = (studio.title || '') !== (studio.imported.title || '') ? 1 : 0;
+  return { removed, added, reordered, retrimmed, retitled,
+    total: removed + added + reordered + retrimmed + retitled,
+    importedAt: studio.imported.at };
+}
+
+$('#studioData').onclick = saveMetadataExport;
+$('#studioPlanFile').onchange = async () => {
+  const f = $('#studioPlanFile').files[0];
+  $('#studioPlanFile').value = '';
+  if (!f) return;
+  let parsed = null;
+  try { parsed = JSON.parse(await f.text()); } catch (e){}
+  if (!studioPool.length) studioPool = await studioCollect();
+  const r = importReelPlan(parsed);
+  if (r.error) return toast(r.error, 6500);
+  renderStudio();
+  toast('The plan is loaded as a draft — ' + r.loaded + ' play' + (r.loaded === 1 ? '' : 's') +
+    (r.missing ? ' (' + r.missing + ' from games this computer cannot see, marked ⚠)' : '') +
+    '. It is yours to rearrange; Undo brings your old plan back.', 8000,
+    { label: '↩ Undo', fn(){
+        studio.title = r.prev.title; studio.items = r.prev.items;
+        saveStudio(); renderStudio();
+        toast('Your old plan is back.');
+      } });
+};
+$('#studioPlanPick').onclick = () => $('#studioPlanFile').click();
 
 loadStudio();
 

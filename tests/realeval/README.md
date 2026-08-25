@@ -123,6 +123,35 @@ verdict measured as time-on-him, or it does not ship.
 scores, times) — never frames or footage. `out/` also keeps the app's own
 tracking report per case (`<case>-report.json`) for diagnosis.
 
+## Ball ground truth (v6)
+
+To open the v6-A ball gate, add a second hand-dragged ring labelled exactly
+`ball` to any case's project and track the ball with it wherever it is
+visible (gaps are fine — coverage is only asked where you could see it).
+The harness excludes that ring from him/decoys automatically and prints a
+`ball:` line per case — coverage where marked, mean error, on-ball % — plus
+the possession windows the tracker derived.
+
+## The Moment Finder gate (v6)
+
+`node realeval/moments.js` grades the finder against games already broken
+down by hand: a case folder whose project has his SAVED CLIPS (they are the
+ground truth for "what this family calls a moment") plus a detect report over
+the same span. It replays the SHIPPED `momentCandidates()` in the real page
+and prints, per game: recall of his chosen moments (bar ≥80%) and review cost
+in candidates per accept (bar ≤4). The finder ships as an offer either way —
+this gate decides when its numbers are worth advertising.
+
+## The Auto-Cut gate (v6)
+
+`node realeval/autocut.js` measures the tightening proposals against the
+parent's own hand-set trims, on the same project+report pairs the Moment
+Finder gate uses: each saved clip is widened 3s per side (the loose cut a
+person starts from), the SHIPPED `proposeCut()` tightens it in the real page,
+and the proposal's ends are compared with where the parent actually cut.
+Ship bar: median within 1.5s per end. No-opinion clips are reported, not
+punished — a null is honest.
+
 ## The 9:16 reframe check (v5)
 
 `node realeval/reframe.js` measures the social cut's acceptance on the real

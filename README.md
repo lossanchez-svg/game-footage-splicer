@@ -167,6 +167,23 @@ shows a question — *"What are the options here? What would you do?"* — so he
 **before** seeing what actually happened. Then hit play and compare his answer with
 reality. This is the heart of building game IQ from film.
 
+### ✨ Find his moments — stop scrubbing
+Put a ring on him, press **✨ Find his moments** (Clips tab), and the game is scanned
+end to end — his time on the ball, his sprints, the busy spells around him — into a
+short list of candidate moments in plain words. ▶ plays a three-second look; **yes**
+saves it as an ordinary clip you can retitle and trim like any other; **no** is just
+no. Nothing is chosen for you and nothing changes behind your back — rejections are
+only counted, and the tally says so. A long game takes a while to scan; the progress
+bar and Esc-to-cancel are the same ones tracking always had.
+
+### ✂ Tighten to the action — the cut assistant
+After a tracking run, any clip with quiet air around the play grows a small
+**✂ Tighten to the action?** offer in the clip list: one tap trims it to start just
+before the move and end a beat after his last touch, and the toast's **↩ Undo** puts
+it back exactly. It only appears when the tracking data actually covers the clip and
+actually has an opinion — no offer means the clip is already tight, too short, or not
+scanned yet.
+
 ### 🎬 Clip library
 Press **Start clip here** and **End clip here** around any moment, then **＋ Save clip**
 to keep it with tags:
@@ -222,6 +239,15 @@ zip: ready-to-paste YouTube words whose chapter times match the reel exactly, a 
 email to a coach with his details already filled in (read it once, make it sound like
 you), and his one-page player site — a single HTML file with his photo, roster line
 and season index baked in, that you can attach to an email or drop on any hosting.
+
+Two quieter buttons round out the studio: **📋 Save the season as data** writes one
+file with everything about the season *except* the film (clips, labels, notes, his
+answers — no video, no pictures, nothing sent anywhere), and **📥 Load a reel plan**
+reads a plan file back in as a draft you review, with your old plan one Undo away.
+Together they are the doorway for the optional **Autopilot** — a recipe (in
+`AUTOPILOT.md`) that a Claude Code session can follow on your own computer to carry
+a new game all the way to a draft reel. It is off unless you run it, its drafts are
+always drafts, and it never posts anything anywhere.
 
 ### 🎽 His player card — fill it in once
 In the Clips tab, **✎ Fill in his card** takes his name, number, grad year, positions,
