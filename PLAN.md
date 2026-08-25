@@ -1774,6 +1774,83 @@ advertising, not whether a parent may use them.
 
 ---
 
+## 🚧 Current epic — v7 "Onyx" (UI refresh)
+
+The audit and sprint-by-sprint spec live in **`UI_REFRESH_PLAN.md`** — same tool,
+quieter and closer: a neutral matte re-skin, accelerated pathways to existing actions,
+and two-tier disclosure. Hard rules: zero capability changes, every new pathway routes
+through the same handlers the existing buttons call, and `drawScene()`/`PALETTE`/the
+export renderers are frozen so old exports keep matching the editor.
+
+- [x] **Sprint 1 — Onyx foundation (shipped).** Neutral #121212–#1A1A1A token set
+      (`--bg/--bg2/--bg3/--bg-raise/--line` + new `--edge-hi`/`--shadow-pane`/
+      `--radius-clip`), full hardcoded-color sweep of the style block, chroma demoted
+      from decorative spots (logo, tab underline, watch-banner gradient, Reel-Studio
+      blues, scrims, tip bubble, scrollbars, placeholder) and kept for selection,
+      live state, in/out range, data ratings and primary actions; pane depth shadows
+      (top bar, transport, sidebar — both orientations) and a shared inset top-edge
+      highlight on cards. CSS + `theme-color` meta only; no markup/JS changes.
+      `manifest.webmanifest` theme/background colors deliberately untouched (hosted
+      PWA only) — pick up alongside the PWA refinement item.
+- [x] **Sprint 2 — tangible timeline (shipped).** Clip marker bars became blocks
+      (6px radius, top-lit gradient over the rating color, edge highlight + shadow,
+      hover lift); the playhead is the accent blue with a soft glow; the marked
+      range grew grab handles on both edges (drag to retime, the frame follows,
+      26px hit area on touch, the transport buttons and I/O keys unchanged); and
+      quick-mark chips follow the mouse along the timeline — "Start clip here /
+      End clip here" at the exact spot you are pointing, no seeking first (mouse
+      only; touch keeps the buttons). All routes through the existing mark state
+      and handlers. Verified: chips mark, handles retime a saved clip end-to-end,
+      plain click still seeks; smoke/touch/comfort/tips/plainwords/tour/
+      walkthrough/friction/watch green.
+- [x] **Sprint 3 — ⌘K command bar (shipped).** First a pure extraction: the nine
+      inline clip-card closures became named functions behind one `clipAction(act, c)`
+      dispatcher (identical behavior, one source of truth for what you can do to a
+      clip). Then the bar: ⌘K / Ctrl+K from anywhere opens a typed palette whose
+      entries are the real buttons (label + `data-tip` sentence is the search text;
+      running an entry clicks the real control, so guards, toasts, undo and hints are
+      inherited) plus tab switches and every saved clip by name. Word-start-weighted
+      scoring, ↑/↓/Return/Esc, never stacks over an open dialog, closes cleanly
+      (blur — a hidden focused input would swallow the shortcut map), disabled during
+      sessions/tracking/export. In the Help table and README. No proactive hint —
+      it must never become a step Grandma needs. Verified by `tests/cmdbar.js`
+      (15 checks) + full UI regression set green.
+- [x] **Sprint 4 — timeline clip micro-menu (shipped).** Hovering a clip block on the
+      timeline fades in a small menu naming the clip (rating dot, title, times) with
+      ▶ Play · ✏️ Edit · ➕/✓ Reel — plus ✂ Tighten only when `proposeCut()` has a
+      proposal — every button routed through `clipAction()`, with the sidebar's own
+      tip sentences. 150ms hover-intent delay, grace timers to reach the menu,
+      reduced-motion honored. The seek click is untouched, the quick-mark chips
+      yield while over a block, and it is mouse-only: on touch the Clips tab stays
+      the way in. Verified by `tests/micromenu.js` (12 checks) + regression set.
+- [x] **Sprint 5 — smart-drop zones + drag-to-reel (shipped).** While a file is
+      dragged over an open game, the stage splits into labelled targets: "🎞 Open as
+      this game" (the original behavior) and — once at least one clip exists —
+      "⚖ Use as the example side", which routes the file into Compare via the same
+      loader the 📂 File… button uses (extracted as `cmpUseFile()`). Dropping
+      anywhere else, or before a game is open, behaves exactly as before, and both
+      plain-words failure toasts are preserved word for word. Clip cards grew a ⠿
+      dot (mouse only, hidden on touch) that drags onto the Highlight reel section —
+      it lights up and the drop calls the same `toggleReel()` as ➕ Reel. Verified by
+      `tests/dropzones.js` (14 checks) + 16-suite regression set.
+- [x] **Sprint 6 — progressive disclosure (shipped).** Clip cards went two-tier:
+      the daily verbs (▶ Play · ➕ Reel · ✏️ Edit, plus ✂ Tighten when proposed)
+      stay out, and 🎬 Save video · 🗒 Board · ⚖ Compare · 🎤 Voice · 🗑 Delete sit
+      behind a "⌄ More" fold that remembers being open per clip across re-renders;
+      🗒/🎤 attachment glyphs moved into the card head so folded state stays
+      visible. The top bar's three project-file jobs (💾 Save / 📂 Load /
+      📦 Keep this game — same IDs, same tips) folded into one **📦 Project ⌄**
+      menu that closes on outside press or after a job. The spotlight panel fold
+      was **descoped with rationale**: `#selSection` is already progressive
+      (appears only on selection, buttons conditional by type), and folding it
+      would churn four tracking suites for no daily-density win. Tests: shared
+      `openDisclosures()` helper in `tests/common.js`; nine suites updated at
+      their now-folded click sites; full affected set green.
+
+**Epic status: all six sprints shipped.** Remaining from the audit doc: the optional
+Stretch S-A audio-energy strip (needs an iPad memory spike measurement first — see
+`UI_REFRESH_PLAN.md` §2.4) and the sidebar fold-labels-to-words refinement below.
+
 ## Roadmap
 
 ### Next (in order)
@@ -2038,6 +2115,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | AUTOPILOT.md's promises are asserted by the test suite | "Draft-only" and "never posts anywhere" are worthless as vibes in a doc nobody re-reads. tests/autopilot.js greps the document for its own hard rules, so weakening the contract breaks the build — the jargon-ban lesson applied to a safety promise |
 | 2026-08-25 | The headless renderer does one game per run and refuses more, toward the app's own button | Serving multi-game footage into a headless page means base64-ing gigabytes through an init script — a memory cliff dressed as a feature. The app's real 🎬 button with the real Games folder already renders multi-game plans; the driver says so instead of half-working |
 | 2026-08-25 | The default ending of an Autopilot run is the PARENT pressing Make the reel | Even with a perfect draft, the render click is where review actually happens — the drag-what's-wrong moment. The headless render exists for the explicitly-asked hands-off case and still only writes "DRAFT - " files that never overwrite anything |
+| 2026-08-25 | v7 "Onyx" recolors chrome only — PALETTE, drawScene() and the export/title-card renderers are frozen | Overlay and export share one renderer, and title cards are burned into saved files: restyling them would make every previously exported video mismatch the editor. On the new neutral-gray workspace the untouched vibrant annotations become the loudest thing on screen — which is the product's point. Chroma in the UI is budgeted to selection, live state, in/out + playhead, clip-rating data, and the one primary action per screen |
 
 ## Working agreements for future sessions
 

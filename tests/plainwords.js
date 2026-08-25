@@ -2,7 +2,7 @@
    non-technical user understands — and every screen must be reachable and
    render (a screenshot pass over each tab and mode doubles as a smoke test). */
 const path = require('path');
-const { APP, FIXTURES, OUT, launch } = require('./common');
+const { APP, FIXTURES, OUT, launch, openDisclosures } = require('./common');
 
 const VIDEO = path.join(FIXTURES, 'game.webm');
 const shot = (page, name) => page.screenshot({ path: path.join(OUT, 'plain_' + name + '.png') });
@@ -160,6 +160,7 @@ const shot = (page, name) => page.screenshot({ path: path.join(OUT, 'plain_' + n
     p.clips.push({ ...p.clips[0], id: 'second', title: 'The model version' });
   });
   await page.click('#tabs button[data-tab=clips]');
+  await openDisclosures(page);
   await page.click('#clipList [data-act=compare]');
   await page.waitForTimeout(500);
   check('side-by-side opens', await page.evaluate(() =>

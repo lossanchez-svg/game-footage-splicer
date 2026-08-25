@@ -39,4 +39,17 @@ async function launch(contextOpts = {}) {
   return { browser, page, errors, check };
 }
 
-module.exports = { APP, FIXTURES, OUT, launch };
+
+/* v7 progressive disclosure: open every clip card's "More" fold and the top-bar
+   Project menu so a test can click controls that now sit one disclosure deep.
+   Opening fires each fold's toggle listener, so the app keeps them open across
+   its own re-renders for the rest of the page session. */
+async function openDisclosures(page) {
+  await page.evaluate(() => {
+    document.querySelectorAll('.clipItem details.moreActs').forEach(d => d.open = true);
+    const m = document.querySelector('#projectMenu');
+    if (m) m.open = true;
+  });
+}
+
+module.exports = { APP, FIXTURES, OUT, launch, openDisclosures };

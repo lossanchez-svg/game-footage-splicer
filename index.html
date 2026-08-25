@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#121212">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,10 +13,16 @@
 <title>Film Room — Soccer Footage Study</title>
 <style>
   :root{
-    --bg:#0d1117; --bg2:#161b22; --bg3:#1f2630; --line:#2d333b;
-    --text:#e6edf3; --dim:#8b949e; --accent:#2ea043; --accent2:#58a6ff;
-    --pos:#3fb950; --neg:#f85149; --neu:#8b949e; --warn:#d29922; --accent-btn:#1a7f37;
-    --radius:8px;
+    /* Onyx surfaces — neutral matte grays, dominant band #121212–#1A1A1A. The chroma
+       budget: color belongs only to selection, live state (record/track/export),
+       the in/out range + playhead, data (clip ratings), and the primary action. */
+    --bg:#121212; --bg2:#171717; --bg3:#1e1e1e; --bg-raise:#242424;
+    --line:#2c2c2c; --line-soft:#232323;
+    --edge-hi:rgba(255,255,255,.055);
+    --shadow-pane:0 0 0 1px var(--line), 0 8px 24px rgba(0,0,0,.35);
+    --text:#ececec; --dim:#9e9e9e; --accent:#2ea043; --accent2:#58a6ff;
+    --pos:#3fb950; --neg:#f85149; --neu:#9e9e9e; --warn:#d29922; --accent-btn:#1a7f37;
+    --radius:8px; --radius-clip:6px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
@@ -30,12 +36,12 @@
     -webkit-user-select:none; user-select:none;}
   button{font:inherit; color:inherit; background:var(--bg3); border:1px solid var(--line);
     border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap; touch-action:manipulation;}
-  button:hover{background:#2b3340;}
+  button:hover{background:var(--bg-raise);}
   /* --accent stays the bright brand green for borders and marks; text sits on the
      darker --accent-btn so white-on-green clears WCAG AA (4.5:1) */
   button.primary{background:var(--accent-btn); border-color:var(--accent-btn); color:#fff; font-weight:600;}
   button.primary:hover{background:#1c883b; border-color:#1c883b;}
-  button.active{background:var(--accent2); border-color:var(--accent2); color:#04121f; font-weight:600;}
+  button.active{background:var(--accent2); border-color:var(--accent2); color:#101010; font-weight:600;}
   button.danger:hover{background:#5c1f1f; border-color:var(--neg);}
   button:disabled{opacity:.4; cursor:default;}
   input,select,textarea{font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line);
@@ -45,14 +51,15 @@
   :focus-visible{outline:3px solid #79c0ff; outline-offset:2px; border-radius:6px;}
   button:focus-visible,summary:focus-visible,.chip:focus-visible,.colorChip:focus-visible,
   #tabs button:focus-visible,#timeline:focus-visible{outline:3px solid #79c0ff; outline-offset:2px;}
-  ::placeholder{color:#8b949e; opacity:1;}
-  ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-thumb{background:#333c48;border-radius:6px}
+  ::placeholder{color:var(--dim); opacity:1;}
+  ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-thumb{background:#2e2e2e;border-radius:6px}
 
   /* ---------- Top bar ---------- */
   #topbar{display:flex; align-items:center; gap:8px; padding:8px 12px;
-    background:var(--bg2); border-bottom:1px solid var(--line); flex-wrap:wrap;}
+    background:var(--bg2); border-bottom:1px solid var(--line); flex-wrap:wrap;
+    box-shadow:0 2px 10px rgba(0,0,0,.22);}
   #topbar .logo{font-weight:700; font-size:16px; margin-right:4px; letter-spacing:.3px;}
-  #topbar .logo span{color:var(--accent);}
+  #topbar .logo span{color:var(--text);}
   #buildTag{color:var(--dim); font-size:11px; font-variant-numeric:tabular-nums;
     border:1px solid var(--line); border-radius:10px; padding:1px 7px;}
   body.bigText #buildTag{font-size:13px;}
@@ -80,7 +87,7 @@
 
   /* pause / decision overlay */
   #decisionOverlay{position:absolute; inset:0; display:none; align-items:center; justify-content:center;
-    background:rgba(4,8,15,.72); z-index:30;}
+    background:rgba(0,0,0,.68); z-index:30;}
   #decisionOverlay .card{background:var(--bg2); border:1px solid var(--accent2); border-radius:12px;
     padding:26px 30px; max-width:520px; text-align:center; box-shadow:0 12px 48px rgba(0,0,0,.6);}
   #decisionOverlay .brain{font-size:34px;}
@@ -89,7 +96,7 @@
 
   /* export overlay */
   #busyOverlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-    background:rgba(4,8,15,.8); z-index:100;}
+    background:rgba(0,0,0,.75); z-index:100;}
   #busyOverlay .card{background:var(--bg2); border:1px solid var(--line); border-radius:12px;
     padding:24px 32px; text-align:center; min-width:280px;}
   #busyBar{height:8px; background:var(--bg); border-radius:4px; overflow:hidden; margin:14px 0;}
@@ -121,7 +128,7 @@
   /* session bar (shown while a session clip plays) */
   #sessionBar{position:absolute; top:12px; left:50%; transform:translateX(-50%);
     display:none; align-items:center; gap:10px; z-index:40;
-    background:rgba(13,17,23,.92); border:1px solid var(--accent); border-radius:24px;
+    background:rgba(20,20,20,.92); border:1px solid var(--accent); border-radius:24px;
     padding:7px 10px 7px 16px; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px;}
   #sessionModal .box{text-align:center; padding:28px 26px; width:min(620px, 94vw);}
   #sessionModal h3{font-size:26px; line-height:1.25; margin-bottom:10px;}
@@ -138,23 +145,45 @@
   /* tracking progress pill */
   #trackPill{position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
     display:none; align-items:center; gap:10px; z-index:40;
-    background:rgba(13,17,23,.92); border:1px solid var(--accent2); border-radius:24px;
+    background:rgba(20,20,20,.92); border:1px solid var(--accent2); border-radius:24px;
     padding:8px 10px 8px 16px; box-shadow:0 6px 24px rgba(0,0,0,.5); font-size:13px;}
 
   /* ---------- Transport ---------- */
   #transport{background:var(--bg2); border-top:1px solid var(--line); padding:8px 12px;
-    display:flex; flex-direction:column; gap:6px;}
+    display:flex; flex-direction:column; gap:6px; box-shadow:0 -6px 16px rgba(0,0,0,.25);}
   #timeline{position:relative; height:44px; background:var(--bg); border:1px solid var(--line);
     border-radius:6px; cursor:pointer; overflow:hidden;}
   #tlClips,#tlAnns{position:absolute; left:0; right:0;}
-  #tlClips{top:2px; height:20px;}
+  #tlClips{top:2px; height:22px;}
   #tlAnns{bottom:2px; height:12px;}
-  .tlClip{position:absolute; height:100%; border-radius:3px; opacity:.85; min-width:3px;}
+  /* clips read as tangible blocks: a soft top-lit gradient over the rating color */
+  .tlClip{position:absolute; height:100%; border-radius:var(--radius-clip); min-width:4px;
+    background-image:linear-gradient(rgba(255,255,255,.10), rgba(0,0,0,.18));
+    box-shadow:inset 0 1px 0 var(--edge-hi), 0 1px 2px rgba(0,0,0,.5);}
+  .tlClip:hover{filter:brightness(1.18);}
   .tlAnn{position:absolute; height:5px; border-radius:2px; opacity:.9; min-width:2px;}
   .tlPause{position:absolute; bottom:0; width:2px; height:10px; background:var(--warn);}
   #tlInOut{position:absolute; top:0; bottom:0; background:rgba(88,166,255,.16);
     border-left:2px solid var(--accent2); border-right:2px solid var(--accent2); display:none;}
-  #playhead{position:absolute; top:0; bottom:0; width:2px; background:#fff; pointer-events:none;}
+  /* grab handles on the marked range — drag to move where the moment starts/ends */
+  .ioHandle{position:absolute; top:0; bottom:0; width:14px; cursor:ew-resize; z-index:3;}
+  .ioHandle.left{left:-8px;} .ioHandle.right{right:-8px;}
+  .ioHandle::after{content:''; position:absolute; left:50%; top:50%;
+    transform:translate(-50%,-50%); width:4px; height:16px; border-radius:2px;
+    background:var(--accent2);}
+  /* the floating quick-mark chips that follow the cursor along the timeline */
+  #tlHover{position:fixed; z-index:55; display:none; gap:6px; align-items:center;
+    background:var(--bg3); border:1px solid var(--line); border-radius:8px;
+    padding:4px 6px; box-shadow:0 6px 18px rgba(0,0,0,.45);}
+  #tlHover button{font-size:12px; padding:4px 9px;}
+  #tlHover .timeTag{min-width:52px; text-align:center;}
+  body.bigText #tlHover button{font-size:15px; padding:7px 12px;}
+  @media (pointer:coarse){
+    .ioHandle{width:26px;}
+    .ioHandle.left{left:-14px;} .ioHandle.right{right:-14px;}
+  }
+  #playhead{position:absolute; top:0; bottom:0; width:2px; background:var(--accent2);
+    box-shadow:0 0 6px rgba(88,166,255,.6); pointer-events:none;}
   #controls{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   #timecode{font-variant-numeric:tabular-nums; color:var(--dim); font-size:13px; min-width:150px;}
   .ctlGroup{display:flex; gap:4px; align-items:center;}
@@ -163,11 +192,12 @@
 
   /* ---------- Sidebar ---------- */
   #sidebar{width:340px; background:var(--bg2); border-left:1px solid var(--line);
-    display:flex; flex-direction:column; min-height:0;}
+    display:flex; flex-direction:column; min-height:0;
+    box-shadow:-8px 0 20px rgba(0,0,0,.25);}
   #tabs{display:flex; border-bottom:1px solid var(--line);}
   #tabs button{flex:1; border:none; border-radius:0; background:none; padding:10px 4px;
     color:var(--dim); font-weight:600; border-bottom:2px solid transparent;}
-  #tabs button.active{color:var(--text); border-bottom-color:var(--accent); background:none;}
+  #tabs button.active{color:var(--text); border-bottom-color:var(--text); background:none;}
   .tabPanel{flex:1; overflow-y:auto; padding:12px; display:none; min-height:0;}
   .tabPanel.active{display:block;}
   .section{margin-bottom:16px;}
@@ -180,7 +210,7 @@
   .colorChip.active{border-color:#fff; box-shadow:0 0 0 2px var(--accent2);}
   .chip{padding:3px 9px; border-radius:20px; font-size:12px; background:var(--bg3);
     border:1px solid var(--line); cursor:pointer;}
-  .chip.active{background:var(--accent2); color:#04121f; border-color:var(--accent2); font-weight:600;}
+  .chip.active{background:var(--accent2); color:#101010; border-color:var(--accent2); font-weight:600;}
   .fieldRow{display:flex; gap:6px; align-items:center; margin-bottom:6px;}
   .fieldRow label{color:var(--dim); font-size:12px; min-width:66px;}
   .fieldRow input[type=text]{flex:1; min-width:0;}
@@ -188,7 +218,7 @@
 
   /* annotation list */
   .annItem,.clipItem{background:var(--bg3); border:1px solid var(--line); border-radius:var(--radius);
-    padding:8px 10px; margin-bottom:6px;}
+    padding:8px 10px; margin-bottom:6px; box-shadow:inset 0 1px 0 var(--edge-hi);}
   .annItem.selected{border-color:var(--accent2);}
   .annItem .row1{display:flex; align-items:center; gap:6px;}
   .annItem .kind{font-size:14px;}
@@ -209,7 +239,7 @@
 
   /* modal */
   .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-    background:rgba(4,8,15,.7); z-index:60;}
+    background:rgba(0,0,0,.66); z-index:60;}
   .modal.open{display:flex;}
   .modal .box{background:var(--bg2); border:1px solid var(--line); border-radius:12px;
     width:min(560px, 94vw); max-height:90vh; overflow-y:auto; padding:20px;}
@@ -229,7 +259,7 @@
   #panel-coach details{background:var(--bg3); border:1px solid var(--line); border-radius:var(--radius);
     margin-bottom:8px; padding:0;}
   #panel-coach summary{cursor:pointer; font-weight:600; padding:10px 12px; font-size:13px;}
-  #panel-coach .body{padding:0 14px 12px; color:#c9d1d9; font-size:13px;}
+  #panel-coach .body{padding:0 14px 12px; color:#d6d6d6; font-size:13px;}
   #panel-coach .body ul{padding-left:18px; margin:6px 0;}
   #panel-coach .body li{margin-bottom:4px;}
   #panel-coach .body b{color:var(--text);}
@@ -258,7 +288,8 @@
   .trendFilters{display:flex; gap:8px; align-items:center; flex-wrap:wrap;
     padding:10px 0 14px; border-bottom:1px solid var(--line); margin-bottom:14px;}
   .kpiRow{display:grid; grid-template-columns:repeat(auto-fit, minmax(132px, 1fr)); gap:10px;}
-  .kpi{background:var(--bg3); border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px;}
+  .kpi{background:var(--bg3); border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px;
+    box-shadow:inset 0 1px 0 var(--edge-hi);}
   .kpi .fig{font-size:30px; font-weight:700; line-height:1.1;}   /* proportional figures, same sans */
   .kpi .cap{color:var(--dim); font-size:12px; margin-top:3px;}
   body.bigText .kpi .fig{font-size:34px;}
@@ -272,8 +303,8 @@
     --st-radius:12px;
     --st-ease:cubic-bezier(.2,.7,.3,1);
     --st-fast:140ms;
-    --st-card:#161d27;        /* one step calmer than --bg3 */
-    --st-card-edge:#232c38;
+    --st-card:#191919;        /* one step calmer than --bg3 */
+    --st-card-edge:#292929;
   }
   #studioModal .box{width:min(880px, 96vw);}
   #studioModal h3{letter-spacing:-.2px;}
@@ -282,21 +313,21 @@
   .sbList{margin-top:10px;}
   .sbCard{display:flex; align-items:center; gap:12px; background:var(--st-card);
     border:1px solid var(--st-card-edge); border-radius:var(--st-radius);
-    padding:11px 12px; margin-bottom:8px;
+    padding:11px 12px; margin-bottom:8px; box-shadow:inset 0 1px 0 var(--edge-hi);
     transition:transform var(--st-fast) var(--st-ease),
       box-shadow var(--st-fast) var(--st-ease),
       border-color var(--st-fast) var(--st-ease),
       opacity var(--st-fast) var(--st-ease);
     animation:sbIn 220ms var(--st-ease);}
   @keyframes sbIn{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
-  .sbCard:hover{transform:translateY(-1px); border-color:#31547a;
-    box-shadow:0 4px 14px rgba(0,0,0,.28);}
+  .sbCard:hover{transform:translateY(-1px); border-color:var(--line);
+    box-shadow:inset 0 1px 0 var(--edge-hi), 0 4px 14px rgba(0,0,0,.35);}
   .sbCard.dragging{opacity:.45; transform:scale(.995);}
   .sbCard.missing{border-style:dashed; opacity:.75;}
   .sbHandle{cursor:grab; color:var(--dim); font-size:16px; padding:8px 5px;
     touch-action:none; user-select:none; border-radius:8px;
     transition:background var(--st-fast) var(--st-ease);}
-  .sbHandle:hover{background:rgba(139,148,158,.12);}
+  .sbHandle:hover{background:rgba(255,255,255,.06);}
   .sbHandle:active{cursor:grabbing;}
   .sbOrd{color:var(--dim); font-variant-numeric:tabular-nums; min-width:22px;
     text-align:right; font-size:13px; font-weight:700; opacity:.75;}
@@ -363,7 +394,8 @@
 
   .trendList{display:flex; flex-direction:column; gap:8px;}
   .trendItem{display:flex; align-items:baseline; gap:10px; background:var(--bg3);
-    border:1px solid var(--line); border-radius:var(--radius); padding:9px 12px;}
+    border:1px solid var(--line); border-radius:var(--radius); padding:9px 12px;
+    box-shadow:inset 0 1px 0 var(--edge-hi);}
   .trendItem .dir{font-size:14px; flex:none;}
   .trendItem .txt{font-size:13px;}
   .trendItem .txt b{color:var(--text);}
@@ -372,14 +404,14 @@
 
   /* his own words, session over session */
   .qGroup{background:var(--bg3); border:1px solid var(--line); border-radius:var(--radius);
-    padding:11px 13px; margin-bottom:8px;}
+    padding:11px 13px; margin-bottom:8px; box-shadow:inset 0 1px 0 var(--edge-hi);}
   .qGroup .qText{font-size:13px; font-weight:600; margin-bottom:8px;}
   .said{display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:baseline;
     padding:5px 0 5px 10px; border-left:2px solid var(--line);}
   .said + .said{margin-top:2px;}
   .said.latest{border-left-color:var(--accent);}
   .said .when{color:var(--dim); font-size:11px; font-variant-numeric:tabular-nums; white-space:nowrap;}
-  .said .words{font-size:13px; color:#c9d1d9;}
+  .said .words{font-size:13px; color:#d6d6d6;}
   .said.latest .words{color:var(--text);}
   .said .tagNow{color:var(--accent); font-size:11px; text-transform:uppercase; letter-spacing:.6px;}
   body.bigText .qGroup .qText{font-size:15px;}
@@ -388,8 +420,8 @@
 
   /* ---------- "this week's session is ready" front door ---------- */
   #watchBanner{display:none; align-items:center; gap:14px; flex-wrap:wrap;
-    padding:14px 18px; background:linear-gradient(90deg,#15301d,#161b22);
-    border-bottom:1px solid var(--accent);}
+    padding:14px 18px; background:var(--bg2);
+    border-bottom:1px solid var(--line);}
   #watchBanner .who{font-size:17px; font-weight:600; flex:1; min-width:200px;}
   #watchBanner .who small{display:block; font-weight:400; color:var(--dim); font-size:13px; margin-top:2px;}
   #watchStart{font-size:17px; padding:12px 24px;}
@@ -408,13 +440,94 @@
 
   /* ---------- tooltips ---------- */
   #tipBubble{position:fixed; z-index:140; display:none; max-width:min(300px, 88vw);
-    background:#f0f6fc; color:#0d1117; border-radius:8px; padding:9px 12px;
+    background:#f2f2f2; color:#141414; border-radius:8px; padding:9px 12px;
     font-size:14px; line-height:1.4; box-shadow:0 8px 28px rgba(0,0,0,.55);
     pointer-events:none;}
 
+  /* ---------- top-bar 📦 Project menu ---------- */
+  .topMenu{position:relative;}
+  .topMenu > summary{font:inherit; color:var(--text); background:var(--bg3);
+    border:1px solid var(--line); border-radius:6px; padding:5px 10px; cursor:pointer;
+    white-space:nowrap; list-style:none; user-select:none;}
+  .topMenu > summary::-webkit-details-marker{display:none;}
+  .topMenu > summary:hover{background:var(--bg-raise);}
+  .topMenu[open] > summary{background:var(--bg-raise);}
+  .menuPop{position:absolute; top:calc(100% + 6px); left:0; z-index:65; display:flex;
+    flex-direction:column; gap:6px; background:var(--bg2); border:1px solid var(--line);
+    border-radius:10px; padding:8px; box-shadow:var(--shadow-pane); min-width:190px;}
+  .menuPop button{text-align:left;}
+  body.bigText .topMenu > summary{font-size:17px; padding:10px 16px;}
+  @media (pointer:coarse){ .topMenu > summary{padding:9px 14px;} }
+
+  /* ---------- clip card "More" fold ---------- */
+  /* display:contents keeps the folded buttons in the same wrapping action row,
+     so opening the fold just extends the row instead of nesting a second box */
+  .clipItem .moreActs{display:contents;}
+  .clipItem .moreActs > summary{font:inherit; color:var(--dim); background:var(--bg3);
+    border:1px solid var(--line); border-radius:5px; padding:2px 7px; font-size:11px;
+    cursor:pointer; list-style:none; user-select:none;}
+  .clipItem .moreActs > summary::-webkit-details-marker{display:none;}
+  .clipItem .moreActs[open] > summary{color:var(--text); background:var(--bg-raise);}
+  .clipItem .moreActs .moreRow{display:contents;}
+  .clipItem .head .flags{color:var(--dim); font-size:12px; flex:none;}
+  body.bigText .clipItem .moreActs > summary{font-size:15px; padding:8px 13px;}
+  @media (pointer:coarse){ .clipItem .moreActs > summary{padding:7px 11px; font-size:12px;} }
+
+  /* ---------- smart-drop zones ---------- */
+  #dropZones{position:absolute; inset:0; display:none; z-index:45; pointer-events:none;}
+  #dropZones .dz{position:absolute; top:10px; bottom:10px; border:2px dashed var(--line);
+    border-radius:12px; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; color:var(--dim); font-size:15px; font-weight:600;
+    text-align:center; padding:10px; background:rgba(18,18,18,.55); gap:4px;
+    transition:border-color 120ms, color 120ms, background 120ms;}
+  #dropZones .dz small{font-weight:400; font-size:12px;}
+  .dzOpen{left:10px; right:36%;}
+  .dzCompare{left:66%; right:10px;}
+  #dropZones.solo .dzOpen{right:10px;}
+  #dropZones.solo .dzCompare{display:none;}
+  /* accent on the armed target = live selection state: allowed chroma */
+  #dropZones .dz.hot{border-color:var(--accent2); color:var(--text);
+    background:rgba(88,166,255,.08);}
+
+  /* ---------- drag a clip card onto the reel section ---------- */
+  .clipItem .dragDot{cursor:grab; color:var(--dim); padding:0 5px; user-select:none;
+    touch-action:none;}
+  .clipItem .dragDot:active{cursor:grabbing;}
+  .clipItem.dragging{opacity:.5;}
+  #reelSection.dropHot{outline:2px dashed var(--accent2); outline-offset:4px;
+    border-radius:8px;}
+  @media (pointer:coarse){ .clipItem .dragDot{display:none;} }
+
+  /* ---------- timeline clip micro-menu ---------- */
+  #microMenu{position:fixed; z-index:56; display:none; background:var(--bg3);
+    border:1px solid var(--line); border-radius:10px; padding:8px 10px;
+    box-shadow:0 8px 22px rgba(0,0,0,.5); animation:mmIn 120ms ease-out;}
+  @keyframes mmIn{from{opacity:0; transform:translateY(3px);} to{opacity:1;}}
+  #microMenu .mmTitle{display:flex; align-items:center; gap:7px; margin-bottom:7px;
+    max-width:360px;}
+  #microMenu .mmDot{width:10px; height:10px; border-radius:50%; flex:none;}
+  #mmName{font-weight:600; font-size:13px; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap;}
+  #microMenu .mmRow{display:flex; gap:5px; flex-wrap:wrap;}
+  body.bigText #mmName{font-size:16px;}
+  @media (prefers-reduced-motion: reduce){ #microMenu{animation:none;} }
+
+  /* ---------- ⌘K command bar ---------- */
+  #cmdModal .box{padding:12px; width:min(560px, 94vw);}
+  #cmdInput{width:100%; font-size:16px; padding:10px 12px;}
+  #cmdList{margin-top:8px;}
+  .cmdRow{display:flex; gap:10px; align-items:baseline; padding:8px 10px;
+    border-radius:8px; cursor:pointer;}
+  .cmdRow.sel{background:var(--bg3); outline:1px solid var(--accent2);}
+  .cmdRow .lbl{white-space:nowrap;}
+  .cmdRow .why{color:var(--dim); font-size:12px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;}
+  .cmdEmpty{color:var(--dim); font-size:13px; padding:8px 10px;}
+  body.bigText .cmdRow .why{font-size:14px;}
+
   /* ---------- guided first-run tour ---------- */
   #tourRing{position:fixed; border-radius:12px; pointer-events:none; z-index:130; display:none;
-    box-shadow:0 0 0 9999px rgba(4,8,15,.62), 0 0 0 3px var(--accent2), 0 0 22px rgba(88,166,255,.55);
+    box-shadow:0 0 0 9999px rgba(0,0,0,.6), 0 0 0 3px var(--accent2), 0 0 22px rgba(88,166,255,.55);
     transition:left .18s ease, top .18s ease, width .18s ease, height .18s ease;}
   #tourBubble{position:fixed; z-index:131; display:none; width:min(330px, 88vw);
     background:var(--bg2); border:1px solid var(--accent2); border-radius:12px; padding:14px 16px;
@@ -458,7 +571,7 @@
   body.bigText #watchBanner .who small{font-size:15px;}
   body.bigText #watchStart{font-size:20px; padding:15px 28px;}
   body.bigText #timeline{height:54px;}
-  #btnTextSize.active{background:var(--accent2); border-color:var(--accent2); color:#04121f; font-weight:700;}
+  #btnTextSize.active{background:var(--accent2); border-color:var(--accent2); color:#101010; font-weight:700;}
 
   .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
     background:var(--bg3); border:1px solid var(--line); border-radius:8px; padding:9px 16px;
@@ -466,7 +579,7 @@
     display:flex; align-items:center; gap:14px; max-width:min(560px, 92vw); }
   .toastBtn{flex:none; padding:5px 12px; font-weight:600;
     background:var(--bg2); border:1px solid var(--accent2); color:var(--accent2);}
-  .toastBtn:hover{background:#132540;}
+  .toastBtn:hover{background:rgba(88,166,255,.12);}
   body.bigText .toastBtn{padding:8px 16px;}
 
   /* nudge the control someone is looking for */
@@ -489,7 +602,7 @@
   @media (max-width: 980px){
     #main{flex-direction:column;}
     #sidebar{width:100%; border-left:none; border-top:1px solid var(--line);
-      max-height:44%; flex:none;}
+      max-height:44%; flex:none; box-shadow:0 -6px 16px rgba(0,0,0,.25);}
     #topbar{padding:6px 8px;}
     #videoName{display:none;}
   }
@@ -518,9 +631,14 @@
     <option value="realtime">Keeps sound, slower</option>
   </select>
   <div class="divider"></div>
-  <button id="btnSaveProj" data-tip="Save all his clips and drawings into one small file you can back up or move to another computer. Your work is already saved automatically here.">💾 Save project</button>
-  <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
-  <button id="btnBundle" data-tip="Pack everything from this game into one file to keep — the project, a spreadsheet of the moments, his answers, the boards and your voice-overs, and optionally a video of every moment.">📦 Keep this game</button>
+  <details class="topMenu" id="projectMenu">
+    <summary data-tip="The project-file jobs — saving a backup, loading one, or packing the whole game into one file to keep. Your work is already saved automatically as you go.">📦 Project ⌄</summary>
+    <div class="menuPop">
+      <button id="btnSaveProj" data-tip="Save all his clips and drawings into one small file you can back up or move to another computer. Your work is already saved automatically here.">💾 Save project</button>
+      <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
+      <button id="btnBundle" data-tip="Pack everything from this game into one file to keep — the project, a spreadsheet of the moments, his answers, the boards and your voice-overs, and optionally a video of every moment.">📦 Keep this game</button>
+    </div>
+  </details>
   <div class="divider"></div>
   <button id="btnStudio" data-tip="Build his recruiting reel from the best moments of the whole season — pick the plays, put them in order, and it remembers the plan.">🎬 Reel Studio</button>
   <button id="btnTrends" data-tip="How he is doing across every game you have broken down — what he does well, what keeps coming up, and what is getting better.">📈 Progress</button>
@@ -608,6 +726,10 @@
           Nothing is uploaded — the video never leaves this device.
         </div>
       </div>
+      <div id="dropZones">
+        <div class="dz dzOpen" data-zone="open">🎞 Open as this game</div>
+        <div class="dz dzCompare" data-zone="compare">⚖ Use as the example side<br><small>plays next to one of his clips</small></div>
+      </div>
       <div id="trackPill">🎯 Tracking… <span id="trackPct">0%</span>
         <button class="miniBtn" id="trackCancelBtn">✕ Cancel (Esc)</button>
       </div>
@@ -627,7 +749,10 @@
     <!-- transport -->
     <div id="transport">
       <div id="timeline" data-tip="The whole game, left to right. Drag anywhere on it to jump there. The coloured bars are clips you have saved.">
-        <div id="tlInOut"></div>
+        <div id="tlInOut">
+          <div class="ioHandle left" id="ioHandleL" data-tip="Drag this edge to change where the marked moment begins."></div>
+          <div class="ioHandle right" id="ioHandleR" data-tip="Drag this edge to change where the marked moment ends."></div>
+        </div>
         <div id="tlClips"></div>
         <div id="tlAnns"></div>
         <div id="playhead"></div>
@@ -784,7 +909,7 @@
           <button id="btnProfile" data-tip="His name, number, grad year, positions and how a coach can reach you — filled in once, printed on every reel automatically.">✎ Fill in his card</button>
         </div>
       </div>
-      <div class="section">
+      <div class="section" id="reelSection">
         <h4>🎞 Highlight reel</h4>
         <div class="fieldRow"><input type="text" id="reelTitle" placeholder="Reel title, e.g. Week 3 — playing between the lines" style="flex:1" data-tip="What to call this week's set of clips. It shows on the opening card of the video and at the top of a session."></div>
         <div id="reelList"></div>
@@ -1160,6 +1285,7 @@
       <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Slower / faster playback</td></tr>
       <tr><td><kbd>Delete</kbd></td><td>Delete selected drawing</td></tr>
       <tr><td><kbd>⌘Z</kbd></td><td>Undo</td></tr>
+      <tr><td><kbd>⌘K</kbd> / <kbd>Ctrl K</kbd></td><td>Do anything by typing a few letters of it — “save video”, “board”, a clip’s name…</td></tr>
     </table>
     <h4>Spotlights that follow a player</h4>
     <p><b>Auto-track:</b> put a spotlight on him, move to where the play ends and press <b>Disappears here</b>, come back to the start, then press <b>🎯 Auto-track</b>. The ring follows him on its own, and you can still drag it anywhere it is not quite right (Esc stops it). If it says it lost him — players crossing, camera whip — drag the ring back onto him at that moment and press Auto-track again from there.</p>
@@ -1185,6 +1311,29 @@
 </div>
 
 <div id="tipBubble" role="tooltip"></div>
+
+<!-- micro-menu that fades in over a clip block on the timeline (mouse only) -->
+<div id="microMenu">
+  <div class="mmTitle"><span class="mmDot" id="mmDot"></span><span id="mmName"></span><span class="timeTag" id="mmTime"></span></div>
+  <div class="mmRow" id="mmRow"></div>
+</div>
+
+<!-- ⌘K command bar: type a few letters of anything the app can do, press Return -->
+<div class="modal" id="cmdModal" style="z-index:85">
+  <div class="box">
+    <input type="text" id="cmdInput" autocomplete="off"
+      placeholder="Type what you want to do — like “save video” or “board”…"
+      data-tip="Type a few letters of anything Film Room can do and press Return to do it. Open this from anywhere with ⌘K (Ctrl+K on Windows).">
+    <div id="cmdList"></div>
+  </div>
+</div>
+
+<!-- quick-mark chips that follow the cursor along the timeline (mouse only) -->
+<div id="tlHover">
+  <span class="timeTag" id="tlHoverT">0:00.00</span>
+  <button class="miniBtn" id="tlHoverIn" data-tip="Mark that the moment begins right where you are pointing on the timeline.">Start clip here</button>
+  <button class="miniBtn" id="tlHoverOut" data-tip="Mark that the moment ends right where you are pointing on the timeline.">End clip here</button>
+</div>
 
 <!-- ======================= GUIDED TOUR ======================= -->
 <div id="tourRing"></div>
@@ -1375,13 +1524,56 @@ if (navigator.maxTouchPoints > 1 && /iPhone|iPad|Macintosh/.test(navigator.userA
   $('#bigOpen').textContent = '🖼 Open from Photos';
 $('#fileVideo').onchange = e => { if (e.target.files[0]) loadVideo(e.target.files[0]); e.target.value=''; };
 
-document.addEventListener('dragover', e => e.preventDefault());
+/* smart-drop zones: while a file is dragged over the app with a game already open,
+   the stage splits into labelled targets. Dropping anywhere else — or before any
+   video is open — keeps the original behavior exactly. */
+const dropZones = $('#dropZones');
+let dragDepth = 0, dropZoneHit = null;
+function showDropZones(){
+  dropZones.classList.toggle('solo', !project.clips.length);
+  dropZones.style.display = 'block';
+}
+function hideDropZones(){
+  dropZones.style.display = 'none'; dropZoneHit = null;
+  $$('#dropZones .dz').forEach(z => z.classList.remove('hot'));
+}
+function dropAsExample(f){
+  if (!project.clips.length) return loadVideo(f);
+  if (!ui.compareMode) openCompare(project.clips[0].id);
+  cmpUseFile(f);
+  toast('“' + f.name + '” is the example side. Pick which of his clips plays on the left.', 6000);
+}
+document.addEventListener('dragenter', e => {
+  const items = (e.dataTransfer && e.dataTransfer.items) || [];
+  if (![...items].some(i => i.kind === 'file')) return;
+  dragDepth++;
+  if (video.src && !ui.exporting) showDropZones();
+});
+document.addEventListener('dragleave', () => {
+  if (--dragDepth <= 0){ dragDepth = 0; hideDropZones(); }
+});
+document.addEventListener('dragover', e => {
+  e.preventDefault();
+  if (dropZones.style.display !== 'block') return;
+  dropZoneHit = null;
+  for (const z of $$('#dropZones .dz')){
+    const r = z.getBoundingClientRect();
+    const hit = r.width > 0 &&
+      e.clientX >= r.left && e.clientX <= r.right &&
+      e.clientY >= r.top && e.clientY <= r.bottom;
+    z.classList.toggle('hot', hit);
+    if (hit) dropZoneHit = z.dataset.zone;
+  }
+});
 document.addEventListener('drop', e => {
   e.preventDefault();
+  const zone = dropZoneHit;
+  dragDepth = 0; hideDropZones();
   const files = [...(e.dataTransfer.files || [])];
   const f = files.find(f => /video|quicktime/.test(f.type) || /\.(mp4|mov|m4v|webm)$/i.test(f.name));
   const j = files.find(f => /\.(json|filmroom)$/i.test(f.name));
-  if (f) loadVideo(f);
+  if (f && zone === 'compare' && project.clips.length) dropAsExample(f);
+  else if (f) loadVideo(f);
   else if (j) loadProjectFile(j);
   else if (files.length){
     // real files arrived, just not a video (e.g. a photo)
@@ -2005,6 +2197,121 @@ timeline.addEventListener('pointerdown', e => {
   timeline.addEventListener('pointerup', up);
 });
 
+/* drag the edges of the marked moment to retime it — the transport buttons and the
+   I/O keys still set the same marks; this is direct manipulation of the same state */
+function timeFromClientX(x){
+  const r = timeline.getBoundingClientRect();
+  return clamp((x - r.left) / r.width, 0, 1) * (video.duration || 0);
+}
+function ioHandleDrag(handle, isStart){
+  handle.addEventListener('pointerdown', e => {
+    if (!video.duration) return;
+    e.stopPropagation();          // the timeline underneath would seek instead
+    handle.setPointerCapture(e.pointerId);
+    hideTlHover();
+    const mv = ev => {
+      const t = timeFromClientX(ev.clientX);
+      if (isStart){
+        ui.tIn = (ui.tOut != null) ? Math.min(t, ui.tOut - 0.05) : t;
+        video.currentTime = ui.tIn;      // show the frame the edge is on
+      } else {
+        ui.tOut = (ui.tIn != null) ? Math.max(t, ui.tIn + 0.05) : t;
+        video.currentTime = ui.tOut;
+      }
+      updateInOutUI();
+    };
+    const up = () => { handle.removeEventListener('pointermove', mv); handle.removeEventListener('pointerup', up); };
+    handle.addEventListener('pointermove', mv);
+    handle.addEventListener('pointerup', up);
+  });
+}
+ioHandleDrag($('#ioHandleL'), true);
+ioHandleDrag($('#ioHandleR'), false);
+
+/* quick-mark chips: point anywhere on the timeline and mark the moment right there,
+   without seeking first. Mouse only — touch keeps the transport buttons. */
+const tlHover = $('#tlHover');
+let tlHoverAt = 0, tlHoverHideTimer = null;
+function hideTlHover(){ tlHover.style.display = 'none'; }
+function showTlHover(e){
+  if (e.pointerType !== 'mouse' || e.buttons) return hideTlHover();
+  if (!video.duration || ui.session || ui.tracking || ui.exporting) return hideTlHover();
+  if (e.target.closest && e.target.closest('.tlClip')) return hideTlHover();   // menu's turf
+  tlHoverAt = timeFromClientX(e.clientX);
+  $('#tlHoverT').textContent = fmtT(tlHoverAt);
+  tlHover.style.display = 'flex';
+  const r = timeline.getBoundingClientRect(), w = tlHover.offsetWidth;
+  tlHover.style.left = clamp(e.clientX - w/2, 8, innerWidth - w - 8) + 'px';
+  tlHover.style.top = (r.top - tlHover.offsetHeight - 6) + 'px';
+}
+timeline.addEventListener('pointermove', showTlHover);
+timeline.addEventListener('pointerleave', () => {
+  clearTimeout(tlHoverHideTimer);
+  tlHoverHideTimer = setTimeout(hideTlHover, 250);   // long enough to reach the chips
+});
+tlHover.addEventListener('pointerenter', () => clearTimeout(tlHoverHideTimer));
+tlHover.addEventListener('pointerleave', hideTlHover);
+timeline.addEventListener('pointerdown', hideTlHover);
+$('#tlHoverIn').onclick = () => { video.currentTime = tlHoverAt; $('#btnMarkIn').click(); };
+$('#tlHoverOut').onclick = () => { video.currentTime = tlHoverAt; $('#btnMarkOut').click(); };
+
+/* micro-menu on the timeline's clip blocks — the same actions as the sidebar card,
+   right where you spotted the clip. Every button routes through clipAction(), so
+   behavior is identical. Mouse hover only: on touch the Clips tab stays the way in. */
+const microMenu = $('#microMenu');
+let mmShowTimer = null, mmHideTimer = null;
+function hideMicroMenu(){ microMenu.style.display = 'none'; }
+function showMicroMenu(bar){
+  const c = project.clips.find(x => x.id === bar.dataset.clipId);
+  if (!c) return;
+  const colors = {positive:'var(--pos)', negative:'var(--neg)', neutral:'var(--warn)'};
+  $('#mmDot').style.background = colors[c.rating] || 'var(--neu)';
+  $('#mmName').textContent = c.title;
+  $('#mmTime').textContent = fmtT(c.tIn) + '–' + fmtT(c.tOut);
+  const acts = [
+    ['play', '▶ Play', 'Play just this moment, over and over, so you can watch it a few times and talk about it.'],
+    ['edit', '✏️ Edit', 'Change the name, the labels, the note or the question on this clip.'],
+    ['reel', (project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel',
+      'Add this moment to this week’s set, for one video or one guided session.'],
+  ];
+  if (proposeCut(c, lastTrackReport))
+    acts.push(['tighten', '✂ Tighten to the action?',
+      'The tracking data thinks this clip has quiet air around the action. One tap trims it to start just before the play and end a beat after — and Undo puts it straight back.']);
+  const row = $('#mmRow');
+  row.innerHTML = '';
+  for (const [act, label, tip] of acts){
+    const b = document.createElement('button');
+    b.className = 'miniBtn';
+    b.textContent = label;
+    b.dataset.tip = tip;
+    b.onclick = () => { hideMicroMenu(); clipAction(act, c); };
+    row.appendChild(b);
+  }
+  const r = bar.getBoundingClientRect();
+  microMenu.style.display = 'block';
+  const w = microMenu.offsetWidth;
+  microMenu.style.left = clamp(r.left + r.width/2 - w/2, 8, innerWidth - w - 8) + 'px';
+  microMenu.style.top = (r.top - microMenu.offsetHeight - 6) + 'px';
+}
+$('#tlClips').addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse') return;
+  const bar = e.target.closest('.tlClip');
+  if (!bar) return;
+  clearTimeout(mmShowTimer); clearTimeout(mmHideTimer);
+  hideTlHover();                              // the quick-mark chips yield to the menu
+  mmShowTimer = setTimeout(() => showMicroMenu(bar), 150);   // hover intent, not flicker
+});
+$('#tlClips').addEventListener('pointerout', e => {
+  if (e.target.closest && e.target.closest('.tlClip')){
+    clearTimeout(mmShowTimer);
+    clearTimeout(mmHideTimer);
+    mmHideTimer = setTimeout(hideMicroMenu, 250);   // long enough to reach the menu
+  }
+});
+microMenu.addEventListener('pointerenter', () => clearTimeout(mmHideTimer));
+microMenu.addEventListener('pointerleave', () => { mmHideTimer = setTimeout(hideMicroMenu, 120); });
+timeline.addEventListener('pointerdown', hideMicroMenu);
+
 function renderTimelineMarks(){
   const D = video.duration || 1;
   const clipsEl = $('#tlClips'), annsEl = $('#tlAnns');
@@ -2017,6 +2324,7 @@ function renderTimelineMarks(){
     d.style.width = ((c.tOut-c.tIn)/D*100) + '%';
     d.style.background = colors[c.rating] || 'var(--neu)';
     d.title = c.title;
+    d.dataset.clipId = c.id;
     clipsEl.appendChild(d);
   }
   for (const a of project.annotations){
@@ -2044,6 +2352,9 @@ function updateInOutUI(){
     el.style.left = (ui.tIn/D*100) + '%';
     el.style.width = '2px';
   } else el.style.display = 'none';
+  // with only a start set the region is a 2px sliver — one edge is all there is to grab
+  $('#ioHandleR').style.display =
+    (ui.tIn != null && ui.tOut != null && ui.tOut > ui.tIn) ? '' : 'none';
   tourRefresh();
 }
 
@@ -4716,6 +5027,102 @@ $$('#clipFilterRow .chip').forEach(b => b.onclick = () => {
 });
 $('#clipTagFilter').onchange = () => { ui.clipTagFilter = $('#clipTagFilter').value; renderClipList(); };
 
+/* one source of truth for everything you can do to a clip — the sidebar buttons and
+   the ⌘K command bar both call this, so guards, undo and hints stay identical */
+function toggleReel(c){
+  let added = false;
+  mutate(() => {
+    project.reel = project.reel || [];
+    const i = project.reel.indexOf(c.id);
+    if (i >= 0) project.reel.splice(i, 1);
+    else { project.reel.push(c.id); added = true; }
+  });
+  if (added) hintOnce('reel', 'That is this week’s set. Press 🎬 Save as one video to make one file for the TV, or 🎓 Watch together to go through them right here.', 6500);
+}
+function openClipBoard(c){
+  let board = (project.boards || []).find(b => b.id === c.boardId);
+  if (!board){
+    mutate(() => {
+      board = newBoard(c.title.slice(0, 30), c.format || '9v9');
+      c.boardId = board.id;
+    });
+  }
+  openBoard(board.id);
+}
+function tightenClip(c){
+  const prop = proposeCut(c, lastTrackReport);
+  if (!prop) return renderClipList();
+  const was = { tIn: c.tIn, tOut: c.tOut };
+  mutate(() => {
+    c.tIn = prop.tIn; c.tOut = prop.tOut;
+    if (prop.ramp) c.ramp = prop.ramp;   // the fastest bit — for social cuts
+  });
+  toast('Tightened: ' + prop.why + '. It now runs ' + fmtDur(c.tOut - c.tIn) + '.',
+    8000, { label: '↩ Undo', fn(){
+      mutate(() => { c.tIn = was.tIn; c.tOut = was.tOut; delete c.ramp; });
+      toast('Put back the way you had it.');
+    } });
+}
+function deleteClip(c){
+  deleteWithUndo('“' + c.title + '”', () => {
+    project.clips = project.clips.filter(x => x.id !== c.id);
+    project.reel = (project.reel || []).filter(id => id !== c.id);
+  });
+}
+/* which clip cards have their "⌄ More" fold open — session-only, keyed by clip id
+   so the fold survives the re-render that follows every state change */
+const moreOpen = new Set();
+
+/* the 📦 Project menu closes on any press outside it, and after any of its jobs */
+document.addEventListener('pointerdown', e => {
+  const m = $('#projectMenu');
+  if (m && m.open && !m.contains(e.target)) m.open = false;
+});
+$('#projectMenu .menuPop').addEventListener('click', () => { $('#projectMenu').open = false; });
+
+/* drag a clip card by its ⠿ dot onto the Highlight reel section — the same
+   toggleReel() the button calls. Mouse only; ➕ Reel stays the touch path. */
+function wireDragToReel(card, c){
+  const dot = card.querySelector('.dragDot');
+  if (!dot) return;
+  dot.addEventListener('click', e => e.stopPropagation());   // the head click seeks
+  dot.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'mouse') return;
+    e.preventDefault(); e.stopPropagation();
+    dot.setPointerCapture(e.pointerId);
+    card.classList.add('dragging');
+    const reelSec = $('#reelSection');
+    const mv = ev => {
+      const r = reelSec.getBoundingClientRect();
+      reelSec.classList.toggle('dropHot',
+        ev.clientX >= r.left && ev.clientX <= r.right &&
+        ev.clientY >= r.top && ev.clientY <= r.bottom);
+    };
+    const up = () => {
+      dot.removeEventListener('pointermove', mv); dot.removeEventListener('pointerup', up);
+      card.classList.remove('dragging');
+      const hot = reelSec.classList.contains('dropHot');
+      reelSec.classList.remove('dropHot');
+      if (hot && !(project.reel || []).includes(c.id)) clipAction('reel', c);
+    };
+    dot.addEventListener('pointermove', mv);
+    dot.addEventListener('pointerup', up);
+  });
+}
+function clipAction(act, c){
+  switch (act){
+    case 'play':    return playClip(c);
+    case 'export':  return doExport(c.tIn, c.tOut, c.title, c);
+    case 'reel':    return toggleReel(c);
+    case 'board':   return openClipBoard(c);
+    case 'compare': return openCompare(c.id);
+    case 'voice':   return openVoice(c);
+    case 'edit':    return openClipModal(c);
+    case 'tighten': return tightenClip(c);
+    case 'del':     return deleteClip(c);
+  }
+}
+
 function renderClipList(){
   const list = $('#clipList');
   list.innerHTML = '';
@@ -4737,70 +5144,38 @@ function renderClipList(){
     el.className = 'clipItem';
     el.innerHTML = `
       <div class="head">
+        <span class="dragDot" data-tip="Drag this moment up onto the Highlight reel section to add it to this week’s set — or just press ➕ Reel below.">⠿</span>
         <span class="dot" style="background:${colors[c.rating]}"></span>
         <span class="title">${escapeHtml(c.title)}</span>
+        <span class="flags">${c.boardId ? '🗒' : ''}${voiceIds.has(c.id) ? '🎤' : ''}</span>
         <span class="timeTag">${fmtT(c.tIn)}–${fmtT(c.tOut)}</span>
       </div>
       <div class="tags">${[c.position, c.format, ...c.tags].map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
       ${c.notes ? `<div class="notes">${escapeHtml(c.notes)}</div>` : ''}
       <div class="actions">
         <button class="miniBtn" data-act="play" data-tip="Play just this moment, over and over, so you can watch it a few times and talk about it.">▶ Play (loops)</button>
-        <button class="miniBtn" data-act="export" data-tip="Turn this one moment into a video file with the drawings and your note burned in — ready to send to his phone.">🎬 Save video</button>
         <button class="miniBtn" data-act="reel" data-tip="Add this moment to this week's set, for one video or one guided session.">${(project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel'}</button>
-        <button class="miniBtn" data-act="board" data-tip="Draw the idea behind this moment on a top-down pitch — shape, runs, where everyone should have been. It is shown right after this clip in any video you save.">🗒${c.boardId ? '✓' : ''}</button>
-        <button class="miniBtn" data-act="compare" data-tip="Put this moment next to another clip and play them side by side.">⚖</button>
-        <button class="miniBtn" data-act="voice" data-tip="Record yourself talking over this clip. Your voice goes into the video when you save it — so he hears the coaching even when you are not there.">🎤${voiceIds.has(c.id) ? '✓' : ''}</button>
         <button class="miniBtn" data-act="edit" data-tip="Change the name, the labels, the note or the question on this clip.">✏️ Edit</button>
         ${proposeCut(c, lastTrackReport) ? '<button class="miniBtn" data-act="tighten" data-tip="The tracking data thinks this clip has quiet air around the action. One tap trims it to start just before the play and end a beat after — and Undo puts it straight back.">✂ Tighten to the action?</button>' : ''}
-        <button class="miniBtn danger" data-act="del" data-tip="Delete this clip.">🗑</button>
+        <details class="moreActs"${moreOpen.has(c.id) ? ' open' : ''}>
+          <summary data-tip="Everything else you can do with this moment — save it as a video, compare it, draw its board, talk over it, or delete it.">⌄ More</summary>
+          <div class="moreRow">
+            <button class="miniBtn" data-act="export" data-tip="Turn this one moment into a video file with the drawings and your note burned in — ready to send to his phone.">🎬 Save video</button>
+            <button class="miniBtn" data-act="board" data-tip="Draw the idea behind this moment on a top-down pitch — shape, runs, where everyone should have been. It is shown right after this clip in any video you save.">🗒${c.boardId ? '✓' : ''}</button>
+            <button class="miniBtn" data-act="compare" data-tip="Put this moment next to another clip and play them side by side.">⚖</button>
+            <button class="miniBtn" data-act="voice" data-tip="Record yourself talking over this clip. Your voice goes into the video when you save it — so he hears the coaching even when you are not there.">🎤${voiceIds.has(c.id) ? '✓' : ''}</button>
+            <button class="miniBtn danger" data-act="del" data-tip="Delete this clip.">🗑</button>
+          </div>
+        </details>
       </div>`;
     el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
-    const tightenBtn = el.querySelector('[data-act=tighten]');
-    if (tightenBtn) tightenBtn.onclick = () => {
-      const prop = proposeCut(c, lastTrackReport);
-      if (!prop) return renderClipList();
-      const was = { tIn: c.tIn, tOut: c.tOut };
-      mutate(() => {
-        c.tIn = prop.tIn; c.tOut = prop.tOut;
-        if (prop.ramp) c.ramp = prop.ramp;   // the fastest bit — for social cuts
-      });
-      toast('Tightened: ' + prop.why + '. It now runs ' + fmtDur(c.tOut - c.tIn) + '.',
-        8000, { label: '↩ Undo', fn(){
-          mutate(() => { c.tIn = was.tIn; c.tOut = was.tOut; delete c.ramp; });
-          toast('Put back the way you had it.');
-        } });
-    };
-    el.querySelector('[data-act=play]').onclick = () => playClip(c);
-    el.querySelector('[data-act=export]').onclick = () => doExport(c.tIn, c.tOut, c.title, c);
-    el.querySelector('[data-act=reel]').onclick = () => {
-      let added = false;
-      mutate(() => {
-        project.reel = project.reel || [];
-        const i = project.reel.indexOf(c.id);
-        if (i >= 0) project.reel.splice(i, 1);
-        else { project.reel.push(c.id); added = true; }
-      });
-      if (added) hintOnce('reel', 'That is this week\u2019s set. Press 🎬 Save as one video to make one file for the TV, or 🎓 Watch together to go through them right here.', 6500);
-    };
-    el.querySelector('[data-act=board]').onclick = () => {
-      let board = (project.boards || []).find(b => b.id === c.boardId);
-      if (!board){
-        mutate(() => {
-          board = newBoard(c.title.slice(0, 30), c.format || '9v9');
-          c.boardId = board.id;
-        });
-      }
-      openBoard(board.id);
-    };
-    el.querySelector('[data-act=compare]').onclick = () => openCompare(c.id);
-    el.querySelector('[data-act=voice]').onclick = () => openVoice(c);
-    el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
-    el.querySelector('[data-act=del]').onclick = () => {
-      deleteWithUndo('“' + c.title + '”', () => {
-        project.clips = project.clips.filter(x => x.id !== c.id);
-        project.reel = (project.reel || []).filter(id => id !== c.id);
-      });
-    };
+    el.querySelectorAll('.actions [data-act]').forEach(b =>
+      b.onclick = () => clipAction(b.dataset.act, c));
+    const more = el.querySelector('details.moreActs');
+    more.addEventListener('toggle', () => {   // survive the constant re-renders
+      if (more.open) moreOpen.add(c.id); else moreOpen.delete(c.id);
+    });
+    wireDragToReel(el, c);
     list.appendChild(el);
   }
   renderReelList();
@@ -5469,15 +5844,18 @@ $('#cmpB').onchange = () => {
   renderCompareBar(); cmpRestart();
 };
 $('#cmpFileBtn').onclick = () => $('#cmpFile').click();
-$('#cmpFile').onchange = e => {
-  const f = e.target.files[0];
-  if (!f) return;
+function cmpUseFile(f){
   if (ui.compare.bUrl) URL.revokeObjectURL(ui.compare.bUrl);
   ui.compare.bUrl = URL.createObjectURL(f);
   ui.compare.b = { mode:'file', name: f.name };
   ui.compare.offset = 0;
   videoB.src = ui.compare.bUrl;
   renderCompareBar(); cmpRestart();
+}
+$('#cmpFile').onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  cmpUseFile(f);
   e.target.value = '';
 };
 
@@ -6942,6 +7320,102 @@ document.addEventListener('keydown', e => {
     case '?': $('#helpModal').classList.add('open'); break;
   }
 });
+
+/* ---------------- ⌘K command bar ----------------
+   A router over the buttons that already exist: every entry just clicks the real
+   control (or calls clipAction), so guards, toasts and undo are inherited, never
+   duplicated. The searchable text is each control's label + its data-tip sentence. */
+const CMD_STATIC = ['#btnOpen','#btnLibrary','#btnBoard','#btnCompare','#btnSnapshot',
+  '#btnExport','#btnSaveProj','#btnLoadProj','#btnBundle','#btnStudio','#btnTrends',
+  '#btnTextSize','#btnHelp','#btnPlay','#btnBack5','#btnFwd5','#btnFrameBack',
+  '#btnFrameFwd','#btnMarkIn','#btnMarkOut','#btnSaveClip','#btnFindMoments',
+  '#btnProfile','#btnExportReel','#btnRunSession'];
+/* labels that are icons on screen get words here so they can be typed for */
+const CMD_NAMES = { '#btnPlay':'Play / pause', '#btnBack5':'Back 5 seconds',
+  '#btnFwd5':'Forward 5 seconds', '#btnFrameBack':'Back one single picture',
+  '#btnFrameFwd':'Forward one single picture', '#btnTextSize':'Bigger text (Aa)',
+  '#btnSnapshot':'📸 Photo of this frame' };
+function cmdEntries(){
+  const out = [];
+  for (const sel of CMD_STATIC){
+    const el = $(sel);
+    if (!el || el.disabled) continue;
+    const label = CMD_NAMES[sel] || el.textContent.trim();
+    if (!label) continue;
+    out.push({ label, tip: el.dataset.tip || '', run: () => el.click() });
+  }
+  for (const b of $$('#tabs button'))
+    out.push({ label: 'Go to ' + b.textContent.trim(), tip: b.dataset.tip || '',
+      run: () => b.click() });
+  for (const c of project.clips)
+    out.push({ label: '▶ Play “' + c.title + '”',
+      tip: 'Plays this saved moment on a loop.', run: () => clipAction('play', c) });
+  return out;
+}
+function cmdScore(q, e){
+  const hay = (e.label + ' ' + e.tip).toLowerCase();
+  let s = 0;
+  for (const w of q.toLowerCase().split(/\s+/).filter(Boolean)){
+    const i = hay.indexOf(w);
+    if (i < 0) return -1;
+    s += (i === 0 || /[\s“"(]/.test(hay[i-1])) ? 3 : 1;   // word starts beat substrings
+  }
+  if (e.label.toLowerCase().startsWith(q.toLowerCase())) s += 4;
+  return s;
+}
+let cmdSel = 0, cmdShown = [];
+function renderCmd(){
+  const q = $('#cmdInput').value.trim();
+  const all = cmdEntries();
+  cmdShown = !q ? all.slice(0, 9)
+    : all.map(e => [cmdScore(q, e), e]).filter(x => x[0] >= 0)
+         .sort((a, b) => b[0] - a[0]).slice(0, 9).map(x => x[1]);
+  cmdSel = Math.min(cmdSel, Math.max(0, cmdShown.length - 1));
+  const host = $('#cmdList');
+  host.innerHTML = '';
+  if (!cmdShown.length){
+    host.innerHTML = '<div class="cmdEmpty">Nothing matches that — try fewer letters.</div>';
+    return;
+  }
+  cmdShown.forEach((e, i) => {
+    const d = document.createElement('div');
+    d.className = 'cmdRow' + (i === cmdSel ? ' sel' : '');
+    d.innerHTML = '<span class="lbl"></span><span class="why"></span>';
+    d.querySelector('.lbl').textContent = e.label;
+    d.querySelector('.why').textContent = (e.tip.split('. ')[0] || '');
+    d.onclick = () => runCmd(e);
+    host.appendChild(d);
+  });
+}
+function runCmd(e){ closeCmd(); e.run(); }
+function openCmd(){
+  if (ui.session || ui.tracking || ui.exporting) return;
+  $('#cmdModal').classList.add('open');
+  $('#cmdInput').value = ''; cmdSel = 0;
+  renderCmd();
+  $('#cmdInput').focus();
+}
+function closeCmd(){
+  $('#cmdModal').classList.remove('open');
+  $('#cmdInput').blur();   // or the hidden input keeps swallowing the shortcut keys
+}
+$('#cmdInput').addEventListener('input', () => { cmdSel = 0; renderCmd(); });
+$('#cmdInput').addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ e.preventDefault(); closeCmd(); }
+  else if (e.key === 'ArrowDown'){ e.preventDefault(); cmdSel = Math.min(cmdSel + 1, cmdShown.length - 1); renderCmd(); }
+  else if (e.key === 'ArrowUp'){ e.preventDefault(); cmdSel = Math.max(cmdSel - 1, 0); renderCmd(); }
+  else if (e.key === 'Enter'){ e.preventDefault(); if (cmdShown[cmdSel]) runCmd(cmdShown[cmdSel]); }
+});
+/* capture phase: the main shortcut map ignores inputs and releases ⌘ combos,
+   so ⌘K needs its own listener to work from anywhere */
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){
+    const open = $('#cmdModal').classList.contains('open');
+    if (!open && $$('.modal.open').length) return;   // never stack over another dialog
+    e.preventDefault();
+    open ? closeCmd() : openCmd();
+  }
+}, true);
 
 /* ---------------- main loop ---------------- */
 function tick(){

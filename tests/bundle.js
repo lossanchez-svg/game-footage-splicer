@@ -7,7 +7,7 @@
 const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
-const { APP, FIXTURES, OUT, launch } = require('./common');
+const { APP, FIXTURES, OUT, launch, openDisclosures } = require('./common');
 
 const VIDEO = path.join(FIXTURES, 'game.webm');
 
@@ -53,6 +53,7 @@ const saveClip = async (page, title, at, notes, rating) => {
   await page.waitForTimeout(300);
 
   // ---- the offer ----
+  await openDisclosures(page);
   await page.click('#btnBundle');
   await page.waitForSelector('#bundleModal.open');
   const what = await page.textContent('#bundleWhat');
@@ -148,6 +149,7 @@ const saveClip = async (page, title, at, notes, rating) => {
     return window.__filmroom.voiceIds.has(id);
   });
   check('a recording exists to be packed', withVoice);
+  await openDisclosures(page);
   await page.click('#btnBundle');
   await page.waitForSelector('#bundleModal.open');
   const [dl2] = await Promise.all([
