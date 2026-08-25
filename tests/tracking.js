@@ -4,6 +4,9 @@
   y(t) = 180 + 60*sin(t) px (640x360).
   We spotlight the ball at t=0, set the spotlight's End to 6s, run Auto-track,
   and assert the interpolated spotlight position stays on the ball.
+  Pins "filmroom:lockonPath" to "off": since the 2026-08-25 flip detection is
+  the app default, and this suite is the TEMPLATE tracker's regression suite
+  (still the fallback). The detection path has its own suites.
 */
 const path = require('path');
 const { APP, FIXTURES, launch } = require('./common');
@@ -15,7 +18,7 @@ const ballAt = t => ({ x: (58 + 40 * t) / 640, y: (180 + 60 * Math.sin(t)) / 360
   const { browser, page, errors, check } = await launch();
 
   await page.goto(APP);
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('filmroom:seenHelp', '1'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('filmroom:seenHelp', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', VIDEO);
   await page.waitForSelector('#videoWrap', { state: 'visible' });

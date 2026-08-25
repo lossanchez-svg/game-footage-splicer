@@ -9,16 +9,20 @@ You are picking up a working, fully-tested product. Before writing any code:
 
 1. Read `CLAUDE.md` (conventions, test workflow) and this file top to bottom — especially
    the decision log, which records ten builds of tracker lessons learned the hard way.
-2. **v4 "Lock-On" is BUILT (phases 0–4, build `v4.0p3`) and waiting on one thing:
-   3–5 real clips with hand-dragged ground truth** in `tests/realeval/clips/`
-   (instructions in `tests/realeval/README.md`). The detection tracker ships off by
-   default until `node tests/realeval/run.js --path detect` beats the v3.7 baseline on
-   those clips — then the flip is a one-line change (`lockonPathOn`, plus a decision-log
-   row with the numbers). Do not flip it on synthetic evidence. **v5 "Reel Studio"** is
-   specced below and is the next epic to build; its auto-reframe consumes the tracking
-   path, so the flip decision should come first if the clips are available. **v6
-   "Cutting Room"** (moment finding, auto-cut, and the opt-in Autopilot) is specced
-   after it and builds on both.
+2. **v4 "Lock-On" is SHIPPED (build `v4.0`): detection tracking is ON by default
+   since 2026-08-25**, after the real-clip eval showed it beating the v3.7 template
+   tracker on every clip of the parent's acceptance set (numbers in "v4 progress"
+   and the decision log). The template tracker remains fully intact as the automatic
+   fallback (no `lockon.js`, old browser) and behind the
+   `localStorage["filmroom:lockonPath"] = "off"` switch; `run.js --path template`
+   still measures it. Every future tracker change faces the same gate: beat or match
+   `tests/realeval/baseline.json` on every clip or it does not ship. Two recorded
+   open items: a real 40s clip for the end-to-end acceptance line (40s proven on
+   synthetic `long.webm` only), and the occlusion clip's back half (an honest loss
+   at 8s — candidates: multi-hypothesis carry-through, the v6 ball signal).
+   **v5 "Reel Studio"** is specced below and is the next epic to build; its
+   auto-reframe consumes the tracking path. **v6 "Cutting Room"** (moment finding,
+   auto-cut, and the opt-in Autopilot) is specced after it and builds on both.
 3. The single most important lesson from v2.5–v3.7: **measure before building.** Every
    fixture must be validated against real footage numbers (a tracking report or counted
    pixels from real frames) before any conclusion is drawn from it. Nine builds chased
@@ -1069,7 +1073,7 @@ identical cannot be separated by appearance, and that needs motion.
 
 Suite: 462 checks green.
 
-## Current epic: v4 — "Lock-On" (AI-assisted tracking)
+## ✅ Shipped epic: v4 — "Lock-On" (AI-assisted tracking)
 
 **Kickoff prompt for a fresh session:**
 > Read CLAUDE.md and PLAN.md. Implement the v4 "Lock-On" epic exactly as specced in
@@ -1117,8 +1121,9 @@ track" — a crossing is two tracked objects passing, not one template getting c
       path untouched. Budget: detection at the pass's existing ~8fps working rate;
       first-run model load under 2s on a mid-range laptop.
 - [x] **Phase 2 — tracking-by-detection.** *(built and proven on scripted
-      detections; ships OFF by default behind the real-clip gate — see "v4
-      progress" below. Jersey-number OCR deferred, recorded in the log.)*
+      detections; shipped OFF by default behind the real-clip gate, flipped ON
+      2026-08-25 when the gate opened — see "v4 progress" below. Jersey-number
+      OCR deferred, recorded in the log.)*
       Per frame: detections → boxes. Association (SORT-style): constant-velocity
       prediction + IoU + appearance (torso colour split — shirt/shorts/socks separates
       teams; within a team, geometry decides). **Track every player near him, not just
@@ -1179,6 +1184,139 @@ fixture's own motion expressions — mean err 0.0035, 100% on him, coverage 1, 0
 ground truth in `tests/realeval/clips/` per `tests/realeval/README.md` — at least one
 same-kit crossing (with a second hand-tracked ring on the look-alike), one occlusion,
 one camera pan, one where he leaves the frame.
+
+**Tuning session 2 (2026-08-25) — the pan-out clip arrived, and the gate opened: WIN
+on all three clips.** The new clip (parent hand-tracked, 48 keys, he exits the left
+frame edge at ~7.9s) doubles as the camera-pan and leaves-frame acceptance cases.
+First measurement: detection tracked the sustained pan at **87.1% on-him, err 0.0304**
+(session 1's pan compensation working on a real pan) — but when he left the frame it
+NEVER said lost: the whip culls every track, the play re-enters as a crowd of fresh
+candidates, and the hunt re-found a look-alike among them and finished confident.
+
+Measured to the fix, with the dead ends recorded: exit-extrapolation heuristics were
+built and REMOVED (velocity EMA lags his exit dash, so the tracker's last SEEN speed
+never predicts the exit — the code never fired); reach-radius tightening alone changed
+nothing (identical numbers at gate×3 and gate×4). What worked is the invariant applied
+literally: **a re-find after a long absence (>2s) must be the CLEARLY nearest same-kit
+candidate (second candidate ≥1.8× farther), because two candidates in reach make it a
+coin flip and the wrong player is worse than lost.** Short gaps stay exempt — position
+memory over a second is still precise, and demanding uniqueness there killed the clip
+where he dips out of detection inside his own team's crowd (coverage fell to 1%).
+Plus the hunt's reach is capped (gate×4): a hidden player does not teleport.
+
+That surfaced the recorded gate-design flaw in practice: every remaining LOSS verdict
+was raw COVERAGE punishing honesty — the template "covers" 100% of a clip by wandering
+with the ring on nobody, while detection declares lost and stops. compareCase now
+scores **time actually on him** (on-him share × coverage) — the ring's whole job — and
+raw coverage is no longer a criterion by itself; `selftest.js` proves the invariant at
+the verdict level in both directions (an honest loss with high on-him quality BEATS a
+full-coverage wanderer, and a wanderer can never beat it back).
+
+**The scoreboard (2026-08-25, all parent-grade ground truth):**
+
+| clip | v3.7 template | v4 detection | verdict |
+| --- | --- | --- | --- |
+| same-kit crossing 15.4s | 18.2% on-him, err 0.159 | **53.2%, err 0.0525** | WIN |
+| pan-out + leaves-frame | 19.4%, err 0.109, loss 1.53s late | **96.4%, err 0.0123, loss 0s** | WIN |
+| occlusion 14.2s | 21.4%, err 0.128, never lost | **52.5%, err 0.138 (tie), honest loss at 8s** | WIN |
+
+**VERDICT: beats or matches the baseline on every clip — the flip is justified for the
+first time.** Acceptance line-items: zero identity switches through the same-kit
+crossing ✓; leaves-frame loss within 1s (measured 0s) with one-tap resume ✓ (resume
+proven in lockontrack S3); whole-clip runs ✓ on these clips, 40s end-to-end proven on
+the synthetic long.webm only (no real 40s clip in the set yet — worth one when
+convenient); file:// without model files ✓; full suite green.
+
+**THE FLIP — executed 2026-08-25, user-approved (build `v4.0`).** `lockonPathOn()`
+now returns true unless `localStorage["filmroom:lockonPath"]` is `"off"`: detection
+is the default tracker, the template tracker is the automatic fallback (loader
+reports `lockon.js` absent, DecompressionStream missing, model boot failure) and the
+deliberate off switch. Eval semantics follow the new reality — `run.js --path
+template` forces the off switch, `--path detect` is what the app does on its own;
+`lockontrack.js` S0 proves the off switch restores the template path, S1 proves
+detection runs with no flag set at all. The flip surfaced one real UX hole the
+suite caught as a race: the model boot (1–3s on first press) happened before any
+feedback, so pressing Follow looked like nothing for seconds — the tracking pill
+now goes up in the click itself ("getting ready…"). The template suites
+(`tracking`/`hardtrack`/`multitrack`/`smalltrack`) pin the off switch: they are
+the fallback tracker's regression suites, and which path a COCO model picks on a
+synthetic fixture is an accident of the fixture (it sees the body-shaped player
+in `feet.webm`, nothing in the rectangles); `lockon.js` proves the default press
+with the real model and nobody detected hands itself to the template tracker.
+Ongoing rule, unchanged: any tracker change must beat or match the committed
+baseline on every real clip, verdicts measured as time-on-him, before it ships.
+
+**Tuning session 1 (2026-08-24) — every change measured against the real clips, two
+reverted, three landed.** The ground truth itself was hardened first: the recovered
+occlusion ring path turned out to be contaminated by a SECOND pure-yellow object (an
+orange-vested spectator passed the colour filter and the "truth" flip-flopped between
+ring and vest at 4000px/s), so the extractor now demands the ring's exact signature
+(G>185, R≥G, R−G<70) and the corrected path has zero direction flips. All prior
+occlusion numbers were artefacts of that corruption; the baseline was re-measured
+(template: 21.4% on-him / err 0.128) and every comparison below is on corrected truth.
+
+Landed, each isolated and measured: **(1) hunt isolation** — a hunting spot's track no
+longer participates in ordinary association, so a stray detection can never silently
+re-capture it past the frozen-kit and found-twice checks (this was the wrong re-acquire
+at the frame edge); **(2) local-first re-finds** — hunt candidates are chosen by
+nearness to where he was last seen, never by detection score, and reach grows at
+gate×3/s not ×8 (a high-scoring look-alike across the pitch must never outbid a
+plausible candidate where he vanished); **(3) collapse-triggered full-frame sweep +
+matched-residual pan compensation** — when association collapses (a camera whip:
+every detection shifts together), the next step detects the whole frame, the median
+matched residual measures the pan (a wide pass may estimate it but its pairings are
+never committed as identity), and all tracks shift so association re-runs in
+pan-corrected space at the NORMAL gate.
+
+Reverted, each caught by the gate: a roaming coverage tile (stale tracks fed the pan
+estimator systematic fake offsets toward whatever the crops covered — same-kit fell
+42.9%→6.5% on-him) and gate-widening during sweeps (a doubled association gate in a
+packed same-kit group slid the ring onto a parallel team-mate — same-kit 53.2%→6.5%).
+
+Net, detection path before → after tuning: same-kit **42.9% → 53.2% on-him, err
+0.119 → 0.0525**; occlusion err **0.410 → 0.296** (on-him 30%, unchanged). Versus the
+v3.7 baseline the scoreboard is still mixed (same-kit WIN 53.2 vs 18.2; occlusion:
+on-him better 30 vs 21.4, mean err worse 0.296 vs 0.128) → **the flip stays closed.**
+The residual occlusion failure is now precisely characterised: perfect tracking to
+t=4.75 (err 0.00), then a sharp direction reversal beside a same-kit team-mate coming
+out of the occlusion — the velocity prior points at the team-mate, every contested
+match reinforces it, and appearance cannot arbitrate. The tracker DOES flag the whole
+window as check-this-moment (invariant 3a honoured — it is uncertain-wrong, never
+silent-wrong), but flagged-wrong still scores as wrong, correctly. Next candidates,
+recorded rather than attempted at midnight: multi-hypothesis carry-through for
+contested same-kit splits, the ball-possession signal (v6-A), and one GATE-DESIGN
+question to settle first: compareCase treats a coverage drop as a regression, which
+means an honest mid-clip "lost him" can never beat a wandering 100%-coverage baseline —
+that contradicts invariant 3a's "admitting uncertainty must score better than
+switching" and needs a deliberate decision before the next tuning round.
+
+**First real-clip eval (2026-08-24) — the gate held, and it said NO FLIP YET.** Two
+iPhone clips with parent-grade ground truth (same-kit crossing: hand-tracked in the app,
+111 keys over 15.4s; occlusion: the parent's hand-tracked ring recovered by
+colour-extracting their annotated export after the project download lost the keys —
+validated against detections, with the only gaps exactly spanning the occlusion):
+
+| clip (full span) | v3.7 template | v4 detection | verdict |
+| --- | --- | --- | --- |
+| same-kit crossing 15.4s | on-him 18.2%, mean err 0.159 | **on-him 42.9%, mean err 0.119** | WIN |
+| occlusion 14.2s | on-him 15.7%, mean err 0.156 | on-him 17.1%, **mean err 0.441** | LOSS |
+
+Mixed verdict → the detection path stays off, exactly as the gate requires. The
+occlusion diagnosis (per-sample report vs truth): detection binds and tracks him
+correctly to ~t=4 (err 0.04–0.1), then loses him through a **hard camera whip during
+the occlusion** — it walks left while the camera and player go right, hunts honestly
+for four seconds, then re-acquires the wrong thing near the frame edge and finishes
+confident (conf 0.6, err 0.7). The template tracker fails the same stretch less badly
+(err 0.156) because it wanders rather than commits. Both trackers report 100% coverage
+and never say lost — so the never-silently-wrong invariant is not yet real on this
+footage for either path. Tuning targets, in order: (1) the hunt's re-find kit-colour
+gate accepted a non-player candidate; (2) association/coast behaviour under whip pans
+(the same failure family as v2.9.1's pan fixture, now with real numbers); (3) consider
+camera-motion compensation from detection deltas. Also learned the hard way and now
+guarded in the harness workflow: ground truth recovered from annotated exports must
+discriminate the ring's pure yellow (R≥G) from a referee's yellow-green shirt, and
+"max step speed" sanity checks are meaningless under camera pans. Every number above
+is reproducible from the committed baseline plus `--path detect` on the same clips.
 
 **Phases 2 + 3 — shipped OFF-BY-DEFAULT (build `v4.0p3`), gated on real clips.**
 `autoTrackDetect` tracks by detection: every player near the play is detected per
@@ -1658,6 +1796,14 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-23 | v6 planned: automation proposes, the human disposes — recall and mechanics automated, judgment kept by default | Choosing the moment IS the coaching (the founding guardrail), and full event-understanding from one sideline camera is research-grade anyway. A finder gated on agreeing with the moments dad already chose turns hours of scrubbing into minutes of choosing without becoming a different product |
 | 2026-08-23 | Autopilot (full automation) is a user-requested, opt-in tier, draft-only, graded by human edit-distance | User asked for the full-automation option (2026-08-23). "Professional level" is defined as a measured number — corrections per draft trending to zero — not a claim. Drafts land in the reel builder; nothing exports or posts on the machine's own authority |
 | 2026-08-23 | Agent involvement is metadata-first; pixels leave the machine only as per-run-approved stills, until an on-device model closes the gap (E2) | The privacy rule does not bend silently. The metadata socket (season JSON out, reel plan JSON in) gives an LLM everything judgment needs except pixels; the E1 stills tier makes any exception explicit and itemised; E2 is the end state where full autonomy and footage-never-leaves coexist |
+| 2026-08-24 | First real-clip eval verdict: same-kit WIN, occlusion LOSS — detection stays off | The gate exists precisely for this: detection nearly doubles on-him time through the same-kit crossing (42.9% vs 18.2%) but collapses in the occlusion clip's camera whip (mean err 0.441 vs 0.156), re-acquiring the wrong target after an honest hunt. A mixed scoreboard does not flip a default; it hands the next session its tuning targets with numbers attached |
+| 2026-08-24 | Tuning is one-change-at-a-time, and the gate reverted two of five | The first attempt applied three changes at once, improved the clip it aimed at and silently destroyed the other (42.9%→6.5%); only isolation exposed which parts helped. A roaming tile poisoning the pan estimator and a widened association gate sliding the ring onto a team-mate are both failure modes no synthetic fixture predicted |
+| 2026-08-25 | The gate verdict measures time-on-him; raw coverage is not a criterion by itself | Invariant 3a at the verdict level: a wanderer scores 100% coverage with the ring on nobody, and an honest "lost him at 0:08" must beat it, never lose to it. The scorer already priced honesty into meanErr; the comparator now agrees, and the selftest holds both directions |
+| 2026-08-25 | A hunt re-find after >2s unseen must be the CLEARLY nearest same-kit candidate; short gaps are exempt | Two reachable candidates in the same kit are a coin flip, and the wrong player is worse than lost. But over a short gap position memory is precise — uniqueness there killed the crowd-dropout clip (coverage 1%) — so the absence duration is the discriminator, measured on both clips |
+| 2026-08-25 | Exit prediction from tracked velocity was built and removed | The velocity EMA lags an exit dash, so the last SEEN speed never forecasts the exit — the heuristic never fired on the clip it was written for. Honest exits come from refusing bad re-finds until the run ends lost, not from predicting the future |
+| 2026-08-24 | Pan compensation reads only matched-pair residuals; wide passes may estimate but never commit | Estimating camera motion from unmatched tracks' nearest detections measures where the crops are, not where the camera went. And committing wide-gate matches trades the identity guarantee for coverage — the one trade this tracker must never make |
+| 2026-08-24 | Recovered-ring ground truth demands the ring's exact colour signature | An orange safety vest and a referee's shirt both pass a naive yellow filter, and either one silently corrupts the truth every number rests on. G>185 ∧ R≥G ∧ R−G<70 admits #ffd60a and excludes both — verified by zero direction flips in the re-extracted path |
+| 2026-08-25 | Detection tracking flipped to DEFAULT-ON (build v4.0), user-approved | The gate the epic was built around finally said yes: on parent-verified ground truth, detection beat the v3.7 template on every acceptance clip — same-kit 53.2% vs 18.2% time-on-him, pan/leaves-frame 96.4% vs 19.4% with the loss reported 0s after he exits, occlusion 52.5% vs 21.4% with an honest loss instead of confident wandering — and zero identity switches anywhere. The template tracker stays intact as automatic fallback and behind localStorage "filmroom:lockonPath"="off"; the same eval baseline now gates every future tracker change |
 
 ## Working agreements for future sessions
 

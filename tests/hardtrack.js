@@ -5,6 +5,9 @@
   a curve at 55px/s, and a white occluder that crosses straight over the ball
   at t≈3.7 (tests coast-through-occlusion + reacquire).
   Ball center: x(t) = 49 + 55t px, y(t) = 180 + 50*sin(1.3t) px (640x360).
+  Pins "filmroom:lockonPath" to "off": since the 2026-08-25 flip detection is
+  the app default, and this suite is the TEMPLATE tracker's regression suite
+  (still the fallback). The detection path has its own suites.
 */
 const path = require('path');
 const { APP, FIXTURES, launch } = require('./common');
@@ -16,7 +19,7 @@ const ballAt = t => ({ x: (49 + 55 * t) / 640, y: (180 + 50 * Math.sin(1.3 * t))
   const { browser, page, errors, check } = await launch();
 
   await page.goto(APP);
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('filmroom:seenHelp', '1'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('filmroom:seenHelp', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', VIDEO);
   await page.waitForSelector('#videoWrap', { state: 'visible' });

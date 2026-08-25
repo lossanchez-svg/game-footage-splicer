@@ -1,0 +1,58 @@
+{
+ "build": "v4.0p4",
+ "path": "template",
+ "at": "2026-08-25T01:28:11.286Z",
+ "cases": {
+  "occlusion-iphone": {
+   "notes": "occlusion clip; ground truth = parent hand-tracked (recovered from their annotated export, 2026-08-24)",
+   "ranAs": "template",
+   "span": 14,
+   "scoredSamples": 70,
+   "meanErr": 0.1281,
+   "medianErr": 0.1274,
+   "p90Err": 0.258,
+   "maxErr": 0.3401,
+   "onHimPct": 21.4,
+   "coverage": 1,
+   "switches": 0,
+   "switchTime": 0,
+   "lostReported": false,
+   "lostTime": 0,
+   "lostWithin": null
+  },
+  "pan-out-iphone": {
+   "notes": "pan-out clip, doubles as the leaves-frame case: parent hand-tracked 48 keys t=1.56-7.96, he exits the LEFT frame edge at ~7.9s (last keys pinned at x=0)",
+   "ranAs": "template",
+   "span": 6.4,
+   "scoredSamples": 31,
+   "meanErr": 0.1086,
+   "medianErr": 0.0752,
+   "p90Err": 0.2385,
+   "maxErr": 0.3721,
+   "onHimPct": 19.4,
+   "coverage": 1,
+   "switches": 0,
+   "switchTime": 0,
+   "lostReported": true,
+   "lostTime": 0,
+   "lostWithin": 1.53
+  },
+  "same-kit-iphone": {
+   "notes": "same-kit crossing clip; ground truth = parent hand-tracked in the app (111 keys, full 15.4s, 2026-08-24)",
+   "ranAs": "template",
+   "span": 15.4,
+   "scoredSamples": 77,
+   "meanErr": 0.1593,
+   "medianErr": 0.1158,
+   "p90Err": 0.3648,
+   "maxErr": 0.3977,
+   "onHimPct": 18.2,
+   "coverage": 1,
+   "switches": 0,
+   "switchTime": 0,
+   "lostReported": false,
+   "lostTime": 0,
+   "lostWithin": null
+  }
+ }
+}

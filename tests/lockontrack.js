@@ -8,9 +8,9 @@
   does NOT test is YOLOX's detection quality on real players — that is the
   realeval harness's question, on real clips.
 
-  Also here: the path is OFF by default — with no opt-in flag, the template
-  tracker runs even when a detector is available. That is the epic's gate:
-  no synthetic fixture opens it.
+  Also here: detection is the DEFAULT since the 2026-08-25 flip (the real-clip
+  eval showed it beating the template tracker on every acceptance clip), and
+  localStorage "filmroom:lockonPath" = "off" restores the template tracker.
 */
 const path = require('path');
 const { APP, FIXTURES, launch } = require('./common');
@@ -68,7 +68,7 @@ async function freshPage(browser, fixture, pathOn){
   await page.evaluate(on => {
     localStorage.clear();
     localStorage.setItem('filmroom:tourDone', '1');
-    if (on) localStorage.setItem('filmroom:lockonPath', 'on');
+    if (!on) localStorage.setItem('filmroom:lockonPath', 'off');   // detection is the default
   }, pathOn);
   await page.reload();
   await page.setInputFiles('#fileVideo', path.join(FIXTURES, fixture));
@@ -105,7 +105,7 @@ const spotAt = (page, i, t) => page.evaluate(([i, t]) => {
   const { browser, page, errors, check } = await launch();
   await page.close();   // scenarios each get a fresh context
 
-  /* ---- S0: the gate — detection is OFF by default ---- */
+  /* ---- S0: the off switch — "filmroom:lockonPath"="off" restores v3.7 ---- */
   {
     const { ctx, page, errors: e2, box } = await freshPage(browser, 'two.webm', false);
     await installStub(page, [{ fn: 'ballA', size: 36 }, { fn: 'ballB', size: 36 }]);
@@ -113,7 +113,7 @@ const spotAt = (page, i, t) => page.evaluate(([i, t]) => {
     await placeSpot(page, box, p0.x, p0.y, 640, 360, 'A');
     await trackSelected(page);
     const rep = await page.evaluate(() => window.__filmroom.trackReport);
-    check(`OFF by default: a stubbed detector present but no opt-in runs the template path (${rep.path})`,
+    check(`the off switch restores the template tracker (${rep.path})`,
       rep.path === 'template');
     errors.push(...e2);
     await ctx.close();
@@ -127,7 +127,7 @@ const spotAt = (page, i, t) => page.evaluate(([i, t]) => {
     await placeSpot(page, box, p0.x, p0.y, 640, 360, 'A');
     await trackSelected(page);
     const rep = await page.evaluate(() => window.__filmroom.trackReport);
-    check(`detection path ran (${rep.path})`, rep.path === 'detection');
+    check(`detection path ran BY DEFAULT, no flag set (${rep.path})`, rep.path === 'detection');
     check(`follows to the end of the clip (stopBecause ${rep.spots[0].stopBecause})`,
       rep.spots[0].stopBecause === 'clipEnd');
     check('run not reported lost', rep.result[0].lost === false);

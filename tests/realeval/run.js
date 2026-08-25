@@ -111,10 +111,11 @@ async function trackInApp(c, gt, opts = {}){
     await page.evaluate(usePath => {
       localStorage.clear();
       localStorage.setItem('filmroom:tourDone', '1');
-      /* which tracker to measure: 'detect' opts into the v4 detection path
-         (it still falls back to the template tracker if nobody is detected
-         at the anchor — the report's `path` field says what actually ran) */
-      if (usePath === 'detect') localStorage.setItem('filmroom:lockonPath', 'on');
+      /* which tracker to measure. Detection is the app default since the
+         2026-08-25 flip, so measuring the template tracker means forcing it
+         OFF; the report's `path` field says what actually ran either way. */
+      if (usePath === 'template') localStorage.setItem('filmroom:lockonPath', 'off');
+      else localStorage.setItem('filmroom:lockonPath', 'on');
     }, opts.path || 'template');
     await page.reload();
     await page.setInputFiles('#fileVideo', c.video);
@@ -249,7 +250,9 @@ async function main(){
     try {
       const rc = await runCase(c, { path: usePath });
       results.push(rc);
-      fs.writeFileSync(path.join(OUT, `${c.name}-report.json`),
+      /* one report per tracker path — a template report and a detection report
+         for the same clip must never overwrite each other */
+      fs.writeFileSync(path.join(OUT, `${c.name}-${usePath}-report.json`),
         JSON.stringify(rc.report, null, 1));
       console.log(fmtCase(rc));
       for (const e of rc.pageErrors) console.log('    PAGE ' + e);

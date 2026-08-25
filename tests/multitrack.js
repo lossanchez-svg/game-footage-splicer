@@ -5,6 +5,9 @@
   four seconds after the ring is placed. Pressing Track on a fresh ring
   therefore followed the player for four seconds and stopped — indistinguishable
   from "the tracker doesn't work". Both are covered here.
+  Pins "filmroom:lockonPath" to "off": since the 2026-08-25 flip detection is
+  the app default, and this suite is the TEMPLATE tracker's regression suite
+  (still the fallback). The detection path has its own suites.
 */
 const path = require('path');
 const { APP, FIXTURES, launch } = require('./common');
@@ -37,7 +40,7 @@ const placeSpot = async (page, box, pos, label) => {
   const { browser, page, errors, check } = await launch();
 
   await page.goto(APP);
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('filmroom:tourDone', '1'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
 
   // ============ the bug: a fresh ring followed for only four seconds ============
@@ -172,7 +175,7 @@ const placeSpot = async (page, box, pos, label) => {
   // suite, and restoring that work would leave two spotlights in the list
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
+  await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
   await page.setInputFiles('#fileVideo', BALL);
   await page.waitForSelector('#videoWrap', { state: 'visible' });

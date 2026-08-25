@@ -88,6 +88,32 @@ const { APP, FIXTURES, launch } = require('./common');
   });
   check(`plain grass detects no one (${empty} boxes)`, empty === 0);
 
+  /* -------- the DEFAULT path, real model, nobody to detect --------
+     Since the 2026-08-25 flip, detection is what a plain Follow press does.
+     On a fixture the COCO model sees nothing in, the run must hand itself to
+     the template tracker on its own — model present, no flag set, no error. */
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'ball.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const box1 = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(300);
+  await page.click('#toolGrid button[data-tool=spot]');
+  await page.mouse.move(box1.x + box1.width * (58 / 640), box1.y + box1.height * (180 / 360));
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 240000 });
+  const fell = await page.evaluate(() => {
+    const s = window.__filmroom.getProject().annotations[0];
+    return { keys: s.keys.length, path: window.__filmroom.trackReport.path };
+  });
+  check(`default press, real model, nothing detected: template path takes over (${fell.path})`,
+    fell.path === 'template');
+  check(`and the run still tracked (${fell.keys} keys written)`, fell.keys >= 4);
+
   /* -------- index.html ALONE, without lockon.js -------- */
   const solo = fs.mkdtempSync(path.join(os.tmpdir(), 'filmroom-solo-'));
   fs.copyFileSync(path.resolve(__dirname, '..', 'index.html'), path.join(solo, 'index.html'));
