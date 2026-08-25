@@ -1846,7 +1846,19 @@ export renderers are frozen so old exports keep matching the editor.
       would churn four tracking suites for no daily-density win. Tests: shared
       `openDisclosures()` helper in `tests/common.js`; nine suites updated at
       their now-folded click sites; full affected set green.
-
+- [x] **Post-merge hardening (shipped).** A code review of the merged v7 diff found
+      seven real defects, all fixed: ⌘K no longer offers controls hidden by feature
+      detection (📁 Games on Safari) while keeping tab-panel/folded controls
+      reachable — inline `display:none` is the discriminator; ✂ Tighten's Undo now
+      restores a clip's pre-existing speed ramp instead of deleting it; the in/out
+      handles, the timeline scrub, and the drag-to-reel dot all clean up on
+      `pointercancel`/`lostpointercapture` (an interrupted iPad drag no longer leaves
+      a leaked pointermove that edits marks on mere hover, or a phantom reel-drop);
+      the timeline micro-menu respects the same session/tracking/exporting guards as
+      the quick-mark chips and ignores bars detached by a re-render during its hover
+      delay; `seekFromEvent` now goes through `timeFromClientX`; and the three new
+      suites fold `launch()`'s collected page errors into their exit codes (plus a
+      cmdbar regression check for the hidden-control rule).
 **Epic status: all six sprints shipped.** Remaining from the audit doc: the optional
 Stretch S-A audio-energy strip (needs an iPad memory spike measurement first — see
 `UI_REFRESH_PLAN.md` §2.4) and the sidebar fold-labels-to-words refinement below.
@@ -1878,8 +1890,11 @@ Stretch S-A audio-energy strip (needs an iPad memory spike measurement first —
 - [ ] Realtime (🔊) export produces webm in Chrome — either label the tradeoff more
       clearly in the picker or route audio-needing exports through fast-mp4 + audio
       everywhere it's supported and retire the realtime path.
-- [ ] Whole-video fast export of a long game: progress is fine but there's no
-      time-remaining estimate; add one (seek pace is measurable after ~5s).
+- [x] Whole-video fast export of a long game: time-remaining estimate — **already
+      shipped in v5-C and stale here**: `exportProgram()` (shared by single clips,
+      whole-game exports and reels) computes `estFrames` up front and `sayTimeLeft`
+      updates the busy message every second of output once 5s of pace has settled.
+      Verified wired (`sayTimeLeft` called from `pushFrame`); nothing to add.
 - [ ] Board: no undo *within* a chip drag (each drag is one undo step — verify feel).
 - [ ] PWA: verify installed-app behavior on a real iPad (icon, offline, orientation).
       GitHub Pages still needs enabling on the repo (Settings → Pages → main) — that is

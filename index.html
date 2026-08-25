@@ -2181,20 +2181,21 @@ function bumpSpeed(dir){
 
 /* timeline */
 const timeline = $('#timeline');
-function seekFromEvent(e){
-  const r = timeline.getBoundingClientRect();
-  const frac = clamp((e.clientX - r.left) / r.width, 0, 1);
-  video.currentTime = frac * (video.duration || 0);
-}
+function seekFromEvent(e){ video.currentTime = timeFromClientX(e.clientX); }
 timeline.addEventListener('pointerdown', e => {
   if (!video.duration) return;
   tourEvent('play');
   timeline.setPointerCapture(e.pointerId);
   seekFromEvent(e);
   const mv = ev => seekFromEvent(ev);
-  const up = () => { timeline.removeEventListener('pointermove', mv); timeline.removeEventListener('pointerup', up); };
+  const up = () => {
+    timeline.removeEventListener('pointermove', mv);
+    timeline.removeEventListener('pointerup', up);
+    timeline.removeEventListener('pointercancel', up);
+  };
   timeline.addEventListener('pointermove', mv);
   timeline.addEventListener('pointerup', up);
+  timeline.addEventListener('pointercancel', up);
 });
 
 /* drag the edges of the marked moment to retime it — the transport buttons and the
@@ -2220,9 +2221,18 @@ function ioHandleDrag(handle, isStart){
       }
       updateInOutUI();
     };
-    const up = () => { handle.removeEventListener('pointermove', mv); handle.removeEventListener('pointerup', up); };
+    /* pointercancel/lostpointercapture too: an iPad system gesture can end the drag
+       without a pointerup, and a leaked pointermove handler fires on mere hover */
+    const up = () => {
+      handle.removeEventListener('pointermove', mv);
+      handle.removeEventListener('pointerup', up);
+      handle.removeEventListener('pointercancel', up);
+      handle.removeEventListener('lostpointercapture', up);
+    };
     handle.addEventListener('pointermove', mv);
     handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+    handle.addEventListener('lostpointercapture', up);
   });
 }
 ioHandleDrag($('#ioHandleL'), true);
@@ -2262,6 +2272,9 @@ const microMenu = $('#microMenu');
 let mmShowTimer = null, mmHideTimer = null;
 function hideMicroMenu(){ microMenu.style.display = 'none'; }
 function showMicroMenu(bar){
+  /* a mutate() during the hover-intent delay rebuilds #tlClips — a detached bar
+     measures 0×0 and would pin the menu to the screen corner */
+  if (!bar.isConnected) return;
   const c = project.clips.find(x => x.id === bar.dataset.clipId);
   if (!c) return;
   const colors = {positive:'var(--pos)', negative:'var(--neg)', neutral:'var(--warn)'};
@@ -2295,6 +2308,9 @@ function showMicroMenu(bar){
 }
 $('#tlClips').addEventListener('pointerover', e => {
   if (e.pointerType !== 'mouse') return;
+  /* the same busy states that silence the quick-mark chips: playing a clip mid-track
+     or mid-export from here would fight the pass that is stepping the video */
+  if (ui.session || ui.tracking || ui.exporting) return;
   const bar = e.target.closest('.tlClip');
   if (!bar) return;
   clearTimeout(mmShowTimer); clearTimeout(mmHideTimer);
@@ -5052,14 +5068,15 @@ function openClipBoard(c){
 function tightenClip(c){
   const prop = proposeCut(c, lastTrackReport);
   if (!prop) return renderClipList();
-  const was = { tIn: c.tIn, tOut: c.tOut };
+  const was = { tIn: c.tIn, tOut: c.tOut, ramp: c.ramp };
   mutate(() => {
     c.tIn = prop.tIn; c.tOut = prop.tOut;
     if (prop.ramp) c.ramp = prop.ramp;   // the fastest bit — for social cuts
   });
   toast('Tightened: ' + prop.why + '. It now runs ' + fmtDur(c.tOut - c.tIn) + '.',
     8000, { label: '↩ Undo', fn(){
-      mutate(() => { c.tIn = was.tIn; c.tOut = was.tOut; delete c.ramp; });
+      mutate(() => { c.tIn = was.tIn; c.tOut = was.tOut;
+        if (was.ramp === undefined) delete c.ramp; else c.ramp = was.ramp; });
       toast('Put back the way you had it.');
     } });
 }
@@ -5099,14 +5116,22 @@ function wireDragToReel(card, c){
         ev.clientY >= r.top && ev.clientY <= r.bottom);
     };
     const up = () => {
-      dot.removeEventListener('pointermove', mv); dot.removeEventListener('pointerup', up);
+      dot.removeEventListener('pointermove', mv);
+      dot.removeEventListener('pointerup', up);
+      dot.removeEventListener('pointercancel', cancel);
+      dot.removeEventListener('lostpointercapture', cancel);
       card.classList.remove('dragging');
       const hot = reelSec.classList.contains('dropHot');
       reelSec.classList.remove('dropHot');
       if (hot && !(project.reel || []).includes(c.id)) clipAction('reel', c);
     };
+    /* a cancelled drag must clean up without dropping — and without leaving the
+       leaked pointerup to complete a phantom drop on a later plain click */
+    const cancel = () => { reelSec.classList.remove('dropHot'); up(); };
     dot.addEventListener('pointermove', mv);
     dot.addEventListener('pointerup', up);
+    dot.addEventListener('pointercancel', cancel);
+    dot.addEventListener('lostpointercapture', cancel);
   });
 }
 function clipAction(act, c){
@@ -7339,7 +7364,11 @@ function cmdEntries(){
   const out = [];
   for (const sel of CMD_STATIC){
     const el = $(sel);
-    if (!el || el.disabled) continue;
+    /* inline display:none is how this app says "not supported here" (📁 Games without
+       the folder API, say) — skip those. Controls hidden only by navigation (an
+       inactive tab, the closed 📦 Project fold) stay listed: reaching them without
+       menu-diving is what the command bar is for. */
+    if (!el || el.disabled || el.style.display === 'none') continue;
     const label = CMD_NAMES[sel] || el.textContent.trim();
     if (!label) continue;
     out.push({ label, tip: el.dataset.tip || '', run: () => el.click() });

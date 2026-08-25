@@ -8,7 +8,7 @@ let errors = 0;
 const check = (name, ok) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + name); if (!ok) errors++; };
 
 (async () => {
-  const { browser, page } = await launch();
+  const { browser, page, errors: pageErrors } = await launch();
   await page.goto(APP);
   await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
   await page.reload();
@@ -91,6 +91,7 @@ const check = (name, ok) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + name); if
   check('chips hide over a clip block — that hover belongs to the menu', !chipsOnBar);
 
   await browser.close();
-  console.log('\n--- errors collected: ' + errors);
-  process.exit(errors ? 1 : 0);
+  pageErrors.forEach(e => console.log('  ', e));   // page exceptions fail the suite too
+  console.log('\n--- errors collected: ' + (errors + pageErrors.length));
+  process.exit((errors + pageErrors.length) ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

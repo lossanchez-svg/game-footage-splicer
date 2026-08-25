@@ -8,7 +8,7 @@ let errors = 0;
 const check = (name, ok) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + name); if (!ok) errors++; };
 
 (async () => {
-  const { browser, page } = await launch();
+  const { browser, page, errors: pageErrors } = await launch();
   await page.goto(APP);
   await page.evaluate(() => localStorage.setItem('filmroom:tourDone', '1'));
   await page.reload();
@@ -90,6 +90,20 @@ const check = (name, ok) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + name); if
   check('arrow keys move the highlighted row (index ' + selIdx + ')', selIdx === 1);
   await page.keyboard.press('Escape');
 
+  // ---- a control hidden by feature detection is not offered as a command ----
+  // (Safari hides 📁 Games because the folder API is missing — ⌘K must not
+  //  route to a feature the browser cannot support)
+  const gamesHidden = await page.evaluate(() => {
+    const el = document.querySelector('#btnLibrary');
+    const was = el.style.display;
+    el.style.display = 'none';
+    const offered = cmdEntries().some(e => e.label.includes('Games'));
+    el.style.display = was;
+    return { offered, back: cmdEntries().some(e => e.label.includes('Games')) };
+  });
+  check('a feature-hidden control is not offered', !gamesHidden.offered);
+  check('it returns once the control is shown again', gamesHidden.back);
+
   // ---- the plain K shortcut still plays/pauses (no conflict with ⌘K) ----
   await page.evaluate(() => document.querySelector('#video').pause());
   await page.keyboard.press('KeyK');
@@ -97,6 +111,7 @@ const check = (name, ok) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + name); if
     !document.querySelector('#video').paused));
 
   await browser.close();
-  console.log('\n--- errors collected: ' + errors);
-  process.exit(errors ? 1 : 0);
+  pageErrors.forEach(e => console.log('  ', e));   // page exceptions fail the suite too
+  console.log('\n--- errors collected: ' + (errors + pageErrors.length));
+  process.exit((errors + pageErrors.length) ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
