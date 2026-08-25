@@ -444,6 +444,31 @@
     font-size:14px; line-height:1.4; box-shadow:0 8px 28px rgba(0,0,0,.55);
     pointer-events:none;}
 
+  /* ---------- smart-drop zones ---------- */
+  #dropZones{position:absolute; inset:0; display:none; z-index:45; pointer-events:none;}
+  #dropZones .dz{position:absolute; top:10px; bottom:10px; border:2px dashed var(--line);
+    border-radius:12px; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; color:var(--dim); font-size:15px; font-weight:600;
+    text-align:center; padding:10px; background:rgba(18,18,18,.55); gap:4px;
+    transition:border-color 120ms, color 120ms, background 120ms;}
+  #dropZones .dz small{font-weight:400; font-size:12px;}
+  .dzOpen{left:10px; right:36%;}
+  .dzCompare{left:66%; right:10px;}
+  #dropZones.solo .dzOpen{right:10px;}
+  #dropZones.solo .dzCompare{display:none;}
+  /* accent on the armed target = live selection state: allowed chroma */
+  #dropZones .dz.hot{border-color:var(--accent2); color:var(--text);
+    background:rgba(88,166,255,.08);}
+
+  /* ---------- drag a clip card onto the reel section ---------- */
+  .clipItem .dragDot{cursor:grab; color:var(--dim); padding:0 5px; user-select:none;
+    touch-action:none;}
+  .clipItem .dragDot:active{cursor:grabbing;}
+  .clipItem.dragging{opacity:.5;}
+  #reelSection.dropHot{outline:2px dashed var(--accent2); outline-offset:4px;
+    border-radius:8px;}
+  @media (pointer:coarse){ .clipItem .dragDot{display:none;} }
+
   /* ---------- timeline clip micro-menu ---------- */
   #microMenu{position:fixed; z-index:56; display:none; background:var(--bg3);
     border:1px solid var(--line); border-radius:10px; padding:8px 10px;
@@ -667,6 +692,10 @@
           Nothing is uploaded — the video never leaves this device.
         </div>
       </div>
+      <div id="dropZones">
+        <div class="dz dzOpen" data-zone="open">🎞 Open as this game</div>
+        <div class="dz dzCompare" data-zone="compare">⚖ Use as the example side<br><small>plays next to one of his clips</small></div>
+      </div>
       <div id="trackPill">🎯 Tracking… <span id="trackPct">0%</span>
         <button class="miniBtn" id="trackCancelBtn">✕ Cancel (Esc)</button>
       </div>
@@ -846,7 +875,7 @@
           <button id="btnProfile" data-tip="His name, number, grad year, positions and how a coach can reach you — filled in once, printed on every reel automatically.">✎ Fill in his card</button>
         </div>
       </div>
-      <div class="section">
+      <div class="section" id="reelSection">
         <h4>🎞 Highlight reel</h4>
         <div class="fieldRow"><input type="text" id="reelTitle" placeholder="Reel title, e.g. Week 3 — playing between the lines" style="flex:1" data-tip="What to call this week's set of clips. It shows on the opening card of the video and at the top of a session."></div>
         <div id="reelList"></div>
@@ -1461,13 +1490,56 @@ if (navigator.maxTouchPoints > 1 && /iPhone|iPad|Macintosh/.test(navigator.userA
   $('#bigOpen').textContent = '🖼 Open from Photos';
 $('#fileVideo').onchange = e => { if (e.target.files[0]) loadVideo(e.target.files[0]); e.target.value=''; };
 
-document.addEventListener('dragover', e => e.preventDefault());
+/* smart-drop zones: while a file is dragged over the app with a game already open,
+   the stage splits into labelled targets. Dropping anywhere else — or before any
+   video is open — keeps the original behavior exactly. */
+const dropZones = $('#dropZones');
+let dragDepth = 0, dropZoneHit = null;
+function showDropZones(){
+  dropZones.classList.toggle('solo', !project.clips.length);
+  dropZones.style.display = 'block';
+}
+function hideDropZones(){
+  dropZones.style.display = 'none'; dropZoneHit = null;
+  $$('#dropZones .dz').forEach(z => z.classList.remove('hot'));
+}
+function dropAsExample(f){
+  if (!project.clips.length) return loadVideo(f);
+  if (!ui.compareMode) openCompare(project.clips[0].id);
+  cmpUseFile(f);
+  toast('“' + f.name + '” is the example side. Pick which of his clips plays on the left.', 6000);
+}
+document.addEventListener('dragenter', e => {
+  const items = (e.dataTransfer && e.dataTransfer.items) || [];
+  if (![...items].some(i => i.kind === 'file')) return;
+  dragDepth++;
+  if (video.src && !ui.exporting) showDropZones();
+});
+document.addEventListener('dragleave', () => {
+  if (--dragDepth <= 0){ dragDepth = 0; hideDropZones(); }
+});
+document.addEventListener('dragover', e => {
+  e.preventDefault();
+  if (dropZones.style.display !== 'block') return;
+  dropZoneHit = null;
+  for (const z of $$('#dropZones .dz')){
+    const r = z.getBoundingClientRect();
+    const hit = r.width > 0 &&
+      e.clientX >= r.left && e.clientX <= r.right &&
+      e.clientY >= r.top && e.clientY <= r.bottom;
+    z.classList.toggle('hot', hit);
+    if (hit) dropZoneHit = z.dataset.zone;
+  }
+});
 document.addEventListener('drop', e => {
   e.preventDefault();
+  const zone = dropZoneHit;
+  dragDepth = 0; hideDropZones();
   const files = [...(e.dataTransfer.files || [])];
   const f = files.find(f => /video|quicktime/.test(f.type) || /\.(mp4|mov|m4v|webm)$/i.test(f.name));
   const j = files.find(f => /\.(json|filmroom)$/i.test(f.name));
-  if (f) loadVideo(f);
+  if (f && zone === 'compare' && project.clips.length) dropAsExample(f);
+  else if (f) loadVideo(f);
   else if (j) loadProjectFile(j);
   else if (files.length){
     // real files arrived, just not a video (e.g. a photo)
@@ -4963,6 +5035,35 @@ function deleteClip(c){
     project.reel = (project.reel || []).filter(id => id !== c.id);
   });
 }
+/* drag a clip card by its ⠿ dot onto the Highlight reel section — the same
+   toggleReel() the button calls. Mouse only; ➕ Reel stays the touch path. */
+function wireDragToReel(card, c){
+  const dot = card.querySelector('.dragDot');
+  if (!dot) return;
+  dot.addEventListener('click', e => e.stopPropagation());   // the head click seeks
+  dot.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'mouse') return;
+    e.preventDefault(); e.stopPropagation();
+    dot.setPointerCapture(e.pointerId);
+    card.classList.add('dragging');
+    const reelSec = $('#reelSection');
+    const mv = ev => {
+      const r = reelSec.getBoundingClientRect();
+      reelSec.classList.toggle('dropHot',
+        ev.clientX >= r.left && ev.clientX <= r.right &&
+        ev.clientY >= r.top && ev.clientY <= r.bottom);
+    };
+    const up = () => {
+      dot.removeEventListener('pointermove', mv); dot.removeEventListener('pointerup', up);
+      card.classList.remove('dragging');
+      const hot = reelSec.classList.contains('dropHot');
+      reelSec.classList.remove('dropHot');
+      if (hot && !(project.reel || []).includes(c.id)) clipAction('reel', c);
+    };
+    dot.addEventListener('pointermove', mv);
+    dot.addEventListener('pointerup', up);
+  });
+}
 function clipAction(act, c){
   switch (act){
     case 'play':    return playClip(c);
@@ -4998,6 +5099,7 @@ function renderClipList(){
     el.className = 'clipItem';
     el.innerHTML = `
       <div class="head">
+        <span class="dragDot" data-tip="Drag this moment up onto the Highlight reel section to add it to this week’s set — or just press ➕ Reel below.">⠿</span>
         <span class="dot" style="background:${colors[c.rating]}"></span>
         <span class="title">${escapeHtml(c.title)}</span>
         <span class="timeTag">${fmtT(c.tIn)}–${fmtT(c.tOut)}</span>
@@ -5018,6 +5120,7 @@ function renderClipList(){
     el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
     el.querySelectorAll('.actions [data-act]').forEach(b =>
       b.onclick = () => clipAction(b.dataset.act, c));
+    wireDragToReel(el, c);
     list.appendChild(el);
   }
   renderReelList();
@@ -5686,15 +5789,18 @@ $('#cmpB').onchange = () => {
   renderCompareBar(); cmpRestart();
 };
 $('#cmpFileBtn').onclick = () => $('#cmpFile').click();
-$('#cmpFile').onchange = e => {
-  const f = e.target.files[0];
-  if (!f) return;
+function cmpUseFile(f){
   if (ui.compare.bUrl) URL.revokeObjectURL(ui.compare.bUrl);
   ui.compare.bUrl = URL.createObjectURL(f);
   ui.compare.b = { mode:'file', name: f.name };
   ui.compare.offset = 0;
   videoB.src = ui.compare.bUrl;
   renderCompareBar(); cmpRestart();
+}
+$('#cmpFile').onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  cmpUseFile(f);
   e.target.value = '';
 };
 

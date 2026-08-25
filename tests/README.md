@@ -61,6 +61,9 @@ node cmdbar.js         # the ⌘K command bar: opens from anywhere, finds action
 node micromenu.js      # the timeline clip micro-menu: hover shows the clip's own
                        # actions (same dispatcher as the sidebar), seek clicks and
                        # the quick-mark chips are untouched, mouse only
+node dropzones.js      # smart-drop zones: labelled stage targets while dragging a
+                       # file (open vs example-side), original behavior + failure
+                       # toasts preserved, and the ⠿ drag-a-card-to-the-reel path
 node friction.js       # friction backlog: no control fails silently without a video,
                        # every delete is undoable from its own message (even after later
                        # edits), whole-game export states its length

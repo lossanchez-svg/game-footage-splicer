@@ -1823,7 +1823,16 @@ export renderers are frozen so old exports keep matching the editor.
       reduced-motion honored. The seek click is untouched, the quick-mark chips
       yield while over a block, and it is mouse-only: on touch the Clips tab stays
       the way in. Verified by `tests/micromenu.js` (12 checks) + regression set.
-- [ ] Sprint 5 — smart-drop zones over the stage + drag-clip-card-to-reel
+- [x] **Sprint 5 — smart-drop zones + drag-to-reel (shipped).** While a file is
+      dragged over an open game, the stage splits into labelled targets: "🎞 Open as
+      this game" (the original behavior) and — once at least one clip exists —
+      "⚖ Use as the example side", which routes the file into Compare via the same
+      loader the 📂 File… button uses (extracted as `cmpUseFile()`). Dropping
+      anywhere else, or before a game is open, behaves exactly as before, and both
+      plain-words failure toasts are preserved word for word. Clip cards grew a ⠿
+      dot (mouse only, hidden on touch) that drags onto the Highlight reel section —
+      it lights up and the drop calls the same `toggleReel()` as ➕ Reel. Verified by
+      `tests/dropzones.js` (14 checks) + 16-suite regression set.
 - [ ] Sprint 6 — progressive disclosure: clip cards two-tier, top-bar 📦 Project
       group, spotlight fine-tune fold; test-suite selector updates
 
