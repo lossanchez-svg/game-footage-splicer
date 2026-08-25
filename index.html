@@ -154,14 +154,36 @@
   #timeline{position:relative; height:44px; background:var(--bg); border:1px solid var(--line);
     border-radius:6px; cursor:pointer; overflow:hidden;}
   #tlClips,#tlAnns{position:absolute; left:0; right:0;}
-  #tlClips{top:2px; height:20px;}
+  #tlClips{top:2px; height:22px;}
   #tlAnns{bottom:2px; height:12px;}
-  .tlClip{position:absolute; height:100%; border-radius:3px; opacity:.85; min-width:3px;}
+  /* clips read as tangible blocks: a soft top-lit gradient over the rating color */
+  .tlClip{position:absolute; height:100%; border-radius:var(--radius-clip); min-width:4px;
+    background-image:linear-gradient(rgba(255,255,255,.10), rgba(0,0,0,.18));
+    box-shadow:inset 0 1px 0 var(--edge-hi), 0 1px 2px rgba(0,0,0,.5);}
+  .tlClip:hover{filter:brightness(1.18);}
   .tlAnn{position:absolute; height:5px; border-radius:2px; opacity:.9; min-width:2px;}
   .tlPause{position:absolute; bottom:0; width:2px; height:10px; background:var(--warn);}
   #tlInOut{position:absolute; top:0; bottom:0; background:rgba(88,166,255,.16);
     border-left:2px solid var(--accent2); border-right:2px solid var(--accent2); display:none;}
-  #playhead{position:absolute; top:0; bottom:0; width:2px; background:#fff; pointer-events:none;}
+  /* grab handles on the marked range — drag to move where the moment starts/ends */
+  .ioHandle{position:absolute; top:0; bottom:0; width:14px; cursor:ew-resize; z-index:3;}
+  .ioHandle.left{left:-8px;} .ioHandle.right{right:-8px;}
+  .ioHandle::after{content:''; position:absolute; left:50%; top:50%;
+    transform:translate(-50%,-50%); width:4px; height:16px; border-radius:2px;
+    background:var(--accent2);}
+  /* the floating quick-mark chips that follow the cursor along the timeline */
+  #tlHover{position:fixed; z-index:55; display:none; gap:6px; align-items:center;
+    background:var(--bg3); border:1px solid var(--line); border-radius:8px;
+    padding:4px 6px; box-shadow:0 6px 18px rgba(0,0,0,.45);}
+  #tlHover button{font-size:12px; padding:4px 9px;}
+  #tlHover .timeTag{min-width:52px; text-align:center;}
+  body.bigText #tlHover button{font-size:15px; padding:7px 12px;}
+  @media (pointer:coarse){
+    .ioHandle{width:26px;}
+    .ioHandle.left{left:-14px;} .ioHandle.right{right:-14px;}
+  }
+  #playhead{position:absolute; top:0; bottom:0; width:2px; background:var(--accent2);
+    box-shadow:0 0 6px rgba(88,166,255,.6); pointer-events:none;}
   #controls{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   #timecode{font-variant-numeric:tabular-nums; color:var(--dim); font-size:13px; min-width:150px;}
   .ctlGroup{display:flex; gap:4px; align-items:center;}
@@ -637,7 +659,10 @@
     <!-- transport -->
     <div id="transport">
       <div id="timeline" data-tip="The whole game, left to right. Drag anywhere on it to jump there. The coloured bars are clips you have saved.">
-        <div id="tlInOut"></div>
+        <div id="tlInOut">
+          <div class="ioHandle left" id="ioHandleL" data-tip="Drag this edge to change where the marked moment begins."></div>
+          <div class="ioHandle right" id="ioHandleR" data-tip="Drag this edge to change where the marked moment ends."></div>
+        </div>
         <div id="tlClips"></div>
         <div id="tlAnns"></div>
         <div id="playhead"></div>
@@ -1195,6 +1220,13 @@
 </div>
 
 <div id="tipBubble" role="tooltip"></div>
+
+<!-- quick-mark chips that follow the cursor along the timeline (mouse only) -->
+<div id="tlHover">
+  <span class="timeTag" id="tlHoverT">0:00.00</span>
+  <button class="miniBtn" id="tlHoverIn" data-tip="Mark that the moment begins right where you are pointing on the timeline.">Start clip here</button>
+  <button class="miniBtn" id="tlHoverOut" data-tip="Mark that the moment ends right where you are pointing on the timeline.">End clip here</button>
+</div>
 
 <!-- ======================= GUIDED TOUR ======================= -->
 <div id="tourRing"></div>
@@ -2015,6 +2047,63 @@ timeline.addEventListener('pointerdown', e => {
   timeline.addEventListener('pointerup', up);
 });
 
+/* drag the edges of the marked moment to retime it — the transport buttons and the
+   I/O keys still set the same marks; this is direct manipulation of the same state */
+function timeFromClientX(x){
+  const r = timeline.getBoundingClientRect();
+  return clamp((x - r.left) / r.width, 0, 1) * (video.duration || 0);
+}
+function ioHandleDrag(handle, isStart){
+  handle.addEventListener('pointerdown', e => {
+    if (!video.duration) return;
+    e.stopPropagation();          // the timeline underneath would seek instead
+    handle.setPointerCapture(e.pointerId);
+    hideTlHover();
+    const mv = ev => {
+      const t = timeFromClientX(ev.clientX);
+      if (isStart){
+        ui.tIn = (ui.tOut != null) ? Math.min(t, ui.tOut - 0.05) : t;
+        video.currentTime = ui.tIn;      // show the frame the edge is on
+      } else {
+        ui.tOut = (ui.tIn != null) ? Math.max(t, ui.tIn + 0.05) : t;
+        video.currentTime = ui.tOut;
+      }
+      updateInOutUI();
+    };
+    const up = () => { handle.removeEventListener('pointermove', mv); handle.removeEventListener('pointerup', up); };
+    handle.addEventListener('pointermove', mv);
+    handle.addEventListener('pointerup', up);
+  });
+}
+ioHandleDrag($('#ioHandleL'), true);
+ioHandleDrag($('#ioHandleR'), false);
+
+/* quick-mark chips: point anywhere on the timeline and mark the moment right there,
+   without seeking first. Mouse only — touch keeps the transport buttons. */
+const tlHover = $('#tlHover');
+let tlHoverAt = 0, tlHoverHideTimer = null;
+function hideTlHover(){ tlHover.style.display = 'none'; }
+function showTlHover(e){
+  if (e.pointerType !== 'mouse' || e.buttons) return hideTlHover();
+  if (!video.duration || ui.session || ui.tracking || ui.exporting) return hideTlHover();
+  tlHoverAt = timeFromClientX(e.clientX);
+  $('#tlHoverT').textContent = fmtT(tlHoverAt);
+  tlHover.style.display = 'flex';
+  const r = timeline.getBoundingClientRect(), w = tlHover.offsetWidth;
+  tlHover.style.left = clamp(e.clientX - w/2, 8, innerWidth - w - 8) + 'px';
+  tlHover.style.top = (r.top - tlHover.offsetHeight - 6) + 'px';
+}
+timeline.addEventListener('pointermove', showTlHover);
+timeline.addEventListener('pointerleave', () => {
+  clearTimeout(tlHoverHideTimer);
+  tlHoverHideTimer = setTimeout(hideTlHover, 250);   // long enough to reach the chips
+});
+tlHover.addEventListener('pointerenter', () => clearTimeout(tlHoverHideTimer));
+tlHover.addEventListener('pointerleave', hideTlHover);
+timeline.addEventListener('pointerdown', hideTlHover);
+$('#tlHoverIn').onclick = () => { video.currentTime = tlHoverAt; $('#btnMarkIn').click(); };
+$('#tlHoverOut').onclick = () => { video.currentTime = tlHoverAt; $('#btnMarkOut').click(); };
+
 function renderTimelineMarks(){
   const D = video.duration || 1;
   const clipsEl = $('#tlClips'), annsEl = $('#tlAnns');
@@ -2054,6 +2143,9 @@ function updateInOutUI(){
     el.style.left = (ui.tIn/D*100) + '%';
     el.style.width = '2px';
   } else el.style.display = 'none';
+  // with only a start set the region is a 2px sliver — one edge is all there is to grab
+  $('#ioHandleR').style.display =
+    (ui.tIn != null && ui.tOut != null && ui.tOut > ui.tIn) ? '' : 'none';
   tourRefresh();
 }
 

@@ -1792,8 +1792,17 @@ export renderers are frozen so old exports keep matching the editor.
       highlight on cards. CSS + `theme-color` meta only; no markup/JS changes.
       `manifest.webmanifest` theme/background colors deliberately untouched (hosted
       PWA only) — pick up alongside the PWA refinement item.
-- [ ] Sprint 2 — tangible timeline: clip blocks (6px radius, gradient, hover lift),
-      accent playhead, in/out boundary drag handles, playhead quick-mark chips
+- [x] **Sprint 2 — tangible timeline (shipped).** Clip marker bars became blocks
+      (6px radius, top-lit gradient over the rating color, edge highlight + shadow,
+      hover lift); the playhead is the accent blue with a soft glow; the marked
+      range grew grab handles on both edges (drag to retime, the frame follows,
+      26px hit area on touch, the transport buttons and I/O keys unchanged); and
+      quick-mark chips follow the mouse along the timeline — "Start clip here /
+      End clip here" at the exact spot you are pointing, no seeking first (mouse
+      only; touch keeps the buttons). All routes through the existing mark state
+      and handlers. Verified: chips mark, handles retime a saved clip end-to-end,
+      plain click still seeks; smoke/touch/comfort/tips/plainwords/tour/
+      walkthrough/friction/watch green.
 - [ ] Sprint 3 — ⌘K command bar over an action registry (`clipAction()` dispatcher
       refactor first)
 - [ ] Sprint 4 — timeline clip hover micro-menu (desktop hover only; touch keeps the
