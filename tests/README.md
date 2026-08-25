@@ -104,6 +104,11 @@ node autocut.js        # Auto-Cut assist (v6): pure tightening proposals with
                        # after the touch, the ramp inside the kept range), the
                        # knows-when-to-stay-quiet nulls, the median-per-end gate
                        # arithmetic, and the one-tap trim + Undo in the app
+node socket.js         # the metadata socket (v6): the season exported as words and
+                       # numbers with never a pixel (no photo, no data: URIs), the
+                       # reel-plan import as a reviewable draft (resolved snapshots,
+                       # clamped trims, unknown plays marked not dropped, Undo),
+                       # plain-words refusals, and the lossless round trip
 node trends.js         # progress dashboard: cross-game totals from localStorage and the
                        # Games folder, a bar per game in date order, most-used labels,
                        # early-vs-recent movement, filters, and the CSV export

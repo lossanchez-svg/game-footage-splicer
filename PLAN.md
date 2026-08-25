@@ -1669,7 +1669,7 @@ it is graded — not trusted.
       `realeval/autocut.js` grades the shipped arithmetic in the real page: each of
       his clips widened 3s per side, re-tightened, medians per end vs his real cuts
       (bar 1.5s), no-opinion nulls reported apart. `tests/autocut.js`, 14 checks.)*
-- [ ] **D — the metadata socket (import/export contract).** Two versioned files that
+- [x] **D — the metadata socket (import/export contract).** Two versioned files that
       make outside intelligence pluggable without the app ever needing a network:
       `filmroom-metadata.json` (everything about a season EXCEPT pixels — clips, tags,
       ratings, notes, questions and his answers, moment-finder output, track summaries)
@@ -1677,6 +1677,18 @@ it is graded — not trusted.
       hooks, captions, distribution text). The app exports the first and **imports the
       second into the reel builder as a reviewable draft**. This is the socket the
       Autopilot plugs into — and the same socket a future on-device model would use.
+      *(Shipped 2026-08-25. In the studio: "📋 Save the season as data" writes
+      `filmroom-metadata` v1 — his card WITHOUT the photo (the photo is pixels),
+      every game's clips/tags/ratings/notes, his questions and answers, moment
+      accept/reject counts, spot-track summaries, and the current reel plan by
+      reference (game + clipId + trims + toggles) — the export is asserted to
+      contain no `data:` URI anywhere. "📥 Load a reel plan" reads `filmroom-reelplan`
+      v1 into the storyboard as a DRAFT: items resolved against the real pool
+      (snapshots refreshed, trims clamped into the actual clip), unknown plays kept
+      and marked ⚠ (the storyboard's missing semantics), the previous plan one
+      toast-Undo away. Wrong format / newer version / empty plan are refused in
+      plain words with the current plan untouched. Round trip proven lossless.
+      `tests/socket.js`, 19 checks.)*
 - [ ] **E — Autopilot (the full-automation option; OFF unless switched on).** A
       documented Claude Code workflow (checked into the repo as `AUTOPILOT.md`) that
       drives the whole line end to end on the user's own machine: read the metadata
@@ -1978,6 +1990,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | Auto-Cut proposes only WITHIN the clip, and null is a first-class answer | Extending a clip touches footage the parent never chose to include — a different decision than trimming quiet air. And a proposal that always exists becomes noise: no coverage, too short, already tight are all "stay quiet", so the ✂ button's mere presence carries information |
 | 2026-08-25 | Auto-Cut's gate widens his clips 3s per side and re-tightens them | His hand-set trims are the only professional-grade cut data that exists for this footage. The widen-then-tighten experiment measures the exact question ("would the assist land where he did, starting from a loose cut?") without needing anyone to produce new ground truth |
 | 2026-08-25 | The speed-ramp is carried on the clip (c.ramp), never applied by the assist | A ramp is a taste decision for a social cut, not a trim. Storing the fastest stretch as data lets the studio's social render offer it later, while accepting a tighten today changes nothing about playback speed — one proposal, one meaning |
+| 2026-08-25 | The metadata export carries the reel plan by reference, never a copy of the pool | Ids + trims + toggles are the plan; duplicating clip content into it would let the two copies disagree by the next edit. The importer resolves references against the live pool, so a plan is always shown against the season as it IS — and a play this browser cannot see is marked, exactly like the storyboard's missing semantics |
+| 2026-08-25 | The socket refuses newer versions instead of guessing at them | A version-99 reelplan probably carries fields this build has never heard of; half-importing it would show a draft that silently dropped the Autopilot's decisions. "Update the app first" is the only honest answer, and the version field exists precisely so it can be said |
+| 2026-08-25 | No pixels in the metadata file — the photo stays home | filmroom-metadata.json is the E0 boundary made literal: an Autopilot reading it can know everything the family WROTE and nothing the camera SAW. The export is tested to contain no data: URI so the boundary cannot rot silently |
 
 ## Working agreements for future sessions
 

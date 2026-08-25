@@ -1090,6 +1090,9 @@
       <button class="primary" id="studioMake" data-tip="Make the storyboard into one full-quality video: his opening card, every play with its freeze and context line, and the contact card at the end. The footage is read from your Games folder — nothing is uploaded anywhere.">🎬 Make the reel</button>
       <button id="studioSocial" data-tip="Make the tall phone-shaped cut of the same plays for Instagram, TikTok or Shorts: the picture follows him automatically, the reel title opens as a hook, each play is captioned, and his handle sits in the corner.">📱 Make the social cut</button>
       <button id="studioKit" data-tip="One zip with everything that goes around the reel: YouTube words with chapter times that match it, an email to a coach with his details written in, and his one-page player site as a single file you can attach or host anywhere.">✉️ Save the sharing kit</button>
+      <button id="studioData" data-tip="Save everything about the season EXCEPT the film — clips, labels, notes, his questions and answers, the plan — as one data file another program can read, like the Autopilot recipe in the project. No video, no pictures, and nothing is sent anywhere.">📋 Save the season as data</button>
+      <button id="studioPlanPick" data-tip="Read a reel plan file — like one the Autopilot recipe writes — into the storyboard as a draft for you to review and rearrange. Your current plan stays one Undo away.">📥 Load a reel plan</button>
+      <input type="file" id="studioPlanFile" accept="application/json,.json" style="display:none">
     </div>
     <div class="hint" id="studioNext">Both files are full quality and named after him. The reel is the wide one for coaches, with his cards and the game sound; the social cut is the tall one where the picture follows him on its own. Keep the social plan short — under a minute is what gets watched.</div>
     <div class="foot"><button class="primary" id="studioClose" data-tip="Close the studio. The plan keeps itself saved — come back any time.">Close</button></div>
@@ -6987,6 +6990,11 @@ window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP
   studio: { get: () => studio, pool: () => studioPool, suggestions: studioSuggestions,
     kit: () => studioKitParts() },
   proposeCut,
+  socket: { metadata: buildMetadataExport,
+    async importPlan(p){
+      if (!studioPool.length) studioPool = await studioCollect();
+      return importReelPlan(p);
+    } },
   moments: { candidates: momentCandidates,
     open(cands){
       ui.momentCands = cands.map(c => ({ ...c, state: null }));
@@ -8136,6 +8144,122 @@ player page.html   — his one-page player site. Send it as an attachment or put
   toast('The sharing kit is saved — YouTube words with chapters, a coach email, and his player page, all in one zip.', 6500);
 }
 $('#studioKit').onclick = studioSaveKit;
+
+/* ---------------- the metadata socket (v6-D) ----------------
+  Two versioned files make outside intelligence pluggable with no network and
+  no pixels: filmroom-metadata.json carries everything about the season
+  EXCEPT pictures (clips, tags, ratings, notes, his questions and answers,
+  moment counts, track summaries, the current reel plan — and never the
+  photo, which is pixels), and filmroom-reelplan.json comes back the other
+  way: an ordered plan the storyboard loads as a DRAFT for the person to
+  review. This is the socket AUTOPILOT.md plugs into — and the same socket a
+  future on-device model would use. */
+const METADATA_FORMAT = 'filmroom-metadata';
+const REELPLAN_FORMAT = 'filmroom-reelplan';
+const SOCKET_VERSION = 1;
+
+async function buildMetadataExport(){
+  const games = await collectGames();
+  const out = {
+    format: METADATA_FORMAT, version: SOCKET_VERSION,
+    exportedAt: new Date().toISOString(), app: APP_BUILD,
+    player: null, reelPlan: null, games: [],
+  };
+  if (playerCard){
+    const p = { ...playerCard };
+    delete p.photo;                       // pixels never ride the metadata file
+    out.player = p;
+  }
+  if (studio && studio.items.length)
+    out.reelPlan = { title: studio.title || '', savedAt: studio.savedAt,
+      items: studio.items.map(it => ({ game: it.gameName, clipId: it.clipId,
+        trimIn: it.trimIn, trimOut: it.trimOut, spotlight: it.spotlight,
+        freezeIntro: it.freezeIntro, label: it.label || '' })) };
+  for (const g of games){
+    const proj = await studioLoadProjectFor(g.name);
+    out.games.push({
+      name: g.name, date: g.date,
+      clips: g.clips.map(c => ({ id: c.id, tIn: c.tIn, tOut: c.tOut,
+        title: c.title || '', rating: c.rating || '', tags: c.tags || [],
+        notes: c.notes || '', ask: c.ask || '', position: c.position || '',
+        format: c.format || '', ramp: c.ramp || null, boardId: c.boardId || null })),
+      sessions: (g.sessions || []).map(s => ({ when: s.when, title: s.title,
+        workOn: s.workOn || '', wentWell: s.wentWell || [],
+        answers: (s.entries || []).map(e => ({ clipId: e.clipId, title: e.title,
+          question: e.question || '', answer: e.answer || '' })) })),
+      momentStats: (proj && proj.momentStats) || null,
+      tracks: proj ? proj.annotations.filter(a => a.type === 'spot' && a.keys && a.keys.length >= 2)
+        .map(s => ({ label: s.label || '', from: +s.tStart.toFixed(2),
+          to: +s.tEnd.toFixed(2), keys: s.keys.length })) : [],
+    });
+  }
+  return out;
+}
+async function saveMetadataExport(){
+  const data = await buildMetadataExport();
+  if (!data.games.length && !data.player)
+    return toast('There is nothing to save as data yet — break a game down or fill in his card first.', 5500);
+  const base = profileFileBase('season data') ||
+    ((project.videoName || 'filmroom').replace(/\.[^.]+$/, '') + ' - season data');
+  downloadBlob(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }),
+    base + '.json');
+  toast('The season is saved as one data file — every clip, label, note and answer, and none of the film. Nothing was sent anywhere.', 6500);
+}
+
+function importReelPlan(parsed){
+  if (!parsed || parsed.format !== REELPLAN_FORMAT)
+    return { error: 'That file is not a reel plan. A reel plan file says "' + REELPLAN_FORMAT + '" inside.' };
+  if (+parsed.version > SOCKET_VERSION)
+    return { error: 'That reel plan was made by a newer Film Room than this one — update the app first.' };
+  if (!Array.isArray(parsed.items) || !parsed.items.length)
+    return { error: 'That reel plan has no plays in it.' };
+  const prev = { title: studio.title, items: studio.items };
+  const items = parsed.items.map(raw => {
+    const e = studioPool.find(p => p.gameName === raw.game && p.clip.id === raw.clipId);
+    if (e){
+      const it = studioItemFrom(e);
+      if (raw.trimIn != null) it.trimIn = clamp(raw.trimIn, it.tIn, it.tOut - 0.5);
+      if (raw.trimOut != null) it.trimOut = clamp(raw.trimOut, it.trimIn + 0.5, it.tOut);
+      if (raw.spotlight != null) it.spotlight = !!raw.spotlight;
+      if (raw.freezeIntro != null) it.freezeIntro = !!raw.freezeIntro;
+      if (raw.label) it.label = String(raw.label);
+      return it;
+    }
+    /* a play this browser cannot see yet: kept and marked, never dropped */
+    return { gameName: raw.game, date: 0, clipId: raw.clipId,
+      title: raw.title || 'A play from ' + String(raw.game).replace(/\.[^.]+$/, ''),
+      rating: '', tIn: raw.trimIn || 0, tOut: raw.trimOut || 4,
+      trimIn: raw.trimIn || 0, trimOut: raw.trimOut || 4,
+      spotlight: raw.spotlight !== false, freezeIntro: raw.freezeIntro !== false,
+      label: raw.label || '', tags: [], notes: '', missing: true };
+  });
+  studio.title = parsed.title || studio.title;
+  studio.items = items;
+  saveStudio();
+  return { prev, loaded: items.length, missing: items.filter(i => i.missing).length };
+}
+
+$('#studioData').onclick = saveMetadataExport;
+$('#studioPlanFile').onchange = async () => {
+  const f = $('#studioPlanFile').files[0];
+  $('#studioPlanFile').value = '';
+  if (!f) return;
+  let parsed = null;
+  try { parsed = JSON.parse(await f.text()); } catch (e){}
+  if (!studioPool.length) studioPool = await studioCollect();
+  const r = importReelPlan(parsed);
+  if (r.error) return toast(r.error, 6500);
+  renderStudio();
+  toast('The plan is loaded as a draft — ' + r.loaded + ' play' + (r.loaded === 1 ? '' : 's') +
+    (r.missing ? ' (' + r.missing + ' from games this computer cannot see, marked ⚠)' : '') +
+    '. It is yours to rearrange; Undo brings your old plan back.', 8000,
+    { label: '↩ Undo', fn(){
+        studio.title = r.prev.title; studio.items = r.prev.items;
+        saveStudio(); renderStudio();
+        toast('Your old plan is back.');
+      } });
+};
+$('#studioPlanPick').onclick = () => $('#studioPlanFile').click();
 
 loadStudio();
 
