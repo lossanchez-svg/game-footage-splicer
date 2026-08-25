@@ -111,12 +111,21 @@ const decoy = t => ({ x: 0.9 - 0.08 * t, y: 0.5 });
   check('gate: identical numbers are a TIE', compareCase({ ...a }, { ...a }).verdict === 'TIE');
   check('gate: a new identity switch is a LOSS',
     compareCase({ ...a, switches: 1 }, a).verdict === 'LOSS');
-  check('gate: clearly better coverage is a WIN',
-    compareCase({ ...a, coverage: 1 }, a).verdict === 'WIN');
+  check('gate: clearly more time on him is a WIN',
+    compareCase({ ...a, onHimPct: 99, coverage: 1 }, a).verdict === 'WIN');
   check('gate: seek jitter within tolerance stays a TIE',
     compareCase({ ...a, meanErr: 0.011, onHimPct: 94 }, a).verdict === 'TIE');
   check('gate: a real error regression is a LOSS',
     compareCase({ ...a, meanErr: 0.03 }, a).verdict === 'LOSS');
+  /* the invariant, at the verdict level: an honest "lost him" with the ring
+     ON him while it lasted must beat a wanderer that covers the whole clip
+     with the ring on nobody — and must never lose to one. */
+  const honest = { switches: 0, onHimPct: 90, coverage: 0.6, meanErr: 0.02, lostWithin: null };
+  const wanderer = { switches: 0, onHimPct: 20, coverage: 1.0, meanErr: 0.15, lostWithin: null };
+  check('gate: an honest loss with high on-him quality BEATS a full-coverage wanderer',
+    compareCase(honest, wanderer).verdict === 'WIN');
+  check('gate: and a wanderer can never beat it back',
+    compareCase(wanderer, honest).verdict === 'LOSS');
 }
 
 /* ---------- 2. the whole pipeline on a real tracking run ---------- */

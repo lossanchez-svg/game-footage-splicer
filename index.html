@@ -432,7 +432,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0p4</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0p5</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -2647,33 +2647,51 @@ async function autoTrackDetect(spots, dir){
       } else if (!x.hunt){
         /* not seen this frame. Behind someone — his prediction overlapping a
            box that IS seen — is a crossing, not a loss: carry the track
-           through it. Unexplained absence goes to the hunt much sooner. */
+           through it. Unexplained absence goes to the hunt much sooner.
+           And a track that vanishes AT the frame edge, moving outward, has
+           LEFT the picture: hunting would only re-find a look-alike (the kit
+           gate cannot tell team-mates apart, which is how "he ran out of
+           shot" used to end with the ring on someone else and no loss ever
+           reported). Say lost within a second; one-tap resume covers him
+           coming back. */
         const pb = { x: tr.x - tr.w / 2, y: tr.y - tr.h / 2, w: tr.w, h: tr.h };
         const behind = tracks.some(o => o !== tr && o.det &&
           lockonIou(pb, { x: o.x - o.w / 2, y: o.y - o.h / 2, w: o.w, h: o.h }) > 0.25);
-        if (++x.occl > MAX_OCCLUDE || (!behind && x.occl > 6)) x.hunt = true;
+        x.occl++;
+        if (x.occl > MAX_OCCLUDE || (!behind && x.occl > 6)) x.hunt = true;
         note = behind ? 'behind' : 'coast';
       } else {
         /* hunting (Phase 3b): a candidate has to wear his kit (the FROZEN
            start-of-run signature — the adaptive one may have drifted), be
            reachable from where he was last seen, and be found twice in the
            same place before it counts (the v3.7 lesson, kept). */
-        let cand = null, candDd = Infinity;
+        let cand = null, candDd = Infinity, cand2Dd = Infinity;
         for (const d of dets){
           const owner = tracks.find(o => o.det === d && o !== tr);
           if (owner && owner.hits > 3) continue;   // an established somebody-else
           if (lockonSigDist(d.sig, x.sig0) > SAME_KIT * 1.6) continue;
           const dd = Math.hypot(d.x + d.w / 2 - x.lastGoodX, d.y + d.h / 2 - x.lastGoodY);
-          /* reach grows slowly, and the NEAREST wearer of his kit wins — not
-             the best-scoring one. Within a team the kit gate cannot separate
-             players (that is the whole same-kit problem), so distance from
-             where he was last seen is the only honest tiebreak; a
-             high-scoring look-alike across the pitch must never outbid a
-             plausible candidate right where he disappeared. */
-          const reach = gate * 2 + gate * 3 * Math.abs(t - x.lastGoodT);
+          /* reach grows slowly and is capped — a hidden player does not
+             teleport — and the NEAREST wearer of his kit is the candidate:
+             within a team the kit gate cannot separate players, so distance
+             from where he was last seen is the only honest tiebreak. */
+          const reach = Math.min(gate * 2 + gate * 3 * Math.abs(t - x.lastGoodT), gate * 4);
           if (dd > reach) continue;
-          if (dd < candDd){ cand = d; candDd = dd; }
+          if (dd < candDd){ cand2Dd = candDd; cand = d; candDd = dd; }
+          else if (dd < cand2Dd) cand2Dd = dd;
         }
+        /* After a LONG absence he must also be the CLEARLY nearest: two
+           same-kit candidates in reach make that re-find a coin flip, and
+           picking the wrong player is worse than admitting he is lost (the
+           epic's invariant, verbatim). This is what ends "he ran out of
+           shot" honestly — a whip culls the tracks, the play re-enters as a
+           crowd of fresh candidates, and without this the hunt re-found a
+           look-alike among them and finished confident instead of lost.
+           A SHORT gap is different: position memory is still precise (he
+           cannot have gone far), so nearest-in-reach stands on its own —
+           demanding uniqueness there killed a clip where he dips out of
+           detection for a second inside a crowd of his own team. */
+        if (cand && Math.abs(t - x.lastGoodT) > 2 && cand2Dd < candDd * 1.8) cand = null;
         const near = cand && x.reFound &&
           Math.hypot(cand.x + cand.w / 2 - x.reFound.x, cand.y + cand.h / 2 - x.reFound.y) < gate * 0.8;
         if (cand && near){
@@ -5850,7 +5868,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v4.0p4';
+const APP_BUILD = 'v4.0p5';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),

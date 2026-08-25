@@ -154,15 +154,22 @@ function scoreCase(opts){
   The gate. A tracker change ships only if, on every clip, it beats or matches
   the baseline. "Matches" carries small tolerances so seek jitter cannot flip
   a verdict; a real regression cannot hide inside them.
+
+  The headline measure is TIME ACTUALLY ON HIM — on-him share times coverage —
+  because that is the ring's whole job. Raw coverage is deliberately NOT a
+  criterion on its own: a tracker that wanders to the end of the clip scores
+  100% coverage with the ring on nobody, and an honest "lost him at 0:08"
+  must never lose to it (the epic's invariant: admitting uncertainty scores
+  better than being confidently wrong). The scorer already enforces that for
+  position error; this enforces it for the verdict.
 */
 function compareCase(cur, base){
+  const onSec = c => (c.onHimPct == null ? 0 : c.onHimPct / 100) * (c.coverage || 0);
   const reasons = [];
   if (cur.switches > base.switches)
     reasons.push(`identity switches ${base.switches} -> ${cur.switches}`);
-  if (base.onHimPct != null && cur.onHimPct != null && cur.onHimPct < base.onHimPct - 3)
-    reasons.push(`on-him ${base.onHimPct}% -> ${cur.onHimPct}%`);
-  if (cur.coverage < base.coverage - 0.05)
-    reasons.push(`coverage ${base.coverage} -> ${cur.coverage}`);
+  if (onSec(cur) < onSec(base) * 0.9 - 0.02)
+    reasons.push(`time on him ${(onSec(base) * 100).toFixed(0)}% -> ${(onSec(cur) * 100).toFixed(0)}% of the span`);
   if (base.meanErr != null && cur.meanErr != null && cur.meanErr > base.meanErr * 1.15 + 0.003)
     reasons.push(`mean err ${base.meanErr} -> ${cur.meanErr}`);
   if (base.lostWithin != null && cur.lostWithin != null &&
@@ -172,9 +179,9 @@ function compareCase(cur, base){
 
   const better =
     cur.switches < base.switches ||
-    (base.onHimPct != null && cur.onHimPct != null && cur.onHimPct > base.onHimPct + 3) ||
-    cur.coverage > base.coverage + 0.05 ||
-    (base.meanErr != null && cur.meanErr != null && cur.meanErr < base.meanErr * 0.85 - 0.001);
+    onSec(cur) > onSec(base) * 1.1 + 0.02 ||
+    (base.meanErr != null && cur.meanErr != null && cur.meanErr < base.meanErr * 0.85 - 0.001) ||
+    (base.lostWithin != null && base.lostWithin > 1 && cur.lostWithin != null && cur.lostWithin <= 1);
   return { verdict: better ? 'WIN' : 'TIE', reasons: [] };
 }
 
