@@ -1774,6 +1774,34 @@ advertising, not whether a parent may use them.
 
 ---
 
+## 🚧 Current epic — v7 "Onyx" (UI refresh)
+
+The audit and sprint-by-sprint spec live in **`UI_REFRESH_PLAN.md`** — same tool,
+quieter and closer: a neutral matte re-skin, accelerated pathways to existing actions,
+and two-tier disclosure. Hard rules: zero capability changes, every new pathway routes
+through the same handlers the existing buttons call, and `drawScene()`/`PALETTE`/the
+export renderers are frozen so old exports keep matching the editor.
+
+- [x] **Sprint 1 — Onyx foundation (shipped).** Neutral #121212–#1A1A1A token set
+      (`--bg/--bg2/--bg3/--bg-raise/--line` + new `--edge-hi`/`--shadow-pane`/
+      `--radius-clip`), full hardcoded-color sweep of the style block, chroma demoted
+      from decorative spots (logo, tab underline, watch-banner gradient, Reel-Studio
+      blues, scrims, tip bubble, scrollbars, placeholder) and kept for selection,
+      live state, in/out range, data ratings and primary actions; pane depth shadows
+      (top bar, transport, sidebar — both orientations) and a shared inset top-edge
+      highlight on cards. CSS + `theme-color` meta only; no markup/JS changes.
+      `manifest.webmanifest` theme/background colors deliberately untouched (hosted
+      PWA only) — pick up alongside the PWA refinement item.
+- [ ] Sprint 2 — tangible timeline: clip blocks (6px radius, gradient, hover lift),
+      accent playhead, in/out boundary drag handles, playhead quick-mark chips
+- [ ] Sprint 3 — ⌘K command bar over an action registry (`clipAction()` dispatcher
+      refactor first)
+- [ ] Sprint 4 — timeline clip hover micro-menu (desktop hover only; touch keeps the
+      sidebar path)
+- [ ] Sprint 5 — smart-drop zones over the stage + drag-clip-card-to-reel
+- [ ] Sprint 6 — progressive disclosure: clip cards two-tier, top-bar 📦 Project
+      group, spotlight fine-tune fold; test-suite selector updates
+
 ## Roadmap
 
 ### Next (in order)
@@ -2038,6 +2066,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | AUTOPILOT.md's promises are asserted by the test suite | "Draft-only" and "never posts anywhere" are worthless as vibes in a doc nobody re-reads. tests/autopilot.js greps the document for its own hard rules, so weakening the contract breaks the build — the jargon-ban lesson applied to a safety promise |
 | 2026-08-25 | The headless renderer does one game per run and refuses more, toward the app's own button | Serving multi-game footage into a headless page means base64-ing gigabytes through an init script — a memory cliff dressed as a feature. The app's real 🎬 button with the real Games folder already renders multi-game plans; the driver says so instead of half-working |
 | 2026-08-25 | The default ending of an Autopilot run is the PARENT pressing Make the reel | Even with a perfect draft, the render click is where review actually happens — the drag-what's-wrong moment. The headless render exists for the explicitly-asked hands-off case and still only writes "DRAFT - " files that never overwrite anything |
+| 2026-08-25 | v7 "Onyx" recolors chrome only — PALETTE, drawScene() and the export/title-card renderers are frozen | Overlay and export share one renderer, and title cards are burned into saved files: restyling them would make every previously exported video mismatch the editor. On the new neutral-gray workspace the untouched vibrant annotations become the loudest thing on screen — which is the product's point. Chroma in the UI is budgeted to selection, live state, in/out + playhead, clip-rating data, and the one primary action per screen |
 
 ## Working agreements for future sessions
 
