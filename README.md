@@ -188,6 +188,14 @@ high note), give it a title, and **🎬 Save as one video** produces **one file*
 title card, then every clip with its own coaching card, decision-point freezes, and the
 game audio. AirDrop it once, AirPlay to the TV, and the whole week's review runs itself.
 
+### 🎽 His player card — fill it in once
+In the Clips tab, **✎ Fill in his card** takes his name, number, grad year, positions,
+club, height, GPA, a photo, and how a coach reaches you. From then on every reel's
+opening card leads with *him* — name, photo, roster line — and saved videos are named
+the way a coach would file them (*Jude Sanchez - 2032 - Attacking Mid - Week 3.mp4*).
+It rides along in your Games folder, so a card filled in on the Mac shows up on the
+iPad. Everything except his name is optional; edit it any time.
+
 ### ▶ The front door — "this week's film session is ready"
 Open a game that already has clips lined up and a banner sits across the top of the
 screen: *"This week's film session is ready"*, with the reel title, how many clips and

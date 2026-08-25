@@ -698,6 +698,14 @@
         </div>
       </div>
       <div class="section">
+        <h4>🎽 Player card</h4>
+        <div class="hint" id="profileHint">Fill this in once — his name, number and grad year, the way a coach would ask for them. The opening card of every reel and the name of every saved video use it from then on.</div>
+        <div id="profileSummary" style="display:none"></div>
+        <div class="chipRow" style="margin-top:6px">
+          <button id="btnProfile" data-tip="His name, number, grad year, positions and how a coach can reach you — filled in once, printed on every reel automatically.">✎ Fill in his card</button>
+        </div>
+      </div>
+      <div class="section">
         <h4>🎞 Highlight reel</h4>
         <div class="fieldRow"><input type="text" id="reelTitle" placeholder="Reel title, e.g. Week 3 — playing between the lines" style="flex:1" data-tip="What to call this week's set of clips. It shows on the opening card of the video and at the top of a session."></div>
         <div id="reelList"></div>
@@ -860,6 +868,57 @@
     <div class="foot">
       <button id="clipCancel">Cancel</button>
       <button class="primary" id="clipSave">Save clip</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= PLAYER CARD ======================= -->
+<div class="modal" id="profileModal">
+  <div class="box">
+    <h3>🎽 His player card</h3>
+    <div class="hint">Everything here is optional except his name. It is printed on the opening card of every reel, and saved videos are named after him — so a coach knows whose film it is before pressing play.</div>
+    <div class="fieldRow" style="margin-top:10px">
+      <label>His name</label>
+      <input type="text" id="profName" style="flex:1" placeholder="e.g. Jude Sanchez" data-tip="His full name, the way it should appear on the reel and in the file name a coach downloads.">
+      <label style="min-width:0">Number</label>
+      <input type="text" id="profJersey" style="width:64px" placeholder="81" data-tip="His jersey number. It helps a coach find him on the field before the spotlight does.">
+    </div>
+    <div class="fieldRow">
+      <label>Grad year</label>
+      <input type="text" id="profGrad" style="width:80px" placeholder="2032" data-tip="The year he finishes high school. College coaches sort every player by this first.">
+      <label style="min-width:0">Height</label>
+      <input type="text" id="profHeight" style="width:90px" placeholder="5'9&quot;" data-tip="How tall he is. Coaches expect it on a recruiting reel; leave it out if you would rather not say.">
+    </div>
+    <div class="fieldRow">
+      <label>Positions</label>
+      <input type="text" id="profPositions" style="flex:1" placeholder="e.g. Attacking Mid, Winger" data-tip="Where he plays, best position first. The first one is used in titles and file names.">
+    </div>
+    <div class="fieldRow">
+      <label>Club team</label>
+      <input type="text" id="profClub" style="flex:1" placeholder="e.g. FC Dallas 2032B" data-tip="The club or team he plays for, as it should read on the reel.">
+      <label style="min-width:0">League</label>
+      <input type="text" id="profLeague" style="width:130px" placeholder="e.g. MLS NEXT" data-tip="The league or level his team plays in, if a coach would recognise it.">
+    </div>
+    <div class="fieldRow">
+      <label>GPA</label>
+      <input type="text" id="profGpa" style="width:80px" placeholder="3.8" data-tip="His grade point average, if you want academics on the card — many college coaches look for it.">
+      <label style="min-width:0">Contact</label>
+      <input type="text" id="profContact" style="flex:1" placeholder="parent email or phone" data-tip="How a coach reaches you — an email address or phone number. It goes on the reel's contact card, so use one you are happy to share.">
+    </div>
+    <div class="fieldRow">
+      <label>Links</label>
+      <input type="text" id="profLinks" style="flex:1" placeholder="highlight channel, Instagram… (optional)" data-tip="Where more of his film lives — a YouTube channel or an Instagram handle. Printed on the contact card so a coach can see more.">
+    </div>
+    <div class="fieldRow" style="align-items:center">
+      <label>Photo</label>
+      <img id="profPhotoPrev" alt="" style="display:none; width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--line)">
+      <button id="profPhotoPick" data-tip="A photo of him for the reel's opening card and the player page — a head shot or an action shot both work.">📷 Choose a photo…</button>
+      <button id="profPhotoClear" style="display:none" data-tip="Take the photo off the card. You can add a different one any time.">✕ Remove it</button>
+      <input type="file" id="profPhotoFile" accept="image/*" style="display:none">
+    </div>
+    <div class="foot">
+      <button id="profCancel" data-tip="Close this without changing his card.">Cancel</button>
+      <button class="primary" id="profSave" data-tip="Keep his card. Every reel and saved video uses it from now on — you can come back and change it any time.">Save his card</button>
     </div>
   </div>
 </div>
@@ -1380,6 +1439,245 @@ function updateContinuityUI(){
   if (on) el.textContent = '☁︎ Saving to your Games folder';
 }
 
+/* ---------------- his player card (v5-A) ----------------
+  One card, filled in once and reused everywhere: the opening card of every
+  reel, the names of saved videos, and (v5-D) the one-page player site. The
+  card lives in localStorage; the photo lives in IndexedDB (a photo would eat
+  the localStorage quota that autosave depends on — the voice-over lesson);
+  and both travel between devices as player.filmroom.json in the Games
+  folder, newest savedAt wins — the same rule as game sidecars. */
+const PROFILE_KEY = 'filmroom:playerCard';
+const PLAYER_SIDECAR = 'player.filmroom.json';
+let playerCard = null;
+let playerPhotoUrl = null;    // objectURL of the stored photo, for previews
+let playerPhotoImg = null;    // decoded and ready to draw onto cards
+let profPhotoStage;           // undefined = untouched, null = remove, Blob = replace
+
+function loadPlayerCard(){
+  try { playerCard = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); }
+  catch(e){ playerCard = null; }
+  refreshPlayerPhoto();
+}
+async function refreshPlayerPhoto(){
+  let blob = null;
+  try { blob = await libIdb.get('playerPhoto') || null; } catch(e){}
+  if (playerPhotoUrl){ URL.revokeObjectURL(playerPhotoUrl); playerPhotoUrl = null; }
+  playerPhotoImg = null;
+  if (blob){
+    playerPhotoUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { playerPhotoImg = img; };
+    img.src = playerPhotoUrl;
+  }
+  renderPlayerCard();
+}
+
+function savePlayerCard(p){
+  playerCard = { ...p, savedAt: new Date().toISOString() };
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(playerCard)); } catch(e){}
+  renderPlayerCard();
+  writePlayerSidecar();
+}
+
+/* shrink whatever photo was picked to something card-sized: 512px is plenty
+   for a corner of a 1080p title card, and it keeps the sidecar file small */
+async function storePlayerPhoto(file){
+  try {
+    const img = await createImageBitmap(file);
+    const s = Math.min(1, 512 / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * s)), h = Math.max(1, Math.round(img.height * s));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+    if (!blob) return null;
+    return blob;
+  } catch(e){ return null; }
+}
+
+const blobToDataUrl = blob => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result); r.onerror = () => rej(r.error);
+  r.readAsDataURL(blob);
+});
+function dataUrlToBlob(u){
+  const i = String(u).indexOf(',');
+  const mime = (String(u).slice(0, i).match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+  const bytes = Uint8Array.from(atob(String(u).slice(i + 1)), ch => ch.charCodeAt(0));
+  return new Blob([bytes], { type: mime });
+}
+
+async function writePlayerSidecar(){
+  if (!playerCard || !gameDir) return;
+  try {
+    if (!await canWriteFolder(gameDir)) return;
+    const out = { ...playerCard };
+    try {
+      const blob = await libIdb.get('playerPhoto');
+      if (blob) out.photo = await blobToDataUrl(blob);
+    } catch(e){}
+    const h = await gameDir.getFileHandle(PLAYER_SIDECAR, { create: true });
+    const w = await h.createWritable();
+    await w.write(JSON.stringify(out));
+    await w.close();
+  } catch(e){ /* no folder or no permission — localStorage carries on alone */ }
+}
+
+/* called when the Games folder connects: the newer of the two copies wins,
+   in whichever direction, and adopting from the folder says so out loud */
+async function syncPlayerCardWithFolder(){
+  if (!gameDir) return;
+  let filed = null;
+  try {
+    const h = await gameDir.getFileHandle(PLAYER_SIDECAR);
+    filed = JSON.parse(await (await h.getFile()).text());
+  } catch(e){}
+  if (filed && filed.name && savedAtOf(filed) > savedAtOf(playerCard)){
+    const photo = filed.photo; delete filed.photo;
+    playerCard = filed;
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(playerCard)); } catch(e){}
+    try {
+      if (photo) await libIdb.set('playerPhoto', dataUrlToBlob(photo));
+      else await libIdb.del('playerPhoto');
+    } catch(e){}
+    await refreshPlayerPhoto();
+    toast('🎽 His player card came along from your Games folder.');
+  } else if (playerCard && savedAtOf(playerCard) > savedAtOf(filed)){
+    writePlayerSidecar();
+  }
+}
+
+/* the pieces a coach reads first, in reading order, only the ones that exist */
+function playerCardParts(p){
+  p = p || playerCard || {};
+  return [
+    p.jersey ? '#' + String(p.jersey).replace(/^#/, '') : '',
+    p.gradYear ? 'Class of ' + p.gradYear : '',
+    String(p.positions || '').split(/[,;·|]/)[0].trim(),
+    p.club || '',
+  ].filter(Boolean);
+}
+
+/* what the reel's opening card should SAY — kept separate from the drawing so
+   the words can be tested without reading pixels (the buildFastAudio lesson) */
+function reelCardLines(info){
+  const p = playerCard;
+  if (p && p.name){
+    return {
+      brand: '⚽ FILM ROOM',
+      name: String(p.name).toUpperCase(),
+      sub: playerCardParts(p).join('  ·  '),
+      title: info.title,
+      count: info.count + (info.count === 1 ? ' clip' : ' clips') + '  ·  watch · talk · rewatch',
+    };
+  }
+  return { brand: '⚽ FILM ROOM', name: null, sub: '', title: info.title,
+           count: info.count + (info.count === 1 ? ' clip' : ' clips') + '  ·  watch · talk · rewatch' };
+}
+
+/* "Jude Sanchez - 2032 - Attacking Mid - Week 3" — the file a coach keeps
+   should say whose film it is; null when there is no card yet */
+function profileFileBase(label){
+  if (!(playerCard && playerCard.name)) return null;
+  const clean = s => String(s || '').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim();
+  return [clean(playerCard.name), clean(playerCard.gradYear),
+          clean(String(playerCard.positions || '').split(/[,;·|]/)[0]), clean(label)]
+    .filter(Boolean).join(' - ');
+}
+
+function renderPlayerCard(){
+  const has = !!(playerCard && playerCard.name);
+  $('#profileHint').style.display = has ? 'none' : '';
+  $('#btnProfile').textContent = has ? '✎ Edit his card' : '✎ Fill in his card';
+  const sum = $('#profileSummary');
+  sum.style.display = has ? '' : 'none';
+  sum.innerHTML = '';
+  if (!has) return;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex; align-items:center; gap:10px';
+  if (playerPhotoUrl){
+    const img = document.createElement('img');
+    img.src = playerPhotoUrl; img.alt = '';
+    img.style.cssText = 'width:44px; height:44px; border-radius:10px; object-fit:cover; border:1px solid var(--line)';
+    row.appendChild(img);
+  }
+  const txt = document.createElement('div');
+  const nm = document.createElement('b'); nm.textContent = playerCard.name;
+  const sub = document.createElement('div');
+  sub.style.cssText = 'color:var(--dim); font-size:.92em';
+  sub.textContent = playerCardParts().join(' · ');
+  txt.appendChild(nm); txt.appendChild(sub);
+  row.appendChild(txt);
+  sum.appendChild(row);
+}
+
+function openProfileModal(){
+  const p = playerCard || {};
+  $('#profName').value = p.name || '';
+  $('#profJersey').value = p.jersey || '';
+  $('#profGrad').value = p.gradYear || '';
+  $('#profHeight').value = p.height || '';
+  $('#profPositions').value = p.positions || '';
+  $('#profClub').value = p.club || '';
+  $('#profLeague').value = p.league || '';
+  $('#profGpa').value = p.gpa || '';
+  $('#profContact').value = p.contact || '';
+  $('#profLinks').value = p.links || '';
+  profPhotoStage = undefined;
+  updateProfilePhotoRow(playerPhotoUrl);
+  $('#profileModal').classList.add('open');
+}
+function updateProfilePhotoRow(url){
+  const prev = $('#profPhotoPrev');
+  prev.style.display = url ? '' : 'none';
+  if (url) prev.src = url;
+  $('#profPhotoClear').style.display = url ? '' : 'none';
+  $('#profPhotoPick').textContent = url ? '📷 Change the photo…' : '📷 Choose a photo…';
+}
+$('#btnProfile').onclick = openProfileModal;
+$('#profCancel').onclick = () => {
+  if (profPhotoStage !== undefined && $('#profPhotoPrev').src.startsWith('blob:') &&
+      $('#profPhotoPrev').src !== playerPhotoUrl) URL.revokeObjectURL($('#profPhotoPrev').src);
+  $('#profileModal').classList.remove('open');
+};
+$('#profPhotoPick').onclick = () => $('#profPhotoFile').click();
+$('#profPhotoFile').onchange = async () => {
+  const f = $('#profPhotoFile').files[0];
+  $('#profPhotoFile').value = '';
+  if (!f) return;
+  const blob = await storePlayerPhoto(f);
+  if (!blob) return toast('That file could not be read as a picture — try a different photo.');
+  profPhotoStage = blob;
+  updateProfilePhotoRow(URL.createObjectURL(blob));
+};
+$('#profPhotoClear').onclick = () => { profPhotoStage = null; updateProfilePhotoRow(null); };
+$('#profSave').onclick = async () => {
+  const name = $('#profName').value.trim();
+  if (!name) return toast('At least his name is needed — it is what goes on every reel.', 4500);
+  savePlayerCard({
+    name,
+    jersey: $('#profJersey').value.trim(),
+    gradYear: $('#profGrad').value.trim(),
+    height: $('#profHeight').value.trim(),
+    positions: $('#profPositions').value.trim(),
+    club: $('#profClub').value.trim(),
+    league: $('#profLeague').value.trim(),
+    gpa: $('#profGpa').value.trim(),
+    contact: $('#profContact').value.trim(),
+    links: $('#profLinks').value.trim(),
+  });
+  if (profPhotoStage !== undefined){
+    try {
+      if (profPhotoStage) await libIdb.set('playerPhoto', profPhotoStage);
+      else await libIdb.del('playerPhoto');
+    } catch(e){}
+    await refreshPlayerPhoto();
+    writePlayerSidecar();   // the card was already written; ride along with the photo
+  }
+  $('#profileModal').classList.remove('open');
+  toast('🎽 His card is saved. Every reel and saved video uses it from now on.');
+};
+loadPlayerCard();
+
 async function openLibrary(){
   $('#libModal').classList.add('open');
   if (!gameDir){
@@ -1421,6 +1719,8 @@ async function renderLibrary(){
       return;
     }
   } catch(e){}
+
+  syncPlayerCardWithFolder();   // his card travels with the folder; newest wins
 
   const files = [], sidecars = new Set();
   try {
@@ -4028,7 +4328,8 @@ $('#btnExportReel').onclick = () => {
   const title = ($('#reelTitle').value || '').trim();
   exportProgram(clips.map(c => ({ clip: c, tIn: c.tIn, tOut: c.tOut })),
     title || 'highlight reel',
-    { reelCard: { title: title || 'Highlight Reel', count: clips.length } });
+    { reelCard: { title: title || 'Highlight Reel', count: clips.length },
+      fileBase: profileFileBase(title || 'Highlight reel') });
 };
 $('#btnClearReel').onclick = () => {
   if (!(project.reel || []).length) return;
@@ -5032,21 +5333,57 @@ function drawTitleCard(ctx, W, H, clip){
 }
 
 function drawReelCard(ctx, W, H, info){
+  const L = reelCardLines(info);
   ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
   const cx = W / 2;
   ctx.textAlign = 'center';
   ctx.fillStyle = '#2ea043';
   ctx.font = `700 ${Math.max(14, W / 40)}px -apple-system,sans-serif`;
-  ctx.fillText('⚽ FILM ROOM', cx, H * 0.3);
-  const big = Math.max(28, W / 16);
-  ctx.font = `800 ${big}px -apple-system,sans-serif`;
-  ctx.fillStyle = '#e6edf3';
-  let y = H * 0.3 + big * 1.5;
-  for (const line of wrapLines(ctx, info.title, W * 0.84)){ ctx.fillText(line, cx, y); y += big * 1.2; }
+  let y = H * (L.name ? 0.2 : 0.3);
+  ctx.fillText(L.brand, cx, y);
+  if (L.name){
+    /* the card leads with WHO once his player card is filled in */
+    if (playerPhotoImg){
+      const d = Math.round(H * 0.17);
+      const px = cx, py = y + d * 0.75;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(px, py + d / 2, d / 2, 0, Math.PI * 2); ctx.clip();
+      const s = Math.max(d / playerPhotoImg.width, d / playerPhotoImg.height);
+      ctx.drawImage(playerPhotoImg, px - playerPhotoImg.width * s / 2,
+        py + d / 2 - playerPhotoImg.height * s / 2,
+        playerPhotoImg.width * s, playerPhotoImg.height * s);
+      ctx.restore();
+      y = py + d;
+    }
+    const nameFs = Math.max(28, W / 16);
+    ctx.font = `800 ${nameFs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#e6edf3';
+    y += nameFs * 1.5;
+    ctx.fillText(L.name, cx, y);
+    if (L.sub){
+      const subFs = Math.max(15, W / 36);
+      ctx.font = `600 ${subFs}px -apple-system,sans-serif`;
+      ctx.fillStyle = '#9aa4b2';
+      y += subFs * 1.7;
+      ctx.fillText(L.sub, cx, y);
+    }
+    const midFs = Math.max(18, W / 26);
+    ctx.font = `700 ${midFs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#e6edf3';
+    y += midFs * 2;
+    for (const line of wrapLines(ctx, L.title, W * 0.84)){ ctx.fillText(line, cx, y); y += midFs * 1.2; }
+  } else {
+    const big = Math.max(28, W / 16);
+    ctx.font = `800 ${big}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#e6edf3';
+    y += big * 1.5;
+    for (const line of wrapLines(ctx, L.title, W * 0.84)){ ctx.fillText(line, cx, y); y += big * 1.2; }
+    y -= big * 1.2;
+  }
   ctx.font = `500 ${Math.max(15, W / 38)}px -apple-system,sans-serif`;
   ctx.fillStyle = '#8b949e';
-  y += big * 0.4;
-  ctx.fillText(info.count + (info.count === 1 ? ' clip' : ' clips') + '  ·  watch · talk · rewatch', cx, y);
+  y += Math.max(28, W / 16) * 0.9;
+  ctx.fillText(L.count, cx, y);
   ctx.textAlign = 'start';
 }
 
@@ -5272,9 +5609,10 @@ async function exportProgram(items, label, opts = {}){
                        audio && audio.samples ? audio : null);
   const base = (project.videoName || 'clip').replace(/\.[^.]+$/, '');
   const safe = (label || 'clip').replace(/[^\w\- ]+/g, '').slice(0, 40).trim().replace(/ +/g, '_') || 'clip';
+  const outName = (opts.fileBase || `${base}__${safe}`) + '.mp4';
   const outBlob = new Blob([mp4], {type:'video/mp4'});
-  if (opts.collect) return { blob: outBlob, name: `${base}__${safe}.mp4` };   // bundling
-  downloadBlob(outBlob, `${base}__${safe}.mp4`);
+  if (opts.collect) return { blob: outBlob, name: outName };   // bundling
+  downloadBlob(outBlob, outName);
   if (audio && audio.samples) toast('Video saved with the game sound — check your Downloads folder. It plays on any iPhone or iPad.', 5000);
   else if (audio && audio.silentReason === 'encoder')
     toast('Video saved, but silent — this browser cannot carry sound over. Switch the picker to “Keeps sound, slower” when the sound matters.', 6500);
@@ -5881,6 +6219,8 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 const APP_BUILD = 'v4.0';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
+  playerCard: { get: () => playerCard, lines: reelCardLines, fileBase: profileFileBase,
+    photo: () => libIdb.get('playerPhoto'), sync: syncPlayerCardWithFolder },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
   drawBoardCard,
   get voiceIds(){ return voiceIds; },

@@ -1432,10 +1432,20 @@ optional bring-your-own-audio explicitly out of v1 unless trivially cheap.
    text auto-generated).
 
 ### Workstreams
-- [ ] **A — Player Profile.** One card, filled once, reused everywhere: name, jersey #,
+- [x] **A — Player Profile.** One card, filled once, reused everywhere: name, jersey #,
       grad year, positions, height, club/team, league, GPA/academics, contact, socials,
       photo. Lives in localStorage + Games folder sidecar. Feeds every title card,
       one-pager and export filename ("Name – Grad Year – Position – Reel").
+      *(Shipped 2026-08-25: 🎽 Player card section in the Clips tab + modal, plain
+      words throughout. Card JSON in localStorage; the photo is shrunk to ≤512px JPEG
+      and lives in IndexedDB (the voice-over quota lesson); both travel as
+      `player.filmroom.json` in the Games folder root, newest `savedAt` wins in both
+      directions and adopting from the folder says so in a toast (the continuity
+      rules, applied to the card). The reel's opening card leads with his name, roster
+      line and photo once the card exists — the card's WORDS come from
+      `reelCardLines()` so tests assert language, not pixels — and reel exports are
+      named "Name - Grad year - Position - Title". No card → everything exactly as
+      before. `tests/profile.js`, 25 checks.)*
 - [ ] **B — Reel Builder.** A storyboard mode over the existing cross-game clip
       library: auto-suggested draft (strength-tagged and highly-rated clips, ordered
       best-first), drag to reorder, per-clip trim, spotlight toggle, freeze-frame intro
@@ -1804,6 +1814,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-24 | Pan compensation reads only matched-pair residuals; wide passes may estimate but never commit | Estimating camera motion from unmatched tracks' nearest detections measures where the crops are, not where the camera went. And committing wide-gate matches trades the identity guarantee for coverage — the one trade this tracker must never make |
 | 2026-08-24 | Recovered-ring ground truth demands the ring's exact colour signature | An orange safety vest and a referee's shirt both pass a naive yellow filter, and either one silently corrupts the truth every number rests on. G>185 ∧ R≥G ∧ R−G<70 admits #ffd60a and excludes both — verified by zero direction flips in the re-extracted path |
 | 2026-08-25 | Detection tracking flipped to DEFAULT-ON (build v4.0), user-approved | The gate the epic was built around finally said yes: on parent-verified ground truth, detection beat the v3.7 template on every acceptance clip — same-kit 53.2% vs 18.2% time-on-him, pan/leaves-frame 96.4% vs 19.4% with the loss reported 0s after he exits, occlusion 52.5% vs 21.4% with an honest loss instead of confident wandering — and zero identity switches anywhere. The template tracker stays intact as automatic fallback and behind localStorage "filmroom:lockonPath"="off"; the same eval baseline now gates every future tracker change |
+| 2026-08-25 | The player card's photo lives in IndexedDB; the card's JSON never carries it locally | The voice-over lesson applied before it bit: a photo as a data-URL would eat the localStorage quota autosave depends on, and a full card with photo is exactly the kind of thing that silently kills persistence months later. The folder sidecar DOES carry the photo (a real file has no quota), which is what lets the card travel between devices whole |
+| 2026-08-25 | The reel card's words come from reelCardLines(), separate from the drawing | The buildFastAudio lesson: what can actually be wrong is the LANGUAGE (whose name, which roster parts, in what order), and asserting pixels tests the canvas API instead. Tests read the lines; the draw function consumes them |
+| 2026-08-25 | player.filmroom.json lives in the Games folder ROOT, newest savedAt wins both ways | The card is about the player, not about any one game — pinning it to a game's sidecar would strand it on whichever video was open when it was filled in. Same conflict rule as game sidecars (newest wins, adopting says so), so there is exactly one continuity story to understand |
 
 ## Working agreements for future sessions
 
