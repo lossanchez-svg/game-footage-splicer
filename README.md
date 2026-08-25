@@ -217,6 +217,12 @@ If a play's game video is missing from the folder, the studio names it and only 
 the reel without it when you press the button a second time — never silently. Long
 renders say about how many minutes are left.
 
+And **✉️ Save the sharing kit** writes everything that goes around the reel into one
+zip: ready-to-paste YouTube words whose chapter times match the reel exactly, a short
+email to a coach with his details already filled in (read it once, make it sound like
+you), and his one-page player site — a single HTML file with his photo, roster line
+and season index baked in, that you can attach to an email or drop on any hosting.
+
 ### 🎽 His player card — fill it in once
 In the Clips tab, **✎ Fill in his card** takes his name, number, grad year, positions,
 club, height, GPA, a photo, and how a coach reaches you. From then on every reel's

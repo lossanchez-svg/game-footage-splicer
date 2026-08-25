@@ -85,6 +85,11 @@ node render.js         # Reel Studio renders (v5): the storyboard into files —
                        # on a second press, coach-named files, and the 9:16 social cut
                        # whose crop provably follows the tracked path (stubbed encoder,
                        # like fastexport.js; the muxer is proven in muxer.js)
+node kit.js            # the sharing kit (v5): YouTube title/description with chapter
+                       # times matching the rendered reel, the coach email filled from
+                       # his card, the self-contained one-page player site (poster
+                       # frame baked in, nothing fetched), the zip verified by real
+                       # unzip, and the no-card guard
 node trends.js         # progress dashboard: cross-game totals from localStorage and the
                        # Games folder, a bar per game in date order, most-used labels,
                        # early-vs-recent movement, filters, and the CSV export

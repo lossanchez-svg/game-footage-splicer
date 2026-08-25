@@ -1496,11 +1496,21 @@ optional bring-your-own-audio explicitly out of v1 unless trivially cheap.
       Real-browser caveat recorded honestly: cross-game GAME audio needs mp4/mov
       sources (the demuxer is mp4-only, as ever); WebM-only sources fall back to
       silent exactly like today's single-game path.)*
-- [ ] **D — Distribution kit.** Auto-generated alongside every export: YouTube
+- [x] **D — Distribution kit.** Auto-generated alongside every export: YouTube
       title/description with chapter timestamps, a coach-email template with the
       player's details filled in, and a self-contained one-page player site
       (single HTML file: photo, profile, embedded poster frame, links to reels) that
       works from any hosting or attachment.
+      *(Shipped 2026-08-25 as "✉️ Save the sharing kit" in the studio: one zip
+      (the bundle zip writer reused) holding YouTube.txt — title + description with
+      chapter times computed by the SAME math as the render, so they match the reel
+      second for second; Email to a coach.txt — subject and body written from his
+      card, only the fields that exist; player page.html — single-file site with the
+      photo and a poster frame from his actual footage baked in as data URIs, roster
+      chips, the season play index, a mailto contact, zero external fetches; and a
+      READ ME FIRST.txt saying what each piece is for. Gated on the player card
+      existing (the kit is written FROM it) with a plain-words toast otherwise.
+      `tests/kit.js`, 15 checks incl. real `unzip` listing.)*
 - [ ] **E — Design-system pass.** Tokens (type scale, spacing, radii, motion), a
       considered light+dark palette, micro-interactions on the storyboard, and a
       Reel Studio surface that reads as a distinct, calm, premium mode. Judged on
@@ -1862,6 +1872,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | The recruiting reel carries no coach cards and no decision-point freezes | Title cards and question freezes teach the family; a recruiting reel argues for him to a stranger with 30 seconds. The per-play context comes as a burned-in line and a 1.4s "Watch #81" freeze instead — the scout never hunts for him, and the play starts before they can look away |
 | 2026-08-25 | The 9:16 crop is driven by the tracked spotlight path, smoothed and clamped | The tracking path is the only thing that knows where he is in every frame — this is why v4 shipped before v5. An exponential follow (0.15/frame) reads like a camera operator, not a jitter; proven by sampling rendered frames: the ball stays mid-frame while the source pans it across the picture |
 | 2026-08-25 | A missing game's plays are named first; the render skips them only on a second press | Silently rendering 14 of 16 planned plays is the export equivalent of a silent tracker switch — the parent finds out from a coach. The first press names what cannot be read and relabels the button with what a second press will do; nothing proceeds on the machine's own judgment |
+| 2026-08-25 | The kit's chapter times come from the render's own arithmetic, never re-derived | Two implementations of "when does play 3 start" WILL drift the first time a card length changes, and a chapter that lands mid-play makes the whole description look sloppy to exactly the audience it is for. kitChapters mirrors the program math (3.0 opening, 1.4 freeze, trims); the test pins both to the same numbers |
+| 2026-08-25 | The player page is one file with everything inlined, hosted nowhere by us | A parent's hosting story is "attach it to the email" or "drag it onto any free host" — a page with external assets breaks in the first case and rots in the second. Data-URI photo + poster keep the promise the app has always made: nothing leaves the machine until the parent sends it |
 
 ## Working agreements for future sessions
 

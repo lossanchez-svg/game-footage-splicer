@@ -1028,6 +1028,7 @@
     <div class="chipRow" style="margin-top:12px">
       <button class="primary" id="studioMake" data-tip="Make the storyboard into one full-quality video: his opening card, every play with its freeze and context line, and the contact card at the end. The footage is read from your Games folder — nothing is uploaded anywhere.">🎬 Make the reel</button>
       <button id="studioSocial" data-tip="Make the tall phone-shaped cut of the same plays for Instagram, TikTok or Shorts: the picture follows him automatically, the reel title opens as a hook, each play is captioned, and his handle sits in the corner.">📱 Make the social cut</button>
+      <button id="studioKit" data-tip="One zip with everything that goes around the reel: YouTube words with chapter times that match it, an email to a coach with his details written in, and his one-page player site as a single file you can attach or host anywhere.">✉️ Save the sharing kit</button>
     </div>
     <div class="hint" id="studioNext">Both files are full quality and named after him. The reel is the wide one for coaches, with his cards and the game sound; the social cut is the tall one where the picture follows him on its own. Keep the social plan short — under a minute is what gets watched.</div>
     <div class="foot"><button class="primary" id="studioClose" data-tip="Close the studio. The plan keeps itself saved — come back any time.">Close</button></div>
@@ -6539,7 +6540,8 @@ window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP
   setGameDir: d => { gameDir = d; },
   playerCard: { get: () => playerCard, lines: reelCardLines, fileBase: profileFileBase,
     photo: () => libIdb.get('playerPhoto'), sync: syncPlayerCardWithFolder },
-  studio: { get: () => studio, pool: () => studioPool, suggestions: studioSuggestions },
+  studio: { get: () => studio, pool: () => studioPool, suggestions: studioSuggestions,
+    kit: () => studioKitParts() },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
   drawBoardCard,
   get voiceIds(){ return voiceIds; },
@@ -7514,6 +7516,174 @@ async function studioRenderSocial(){
   }
 }
 $('#studioSocial').onclick = studioRenderSocial;
+
+/* ---------------- the sharing kit (v5-D) ----------------
+  Everything that goes AROUND the reel, written once from his card and the
+  plan: the YouTube title + description with chapter timestamps that match
+  the rendered reel second for second, an email to a coach with his details
+  already in it, and a one-page player site — a single HTML file with his
+  photo, roster line and season index baked in, that works attached to an
+  email or dropped on any hosting. One zip, no accounts, nothing uploaded. */
+function kitFmtT(t){
+  t = Math.max(0, Math.round(t));
+  return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+}
+function kitChapters(ready){
+  const rows = [{ t: 0, label: 'Intro' }];
+  let t = 3.0;                                    // the opening card
+  for (const { it } of ready){
+    rows.push({ t, label: it.title + (it.label ? ' — ' + it.label : '') });
+    t += (it.freezeIntro ? 1.4 : 0) + Math.max(0, it.trimOut - it.trimIn);
+  }
+  return rows;
+}
+async function studioKitParts(){
+  const p = playerCard;
+  const res = await studioResolve();
+  const chapters = kitChapters(res.ready);
+  const roster = playerCardParts().join(' · ');
+  const stats = [p.height, p.league, p.gpa ? 'GPA ' + p.gpa : ''].filter(Boolean).join(' · ');
+  const title = (studio.title || '').trim() || (p.name + ' — highlights');
+
+  const ytTitle = [p.name,
+    [p.gradYear ? 'Class of ' + p.gradYear : '', String(p.positions || '').split(/[,;·|]/)[0].trim()]
+      .filter(Boolean).join(' '),
+    'Highlights'].filter(Boolean).join(' — ').slice(0, 100);
+  const youtube = [
+    'TITLE',
+    ytTitle,
+    '',
+    'DESCRIPTION',
+    [p.name, roster].filter(Boolean).join(' · '),
+    stats,
+    p.contact ? 'Contact: ' + p.contact : '',
+    p.links ? 'More film: ' + p.links : '',
+    '',
+    ...(res.ready.length ? ['Chapters:',
+      ...chapters.map(c => kitFmtT(c.t) + ' ' + c.label)] : []),
+  ].filter(l => l !== '').join('\n') + '\n';
+
+  const email = [
+    'SUBJECT',
+    [p.name, p.gradYear ? 'Class of ' + p.gradYear : '',
+     String(p.positions || '').split(/[,;·|]/)[0].trim(), 'highlight reel']
+      .filter(Boolean).join(' — '),
+    '',
+    'BODY',
+    'Coach,',
+    '',
+    `I wanted to share film of my son, ${p.name}` +
+      (p.jersey ? ` (#${String(p.jersey).replace(/^#/, '')})` : '') +
+      (p.gradYear ? `, Class of ${p.gradYear}` : '') + '.',
+    [String(p.positions || '').trim() && 'Positions: ' + p.positions,
+     p.club && 'Club: ' + p.club + (p.league ? ' (' + p.league + ')' : ''),
+     p.height && 'Height: ' + p.height,
+     p.gpa && 'GPA: ' + p.gpa].filter(Boolean).join('\n'),
+    '',
+    `His ${res.ready.length ? res.ready.length + '-play ' : ''}highlight reel is attached` +
+      (p.links ? `, and more film is at ${p.links}` : '') + '.',
+    'Every play opens with a freeze so you can find him instantly.',
+    '',
+    'Thank you for your time' + (p.contact ? ' — I can be reached at ' + p.contact : '') + '.',
+    '',
+  ].join('\n');
+
+  /* the one-page site: everything inline, nothing fetched */
+  let photoUrl = null;
+  try {
+    const blob = await libIdb.get('playerPhoto');
+    if (blob) photoUrl = await blobToDataUrl(blob);
+  } catch(e){}
+  let posterUrl = null;
+  if (res.ready.length){
+    try {
+      const { it, file } = res.ready[0];
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true;
+      const url = URL.createObjectURL(file);
+      await loadRenderVideo(v, url);
+      await seekVid(v, Math.min(it.trimIn, v.duration || it.trimIn));
+      const pc = document.createElement('canvas');
+      const s = Math.min(1, 960 / (v.videoWidth || 960));
+      pc.width = Math.round((v.videoWidth || 960) * s);
+      pc.height = Math.round((v.videoHeight || 540) * s);
+      pc.getContext('2d').drawImage(v, 0, 0, pc.width, pc.height);
+      posterUrl = pc.toDataURL('image/jpeg', 0.82);
+      URL.revokeObjectURL(url);
+    } catch(e){ /* no poster is fine */ }
+  }
+  const esc = escapeHtml;
+  const pageHtml = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(p.name)} — ${esc(p.gradYear ? 'Class of ' + p.gradYear : 'player page')}</title>
+<style>
+  body{margin:0; font:16px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif;
+    background:#f5f6f8; color:#15181d;}
+  .wrap{max-width:720px; margin:0 auto; padding:28px 20px 60px;}
+  header{display:flex; gap:18px; align-items:center; margin-bottom:8px;}
+  header img{width:96px; height:96px; border-radius:16px; object-fit:cover;}
+  h1{margin:0; font-size:30px; letter-spacing:-.3px;}
+  .roster{color:#5a6472; font-weight:600; margin-top:2px;}
+  .stats{display:flex; gap:10px; flex-wrap:wrap; margin:18px 0;}
+  .stats span{background:#fff; border:1px solid #e2e5ea; border-radius:10px;
+    padding:7px 12px; font-weight:600; font-size:14px;}
+  .poster{width:100%; border-radius:14px; margin:6px 0 18px; display:block;}
+  h2{font-size:13px; text-transform:uppercase; letter-spacing:.8px; color:#5a6472;
+    margin:26px 0 8px;}
+  ol{margin:0; padding-left:22px;}
+  li{margin:5px 0;}
+  li small{color:#5a6472;}
+  .contact{background:#fff; border:1px solid #e2e5ea; border-radius:14px;
+    padding:16px 18px; margin-top:22px;}
+  .contact a{color:#0b62d6; font-weight:700; text-decoration:none;}
+  footer{color:#9aa2ad; font-size:12px; margin-top:34px;}
+</style></head><body><div class="wrap">
+<header>${photoUrl ? `<img src="${photoUrl}" alt="${esc(p.name)}">` : ''}<div>
+  <h1>${esc(p.name)}</h1>
+  <div class="roster">${esc(roster)}</div>
+</div></header>
+${stats ? '<div class="stats">' + stats.split(' · ').map(s => '<span>' + esc(s) + '</span>').join('') + '</div>' : ''}
+${posterUrl ? `<img class="poster" src="${posterUrl}" alt="Game footage">` : ''}
+${res.ready.length ? '<h2>Highlight reel — ' + res.ready.length + ' plays</h2><ol>' +
+  res.ready.map(({ it }) => '<li>' + esc(it.title) +
+    (it.label ? ' <small>' + esc(it.label) + '</small>' : '') + '</li>').join('') + '</ol>' : ''}
+<div class="contact">
+  ${p.contact ? 'Contact: <a href="mailto:' + esc(p.contact) + '">' + esc(p.contact) + '</a><br>' : ''}
+  ${p.links ? 'More film: ' + esc(p.links) : ''}
+</div>
+<footer>Put together with Film Room — his film, straight from the sideline camera.</footer>
+</div></body></html>`;
+
+  return { youtube, email, pageHtml, chapters, ready: res.ready.length, missing: res.missing };
+}
+
+async function studioSaveKit(){
+  if (!(playerCard && playerCard.name))
+    return toast('Fill in his player card first — the kit is written from it.', 5500);
+  const parts = await studioKitParts();
+  const readme =
+`What is in this kit
+-------------------
+YouTube.txt        — a title and description ready to paste when you upload the
+                     reel. The chapter times match the reel exactly, so viewers
+                     can jump straight to a play.
+Email to a coach.txt — a short email with his details already written in.
+                     Read it once, make it sound like you, attach the reel.
+player page.html   — his one-page player site. Send it as an attachment or put
+                     it on any web hosting — everything is inside the one file.
+`;
+  const files = [
+    { name: 'YouTube.txt', blob: new Blob([parts.youtube], { type: 'text/plain' }) },
+    { name: 'Email to a coach.txt', blob: new Blob([parts.email], { type: 'text/plain' }) },
+    { name: 'player page.html', blob: new Blob([parts.pageHtml], { type: 'text/html' }) },
+    { name: 'READ ME FIRST.txt', blob: new Blob([readme], { type: 'text/plain' }) },
+  ];
+  const zip = await buildZip(files);
+  downloadBlob(zip, (profileFileBase('sharing kit') || 'sharing kit') + '.zip');
+  toast('The sharing kit is saved — YouTube words with chapters, a coach email, and his player page, all in one zip.', 6500);
+}
+$('#studioKit').onclick = studioSaveKit;
 
 loadStudio();
 
