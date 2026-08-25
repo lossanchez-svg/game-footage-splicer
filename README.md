@@ -198,7 +198,24 @@ context line (which game, when) that gets printed under it. A quiet line of coac
 keeps you honest — best play first, three to five minutes, end on a high — and if his
 player card names a position, a small checklist shows what a coach looks for and ticks
 what the plan already covers. The plan saves itself as you go and rides along in your
-Games folder. Turning it into the finished video arrives with the next update.
+Games folder.
+
+Then two buttons make the files, reading the footage straight from your Games folder
+(nothing is ever uploaded):
+
+- **🎬 Make the reel** — one full-1080p video for coaches: his opening card (name,
+  photo, number, grad year, height, GPA, contact), then every play — a short
+  "Watch #81" freeze so the coach finds him instantly, the game and date burned in
+  small, his spotlight ring if you left it on — and a contact card at the end. Game
+  sound and any voice-overs come along. The file is named the way a coach files it.
+- **📱 Make the social cut** — the same plays as a tall phone-shaped video for
+  Instagram, TikTok or Shorts. The picture follows him automatically (that is what
+  the tracker is for), your reel title opens as a hook, each play is captioned, and
+  his handle sits in the corner. Keep it under a minute — that is what gets watched.
+
+If a play's game video is missing from the folder, the studio names it and only makes
+the reel without it when you press the button a second time — never silently. Long
+renders say about how many minutes are left.
 
 ### 🎽 His player card — fill it in once
 In the Clips tab, **✎ Fill in his card** takes his name, number, grad year, positions,

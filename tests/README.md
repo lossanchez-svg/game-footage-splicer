@@ -78,6 +78,13 @@ node studio.js         # Reel Studio storyboard (v5): season pool best-first wit
                        # context labels, undo-able removes, the position checklist from
                        # his player card, vanished games marked not dropped, and the
                        # plan travelling via reels.filmroom.json
+node render.js         # Reel Studio renders (v5): the storyboard into files — master
+                       # reel across TWO games' footage from the Games folder (opening
+                       # card + freeze intros + trims + contact card, no coach cards or
+                       # question freezes), missing games called out then skipped only
+                       # on a second press, coach-named files, and the 9:16 social cut
+                       # whose crop provably follows the tracked path (stubbed encoder,
+                       # like fastexport.js; the muxer is proven in muxer.js)
 node trends.js         # progress dashboard: cross-game totals from localStorage and the
                        # Games folder, a bar per game in date order, most-used labels,
                        # early-vs-recent movement, filters, and the CSV export

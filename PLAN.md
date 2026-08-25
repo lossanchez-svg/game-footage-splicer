@@ -1470,11 +1470,32 @@ optional bring-your-own-audio explicitly out of v1 unless trivially cheap.
       clearing the plan carry their own Undo. Rendering the storyboard into the
       finished video is Workstream C, and the surface says so plainly.
       `tests/studio.js`, 32 checks.)*
-- [ ] **C — Render pipeline.** Extends the existing WebCodecs + hand-rolled muxer:
+- [x] **C — Render pipeline.** Extends the existing WebCodecs + hand-rolled muxer:
       title/outro/freeze-frame cards drawn by `drawScene`-grade canvas code (crisp
       typography, no clip-art), 16:9 master and 9:16 auto-reframe outputs, voice-over
       mixed as today, burned-in captions for social. Time-remaining estimate on long
       renders.
+      *(Shipped 2026-08-25. `exportProgram` extended, all opt-in so every existing
+      export is bit-identical in behavior: per-item `src` plays ANOTHER game's footage
+      through one offscreen video element (files read from the Games folder),
+      `drawScene` gained an annotations override so each play draws its own game's
+      spotlight, media is contain-fit into a fixed 16:9 1080p frame, and audio
+      segments carry their source file (`buildFastAudio` demuxes per file; voice-overs
+      were already keyed by clip id so they mix cross-game unchanged). The master reel
+      = recruiting opening card (name/photo/roster/stats/contact) + per-play "Watch
+      #81" freeze intro (ring at his tracked position) + context line burned low +
+      his ring only — no coach title cards and no decision-point freezes, those teach
+      the family — + ≤5s contact card. The 9:16 social cut is cards-free: a cover-crop
+      window follows the tracked spotlight path (smoothed, clamped), hook text for the
+      first 2s, a caption pill per play, handle watermark. Missing game files are
+      named first and skipped only on an explicit second press. Long renders say
+      "about N minutes left" from measured pace. `tests/render.js` (12 checks, stubbed
+      encoder per the fastexport pattern) proves the two-game program shape, the
+      coach-named files, the missing-game flow, and — by sampling the output frames —
+      that the social crop keeps the tracked ball mid-frame while the source pans.
+      Real-browser caveat recorded honestly: cross-game GAME audio needs mp4/mov
+      sources (the demuxer is mp4-only, as ever); WebM-only sources fall back to
+      silent exactly like today's single-game path.)*
 - [ ] **D — Distribution kit.** Auto-generated alongside every export: YouTube
       title/description with chapter timestamps, a coach-email template with the
       player's details filled in, and a self-contained one-page player site
@@ -1837,6 +1858,10 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | The reel plan stores clip snapshots, re-synced from the real games each time the studio opens | The plan spans games whose projects live in other browsers and folder sidecars; referencing by id alone would blank the storyboard whenever a game is elsewhere. Snapshots keep it readable, re-syncing keeps it truthful, and a vanished game marks its plays ⚠ rather than silently dropping them — losing a parent's curation because a file moved is the storyboard equivalent of a silent tracker switch |
 | 2026-08-25 | Work-ons are never suggested for the recruiting reel; the draft proposes, the person decides | A recruiting reel is an argument FOR him — auto-inserting his worst moments because they were dutifully tagged would punish the discipline of honest tagging. And the draft is explicitly a starting order ("put his best play first — drag it to the top"): choosing the moment stays the parent's job, per the founding guardrail |
 | 2026-08-25 | Reel Studio coaching is one contextual line, chosen by the plan's current state | The research (best play first, 3–5 minutes, end high) has to reach a parent who will never read a guide. One quiet line that changes as the plan changes teaches at the moment it applies; four static paragraphs above the storyboard would be the wall of text the spec forbids |
+| 2026-08-25 | Cross-game rendering is opt-in per item on the ONE exportProgram, not a second pipeline | Every render capability (cards, freezes, audio timeline mirroring, cancel, fallback) exists once and is battle-tested; a parallel "studio exporter" would fork all of it and drift. Each extension (src, noTitleCard, noPauses, intro, tag, reframe, size) defaults to the old behavior, so the family paths are provably untouched — the backwards-tracking dir=-1 lesson applied to exporting |
+| 2026-08-25 | The recruiting reel carries no coach cards and no decision-point freezes | Title cards and question freezes teach the family; a recruiting reel argues for him to a stranger with 30 seconds. The per-play context comes as a burned-in line and a 1.4s "Watch #81" freeze instead — the scout never hunts for him, and the play starts before they can look away |
+| 2026-08-25 | The 9:16 crop is driven by the tracked spotlight path, smoothed and clamped | The tracking path is the only thing that knows where he is in every frame — this is why v4 shipped before v5. An exponential follow (0.15/frame) reads like a camera operator, not a jitter; proven by sampling rendered frames: the ball stays mid-frame while the source pans it across the picture |
+| 2026-08-25 | A missing game's plays are named first; the render skips them only on a second press | Silently rendering 14 of 16 planned plays is the export equivalent of a silent tracker switch — the parent finds out from a coach. The first press names what cannot be read and relabels the button with what a second press will do; nothing proceeds on the machine's own judgment |
 
 ## Working agreements for future sessions
 

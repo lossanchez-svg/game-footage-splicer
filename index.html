@@ -1024,7 +1024,12 @@
       <div class="why" id="studioPoolWhy">Every moment you have saved, best material first — strengths, then teachable moments. Work-ons stay out of a recruiting reel.</div>
       <div id="studioPool"></div>
     </div>
-    <div class="hint" id="studioNext" style="margin-top:12px">📽 Making the storyboard into the finished video — 16:9 for coaches, 9:16 for socials — arrives with the next update. Your plan is saved and ready for it.</div>
+    <div class="hint" id="studioMissing" style="display:none; margin-top:12px"></div>
+    <div class="chipRow" style="margin-top:12px">
+      <button class="primary" id="studioMake" data-tip="Make the storyboard into one full-quality video: his opening card, every play with its freeze and context line, and the contact card at the end. The footage is read from your Games folder — nothing is uploaded anywhere.">🎬 Make the reel</button>
+      <button id="studioSocial" data-tip="Make the tall phone-shaped cut of the same plays for Instagram, TikTok or Shorts: the picture follows him automatically, the reel title opens as a hook, each play is captioned, and his handle sits in the corner.">📱 Make the social cut</button>
+    </div>
+    <div class="hint" id="studioNext">Both files are full quality and named after him. The reel is the wide one for coaches, with his cards and the game sound; the social cut is the tall one where the picture follows him on its own. Keep the social plan short — under a minute is what gets watched.</div>
     <div class="foot"><button class="primary" id="studioClose" data-tip="Close the studio. The plan keeps itself saved — come back any time.">Close</button></div>
   </div>
 </div>
@@ -1625,23 +1630,33 @@ function playerCardParts(p){
 function reelCardLines(info){
   const p = playerCard;
   if (p && p.name){
-    return {
+    const L = {
       brand: '⚽ FILM ROOM',
       name: String(p.name).toUpperCase(),
       sub: playerCardParts(p).join('  ·  '),
       title: info.title,
       count: info.count + (info.count === 1 ? ' clip' : ' clips') + '  ·  watch · talk · rewatch',
     };
+    if (info.kind === 'recruiting'){
+      /* the recruiting opener reads like a roster page, not a family movie:
+         height/league/GPA under the roster line, contact at the bottom */
+      L.count = info.count + (info.count === 1 ? ' play' : ' plays');
+      L.stats = [p.height, p.league, p.gpa ? 'GPA ' + p.gpa : ''].filter(Boolean).join('  ·  ');
+      L.reach = [p.contact, p.links].filter(Boolean).join('  ·  ');
+    }
+    return L;
   }
   return { brand: '⚽ FILM ROOM', name: null, sub: '', title: info.title,
-           count: info.count + (info.count === 1 ? ' clip' : ' clips') + '  ·  watch · talk · rewatch' };
+           count: info.count + (info.count === 1 ? ' clip' : ' clips')
+             + (info.kind === 'recruiting' ? '' : '  ·  watch · talk · rewatch') };
 }
 
 /* "Jude Sanchez - 2032 - Attacking Mid - Week 3" — the file a coach keeps
    should say whose film it is; null when there is no card yet */
 function profileFileBase(label){
   if (!(playerCard && playerCard.name)) return null;
-  const clean = s => String(s || '').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim();
+  const clean = s => String(s || '').replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/[—–]/g, '-').replace(/\s+/g, ' ').trim();
   return [clean(playerCard.name), clean(playerCard.gradYear),
           clean(String(playerCard.positions || '').split(/[,;·|]/)[0]), clean(label)]
     .filter(Boolean).join(' - ');
@@ -2054,7 +2069,10 @@ function drawScene(ctx, W, H, t, opts){
   const lw = Math.max(2, W/480);           // base line width scales with size
   const fontPx = Math.max(11, W/55);
 
-  const active = project.annotations.filter(a =>
+  /* opts.annotations lets the renderer draw ANOTHER game's marks (the studio
+     reel spans games); the live overlay and same-game exports pass nothing
+     and get the open project, exactly as before */
+  const active = ((opts && opts.annotations) || project.annotations).filter(a =>
     a.type !== 'pause' && t >= a.tStart - 0.01 && t <= a.tEnd + 0.01);
 
   for (const a of active){
@@ -2514,14 +2532,15 @@ function deleteSelected(){
 const trackCanvas = document.createElement('canvas');
 const trackCtx = trackCanvas.getContext('2d', { willReadFrequently: true });
 
-function seekTo(t){
+function seekVid(v, t){
   return new Promise(res => {
     const to = setTimeout(done, 2000);           // safety: some containers mis-fire seeked
-    function done(){ clearTimeout(to); video.removeEventListener('seeked', done); res(); }
-    video.addEventListener('seeked', done);
-    video.currentTime = t;
+    function done(){ clearTimeout(to); v.removeEventListener('seeked', done); res(); }
+    v.addEventListener('seeked', done);
+    v.currentTime = t;
   });
 }
+function seekTo(t){ return seekVid(video, t); }
 
 function thinSamples(pts, eps){
   if (pts.length <= 2) return pts;
@@ -5448,6 +5467,18 @@ function drawReelCard(ctx, W, H, info){
   ctx.fillStyle = '#8b949e';
   y += Math.max(28, W / 16) * 0.9;
   ctx.fillText(L.count, cx, y);
+  if (L.stats){
+    const fs = Math.max(14, W / 44);
+    ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#9aa4b2';
+    ctx.fillText(L.stats, cx, H * 0.87);
+  }
+  if (L.reach){
+    const fs = Math.max(14, W / 44);
+    ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#58a6ff';
+    ctx.fillText(L.reach, cx, H * 0.93);
+  }
   ctx.textAlign = 'start';
 }
 
@@ -5513,6 +5544,130 @@ function drawQuestionBanner(ctx, W, H, question){
   ctx.textAlign = 'start';
 }
 
+/* the context line burned in low during a studio play: which game, when.
+   Small, dark, out of the way — information, not decoration. */
+function drawContextTag(ctx, W, H, text){
+  if (!text) return;
+  const fs = Math.max(13, W / 60);
+  ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+  const tw = ctx.measureText(text).width;
+  const pad = fs * 0.6;
+  const bx = W * 0.03, by = H - fs * 2.6, bw = tw + pad * 2, bh = fs * 1.8;
+  roundRect(ctx, bx, by, bw, bh, fs * 0.4);
+  ctx.fillStyle = 'rgba(4,9,16,.72)'; ctx.fill();
+  ctx.fillStyle = '#e6edf3';
+  ctx.fillText(text, bx + pad, by + fs * 1.25);
+}
+
+/* the "watch him" freeze that opens a studio play: the first frame, dimmed,
+   a ring where he is, and who to watch — so a coach never hunts for him */
+function drawFreezeIntro(ctx, W, H, rect, intro){
+  ctx.fillStyle = 'rgba(2,6,12,.55)';
+  ctx.fillRect(0, 0, W, H);
+  if (intro.x != null && intro.y != null){
+    const x = rect.x + intro.x * rect.w, y = rect.y + intro.y * rect.h;
+    const rx = Math.max(26, rect.w * 0.045), ry = rx * 0.42;
+    ctx.save();
+    ctx.strokeStyle = '#ffd60a'; ctx.lineWidth = Math.max(3, W / 400);
+    ctx.shadowColor = '#ffd60a'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.textAlign = 'center';
+  const fs = Math.max(24, W / 24);
+  ctx.font = `800 ${fs}px -apple-system,sans-serif`;
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 8;
+  ctx.fillText(intro.text || 'Watch him', W / 2, H * 0.82);
+  if (intro.sub){
+    ctx.font = `600 ${Math.max(14, W / 48)}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#d7dde3';
+    ctx.fillText(intro.sub, W / 2, H * 0.82 + fs * 0.95);
+  }
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'start';
+}
+
+/* social-cut furniture: the hook line that earns the first two seconds, the
+   caption naming the play, and the small handle watermark */
+function drawHook(ctx, W, H, text){
+  ctx.textAlign = 'center';
+  const fs = Math.max(26, W / 14);
+  ctx.font = `800 ${fs}px -apple-system,sans-serif`;
+  ctx.shadowColor = 'rgba(0,0,0,.85)'; ctx.shadowBlur = 10;
+  ctx.fillStyle = '#fff';
+  let y = H * 0.16;
+  for (const line of wrapLines(ctx, text, W * 0.86).slice(0, 2)){
+    ctx.fillText(line, W / 2, y); y += fs * 1.15;
+  }
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'start';
+}
+function drawSocialCaption(ctx, W, H, text){
+  ctx.textAlign = 'center';
+  const fs = Math.max(16, W / 26);
+  ctx.font = `700 ${fs}px -apple-system,sans-serif`;
+  const lines = wrapLines(ctx, text, W * 0.8).slice(0, 2);
+  const bh = lines.length * fs * 1.3 + fs * 0.9;
+  const bw = Math.min(W * 0.88,
+    Math.max(...lines.map(l => ctx.measureText(l).width)) + fs * 1.6);
+  const bx = (W - bw) / 2, by = H * 0.84 - bh;
+  roundRect(ctx, bx, by, bw, bh, fs * 0.5);
+  ctx.fillStyle = 'rgba(4,9,16,.78)'; ctx.fill();
+  ctx.fillStyle = '#fff';
+  let y = by + fs * 1.15;
+  for (const line of lines){ ctx.fillText(line, W / 2, y); y += fs * 1.3; }
+  ctx.textAlign = 'start';
+}
+function drawWatermark(ctx, W, H, text){
+  const fs = Math.max(13, W / 40);
+  ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+  ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 5;
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.textAlign = 'right';
+  ctx.fillText(text, W - fs, fs * 1.8);
+  ctx.textAlign = 'start';
+  ctx.shadowBlur = 0;
+}
+
+/* the closing contact card of a recruiting reel: who he is and how to reach
+   you, on screen long enough to photograph — never longer than a few seconds */
+function drawContactCard(ctx, W, H, info){
+  ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
+  const cx = W / 2;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#2ea043';
+  ctx.font = `700 ${Math.max(13, W / 46)}px -apple-system,sans-serif`;
+  ctx.fillText('⚽ FILM ROOM', cx, H * 0.16);
+  const big = Math.max(26, W / 18);
+  ctx.font = `800 ${big}px -apple-system,sans-serif`;
+  ctx.fillStyle = '#e6edf3';
+  let y = H * 0.34;
+  ctx.fillText(info.name || '', cx, y);
+  if (info.sub){
+    const fs = Math.max(15, W / 36);
+    ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#9aa4b2';
+    y += big * 0.95;
+    ctx.fillText(info.sub, cx, y);
+  }
+  if (info.contact){
+    const fs = Math.max(18, W / 28);
+    ctx.font = `700 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#58a6ff';
+    y += Math.max(30, H * 0.12);
+    ctx.fillText(info.contact, cx, y);
+  }
+  if (info.links){
+    const fs = Math.max(14, W / 42);
+    ctx.font = `500 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#8b949e';
+    y += Math.max(22, H * 0.07);
+    ctx.fillText(info.links, cx, y);
+  }
+  ctx.textAlign = 'start';
+}
+
 /* ---------------- fast export: WebCodecs H.264 → .mp4 ----------------
   Renders every frame deterministically (seek-stepping, not realtime capture),
   encodes with VideoEncoder (baseline H.264, no B-frames), and muxes into a
@@ -5536,16 +5691,26 @@ async function exportFast(tIn, tOut, label, clip){
 
 /* Renders a sequence of items — [{clip|null, tIn, tOut}] — into ONE fast mp4:
    optional reel intro card, then each item's title card + footage + decision
-   freezes. Single-clip exports and highlight reels share this path. */
+   freezes. Single-clip exports and highlight reels share this path.
+
+   The studio reel adds, per item and all optional (absent = the old behavior):
+     src            {video, file, annotations, gameName} — footage from ANOTHER
+                    game, played in an offscreen element; drawn contain-fit
+     noTitleCard    recruiting reels open plays with a freeze, not a coach card
+     noPauses       decision-point freezes are teaching, not recruiting
+     intro          {text, sub, x, y} — "Watch #81" freeze on the first frame
+     tag            context line burned in low ("vs Slammers FC · Mar 1")
+   and opts.size {W,H} fixes the output frame (16:9 1080p) regardless of any
+   source, opts.outroCard closes with the contact card. */
 async function exportProgram(items, label, opts = {}){
   if (ui.exporting || ui.tracking) return;
   ui.exporting = true; ui.exportCancel = false;
   hideDecision();
   const wasLoop = ui.loopClip; ui.loopClip = null;
 
-  const scale = Math.min(1, 1920 / video.videoWidth);
-  const W = Math.round(video.videoWidth * scale / 2) * 2;
-  const H = Math.round(video.videoHeight * scale / 2) * 2;
+  const scale = Math.min(1, 1920 / (video.videoWidth || 1920));
+  const W = opts.size ? opts.size.W : Math.round(video.videoWidth * scale / 2) * 2;
+  const H = opts.size ? opts.size.H : Math.round(video.videoHeight * scale / 2) * 2;
   const bitrate = Math.min(20_000_000, Math.max(6_000_000, Math.round(W * H * 30 * 0.2)));
   const FPS = 30;
 
@@ -5584,11 +5749,29 @@ async function exportProgram(items, label, opts = {}){
   const prevRate = video.playbackRate, prevT = video.currentTime;
   video.pause();
 
+  /* a long render should say how long is left, not just crawl a bar: the
+     total output is known up front, so the pace after a few seconds is an
+     honest estimate (in plain minutes, and only once it has settled) */
+  const estFrames = Math.round(FPS * (
+    (opts.reelCard ? 3.0 : 0) + (opts.outroCard ? 3.0 : 0) +
+    items.reduce((s, it) => s + (it.tOut - it.tIn)
+      + (it.clip && !it.noTitleCard ? 2.8 : 0) + (it.intro ? 1.4 : 0), 0)));
+  const renderT0 = Date.now();
+  const sayTimeLeft = () => {
+    const el = (Date.now() - renderT0) / 1000;
+    if (el < 5 || !n) return;
+    const left = Math.max(0, (estFrames - n) / (n / el));
+    const msg = left < 70 ? 'under a minute left'
+      : 'about ' + Math.round(left / 60) + ' minutes left';
+    $('#busyMsg').textContent = '⚡ Exporting “' + (label||'clip') + '” — ' + msg;
+  };
+
   let n = 0;
   async function pushFrame(){
     const f = new VideoFrame(c, { timestamp: Math.round(n * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
     enc.encode(f, { keyFrame: n % (FPS * 2) === 0 });
     f.close(); n++;
+    if (n % FPS === 0) sayTimeLeft();
     if (enc.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 10));
   }
   async function pushCardFrames(seconds){
@@ -5596,6 +5779,17 @@ async function exportProgram(items, label, opts = {}){
     for (let i = 0; i < Math.round(FPS * seconds) && !ui.exportCancel; i++) await pushFrame();
     segments.push({ type:'silence', frames: n - before });
   }
+  /* where the source picture lands in the output frame: same-size for the
+     classic path, contain-fit (centred, letterboxed if shapes differ) when
+     the output frame is fixed or the footage comes from another game */
+  const fitRect = v => {
+    const vw = v.videoWidth || W, vh = v.videoHeight || H;
+    const s = Math.min(W / vw, H / vh);
+    let w = Math.round(vw * s), h = Math.round(vh * s);
+    if (Math.abs(W - w) <= 2) w = W;      // same shape: fill exactly, no hairline
+    if (Math.abs(H - h) <= 2) h = H;
+    return { x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w, h };
+  };
 
   // audio timeline mirror: which stretches of output frames are source media
   // (at which video time) and which are burned-in silence (cards, freezes)
@@ -5609,20 +5803,63 @@ async function exportProgram(items, label, opts = {}){
     }
     for (const item of items){
       if (ui.exportCancel || encError) break;
-      if (item.clip){
+      const vid = (item.src && item.src.video) || video;
+      const anns = item.src ? (item.src.annotations || []) : null;
+      if (item.src && item.src.load) await item.src.load();   // switch game footage
+      if (item.clip && !item.noTitleCard){
         drawTitleCard(ctx, W, H, item.clip);
         await pushCardFrames(2.8);
       }
-      const pausePts = project.annotations
+      let followX = null;   // the 9:16 crop's smoothed centre, fresh per play
+      const drawMediaFrame = t => {
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+        if (item.reframe){
+          /* tall cut: a cover-crop window slides to keep HIM in frame — the
+             tracked spotlight path is the camera operator */
+          const vw = vid.videoWidth || W, vh = vid.videoHeight || H;
+          const cw = Math.min(vw, vh * W / H);
+          const target = clamp(item.reframe.pos(t).x * vw, cw / 2, vw - cw / 2);
+          followX = followX == null ? target : followX + (target - followX) * 0.15;
+          const sx = clamp(followX - cw / 2, 0, vw - cw);
+          ctx.drawImage(vid, sx, 0, cw, vh, 0, 0, W, H);
+          const s = H / vh;
+          ctx.save();
+          ctx.translate(-sx * s, 0);
+          drawScene(ctx, vw * s, vh * s, t,
+            anns ? { editing:false, annotations: anns } : { editing:false });
+          ctx.restore();
+        } else {
+          const r = fitRect(vid);
+          ctx.drawImage(vid, r.x, r.y, r.w, r.h);
+          ctx.save();
+          ctx.translate(r.x, r.y);
+          ctx.beginPath(); ctx.rect(0, 0, r.w, r.h); ctx.clip();
+          drawScene(ctx, r.w, r.h, t, anns ? { editing:false, annotations: anns } : { editing:false });
+          ctx.restore();
+        }
+        if (item.tag) drawContextTag(ctx, W, H, item.tag);
+        if (item.caption) drawSocialCaption(ctx, W, H, item.caption);
+        if (opts.watermark) drawWatermark(ctx, W, H, opts.watermark);
+        if (opts.hook && n < FPS * 2.2) drawHook(ctx, W, H, opts.hook);
+      };
+      if (item.intro){
+        await seekVid(vid, Math.min(item.tIn, vid.duration || item.tIn));
+        drawMediaFrame(item.tIn);
+        drawFreezeIntro(ctx, W, H, fitRect(vid), item.intro);
+        await pushCardFrames(1.4);
+      }
+      const pausePts = (item.noPauses ? [] : (anns || project.annotations))
         .filter(a => a.type === 'pause' && a.t > item.tIn + 0.05 && a.t < item.tOut - 0.05)
         .sort((a, b) => a.t - b.t);
       let pi = 0, curSeg = null;
       const dt = 1 / FPS;
       for (let t = item.tIn; t < item.tOut - 1e-4 && !ui.exportCancel && !encError; t += dt){
-        await seekTo(Math.min(t, video.duration || t));
-        ctx.drawImage(video, 0, 0, W, H);
-        drawScene(ctx, W, H, t, {editing:false});
-        if (!curSeg){ curSeg = { type:'media', t, frames: 0, item }; segments.push(curSeg); }
+        await seekVid(vid, Math.min(t, vid.duration || t));
+        drawMediaFrame(t);
+        if (!curSeg){
+          curSeg = { type:'media', t, frames: 0, item, file: item.src ? item.src.file : undefined };
+          segments.push(curSeg);
+        }
         await pushFrame();
         curSeg.frames++;
         if (pi < pausePts.length && t >= pausePts[pi].t){
@@ -5639,11 +5876,16 @@ async function exportProgram(items, label, opts = {}){
       doneMedia += item.tOut - item.tIn;
 
       // if this moment has a board attached, show it once the play has run
-      const linked = item.clip && (project.boards || []).find(b => b.id === item.clip.boardId);
+      const linked = item.clip && !item.noTitleCard &&
+        (project.boards || []).find(b => b.id === item.clip.boardId);
       if (linked && !ui.exportCancel && !encError){
         drawBoardCard(ctx, W, H, linked, item.clip);
         await pushCardFrames(3.2);
       }
+    }
+    if (opts.outroCard && !ui.exportCancel && !encError){
+      drawContactCard(ctx, W, H, opts.outroCard);
+      await pushCardFrames(3.0);
     }
     if (!ui.exportCancel && !encError) await enc.flush();
   } catch(e){ encError = e; }
@@ -6062,12 +6304,22 @@ async function buildFastAudio(segments, totalFrames, FPS, opts = {}){
     }
     const haveVoice = voiceBlobs.size > 0;
 
-    const dmx = currentFile ? await demuxMp4Audio(currentFile).catch(() => null) : null;
-    const haveGame = !!(dmx && dmx.samples.length);
+    /* each media segment names its source file (a studio reel spans games);
+       segments without one come from the open video, exactly as before */
+    const dmxCache = new Map();
+    const dmxFor = async file => {
+      if (!file) return null;
+      if (!dmxCache.has(file))
+        dmxCache.set(file, await demuxMp4Audio(file).catch(() => null));
+      return dmxCache.get(file);
+    };
+    for (const seg of media) seg._dmx = await dmxFor(seg.file || currentFile);
+    const firstDmx = media.map(s => s._dmx).find(d => d && d.samples.length) || null;
+    const haveGame = !!firstDmx;
     if (!haveGame && !haveVoice) return null;
 
-    const rate = haveGame ? dmx.sampleRate : 48000;
-    const ch = haveGame ? Math.min(2, dmx.channels || 1) : 1;
+    const rate = haveGame ? firstDmx.sampleRate : 48000;
+    const ch = haveGame ? Math.min(2, firstDmx.channels || 1) : 1;
     const pureMedia = segments.length === 1 && segments[0].type === 'media';
     const mediaSecs = media.reduce((s, m) => s + m.frames / FPS, 0);
 
@@ -6076,11 +6328,12 @@ async function buildFastAudio(segments, totalFrames, FPS, opts = {}){
     // voice-over has to be mixed, which means encoding
     if (!haveVoice && haveGame && (mediaSecs > 600 || !(await aacEncodeSupported(rate, ch)))){
       if (!pureMedia) return { silentReason: mediaSecs > 600 ? 'long' : 'encoder' };
-      const m = segments[0];
-      const packets = await extractAudioPackets(dmx, m.t - 0.012, m.t + m.frames / FPS);
+      const m = segments[0], d0 = m._dmx;
+      if (!d0 || !d0.samples.length) return null;
+      const packets = await extractAudioPackets(d0, m.t - 0.012, m.t + m.frames / FPS);
       if (!packets.length) return null;
       return { samples: packets.map(p => ({ data: p.data, dur: p.dur })),
-               asc: dmx.asc, sampleRate: dmx.timescale, channels: dmx.channels };
+               asc: d0.asc, sampleRate: d0.timescale, channels: d0.channels };
     }
 
     if (haveVoice && !opts.returnPcm && !(await aacEncodeSupported(rate, ch)))
@@ -6110,12 +6363,13 @@ async function buildFastAudio(segments, totalFrames, FPS, opts = {}){
       const n = Math.round(seg.frames / FPS * rate);
       if (seg.type === 'media'){
         const segEnd = seg.t + seg.frames / FPS;
-        const packets = haveGame
-          ? await extractAudioPackets(dmx, Math.max(0, seg.t - 0.25), segEnd + 0.3) : [];
+        const segDmx = seg._dmx && seg._dmx.samples.length ? seg._dmx : null;
+        const packets = segDmx
+          ? await extractAudioPackets(segDmx, Math.max(0, seg.t - 0.25), segEnd + 0.3) : [];
         if (packets.length){
           const pcmStart = packets[0].t;
           const wrap = buildMp4(null, { samples: packets.map(p => ({ data: p.data, dur: p.dur })),
-            asc: dmx.asc, sampleRate: dmx.timescale, channels: dmx.channels });
+            asc: segDmx.asc, sampleRate: segDmx.timescale, channels: segDmx.channels });
           const oac = new OfflineAudioContext({ numberOfChannels: ch, length: 8, sampleRate: rate });
           const abuf = await new Promise((res, rej) => {
             const p = oac.decodeAudioData(wrap.buffer, res, rej);
@@ -7053,6 +7307,214 @@ $('#studioClear').onclick = () => {
     studio.items = snap; saveStudio(); renderStudio();
   }});
 };
+
+/* ---------------- making the reel (v5-C) ----------------
+  The storyboard spans games, so the render walks the Games folder for each
+  play's raw footage and each game's saved work (for the spotlight path),
+  plays them through ONE offscreen video element, and hands exportProgram a
+  16:9 1080p program: recruiting opening card, per-play "watch him" freeze +
+  context line + his ring only (no coach cards, no question freezes — those
+  teach the family, a recruiting reel argues for him), contact card at the
+  end. Game sound rides along per source file; voice-overs mix as always. */
+async function studioLoadProjectFor(gameName){
+  let best = null;
+  const take = p => {
+    if (!p || p.videoName !== gameName || !Array.isArray(p.annotations)) return;
+    if (!best || savedAtOf(p) > savedAtOf(best)) best = p;
+  };
+  for (let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith('filmroom:')) continue;
+    try { take(JSON.parse(localStorage.getItem(k))); } catch(e){}
+  }
+  try {
+    if (gameDir && gameDir.queryPermission &&
+        await gameDir.queryPermission({ mode:'read' }) === 'granted'){
+      const h = await gameDir.getFileHandle(gameName + SIDECAR_EXT);
+      take(JSON.parse(await (await h.getFile()).text()));
+    }
+  } catch(e){}
+  return best;
+}
+async function studioFileFor(gameName){
+  if (currentFile && project.videoName === gameName) return currentFile;
+  try {
+    if (gameDir && gameDir.queryPermission &&
+        await gameDir.queryPermission({ mode:'read' }) === 'granted'){
+      const h = await gameDir.getFileHandle(gameName);
+      return await h.getFile();
+    }
+  } catch(e){}
+  return null;
+}
+/* which ring the reel should follow in a play: the spotlight whose path has
+   the most keys overlapping it — that is his tracked run */
+function studioSpotFor(proj, tIn, tOut){
+  let best = null, bestKeys = 0;
+  for (const a of (proj && proj.annotations) || []){
+    if (a.type !== 'spot' || !Array.isArray(a.keys)) continue;
+    if (a.tEnd < tIn || a.tStart > tOut) continue;
+    if (a.keys.length > bestKeys){ best = a; bestKeys = a.keys.length; }
+  }
+  return best;
+}
+async function studioResolve(){
+  const ready = [], missingGames = new Set();
+  const fileCache = new Map(), projCache = new Map();
+  for (const it of studio.items){
+    if (!fileCache.has(it.gameName)) fileCache.set(it.gameName, await studioFileFor(it.gameName));
+    const file = fileCache.get(it.gameName);
+    if (!file){ missingGames.add(it.gameName); continue; }
+    if (!projCache.has(it.gameName)) projCache.set(it.gameName, await studioLoadProjectFor(it.gameName));
+    ready.push({ it, file, proj: projCache.get(it.gameName) });
+  }
+  return { ready, missing: [...missingGames] };
+}
+
+function loadRenderVideo(v, url){
+  return new Promise((res, rej) => {
+    const to = setTimeout(() => rej(new Error('video load timed out')), 20000);
+    v.onloadeddata = () => { clearTimeout(to); res(); };
+    v.onerror = () => { clearTimeout(to); rej(new Error('video would not load')); };
+    v.src = url;
+  });
+}
+
+let studioSkipOk = false;
+async function studioRenderMaster(){
+  if (!studio.items.length)
+    return toast('The plan is empty — add plays from the season list first.', 5000);
+  if (!fastSupported)
+    return toast('Making one video needs Chrome or Safari — this browser cannot make the file.', 6000);
+  const res = await studioResolve();
+  if (!res.ready.length)
+    return toast('None of these games’ video files can be found. Connect your Games folder with 📁 Games so the reel can read the footage.', 7500);
+  if (res.missing.length && !studioSkipOk){
+    studioSkipOk = true;
+    const skipped = studio.items.length - res.ready.length;
+    $('#studioMissing').style.display = '';
+    $('#studioMissing').textContent = '⚠ The video for ' +
+      res.missing.map(m => '“' + m.replace(/\.[^.]+$/, '') + '”').join(', ') +
+      ' is not in this browser or your Games folder, so ' +
+      (skipped === 1 ? 'one play' : skipped + ' plays') + ' cannot be read. ' +
+      'Press the button again to make the reel without ' + (skipped === 1 ? 'it' : 'them') + '.';
+    $('#studioMake').textContent = '🎬 Make it without ' + (skipped === 1 ? 'that play' : 'those plays');
+    return;
+  }
+
+  const off = document.createElement('video');
+  off.muted = true; off.playsInline = true; off.preload = 'auto';
+  const urls = new Map();
+  const urlFor = file => {
+    if (!urls.has(file)) urls.set(file, URL.createObjectURL(file));
+    return urls.get(file);
+  };
+  const jersey = playerCard && playerCard.jersey
+    ? '#' + String(playerCard.jersey).replace(/^#/, '') : null;
+
+  const items = res.ready.map(({ it, file, proj }) => {
+    const spot = studioSpotFor(proj, it.trimIn, it.trimOut);
+    const introPos = spot ? spotPos(spot, it.trimIn) : null;
+    return {
+      clip: { id: it.clipId },          // voice-overs are keyed by clip id
+      noTitleCard: true, noPauses: true,
+      tIn: it.trimIn, tOut: it.trimOut,
+      src: {
+        file, video: off, gameName: it.gameName,
+        annotations: it.spotlight && spot ? [spot] : [],
+        load: async () => {
+          const url = urlFor(file);
+          if (off.dataset.url !== url){ await loadRenderVideo(off, url); off.dataset.url = url; }
+        },
+      },
+      intro: it.freezeIntro ? {
+        text: jersey ? 'Watch ' + jersey : 'Watch for him',
+        sub: it.label || '',
+        x: introPos ? introPos.x : null, y: introPos ? introPos.y : null,
+      } : null,
+      tag: it.label || '',
+    };
+  });
+
+  const title = (studio.title || '').trim() ||
+    ((playerCard && playerCard.name) ? playerCard.name + ' — highlights' : 'Recruiting reel');
+  const outro = playerCard && playerCard.name ? {
+    name: playerCard.name, sub: playerCardParts().join('  ·  '),
+    contact: playerCard.contact || '', links: playerCard.links || '',
+  } : null;
+  try {
+    await exportProgram(items, title, {
+      size: { W: 1920, H: 1080 },
+      reelCard: { title, count: items.length, kind: 'recruiting' },
+      outroCard: outro,
+      fileBase: profileFileBase(title),
+    });
+  } finally {
+    for (const url of urls.values()) URL.revokeObjectURL(url);
+    studioSkipOk = false;
+    $('#studioMissing').style.display = 'none';
+    $('#studioMake').textContent = '🎬 Make the reel';
+  }
+}
+$('#studioMake').onclick = studioRenderMaster;
+
+/* the tall 9:16 cut: same plays, the crop follows his tracked path, hook up
+   top for the first two seconds, a caption per play, his handle in the
+   corner. No cards — a social cut earns its keep in the first moments. */
+async function studioRenderSocial(){
+  if (!studio.items.length)
+    return toast('The plan is empty — add plays from the season list first.', 5000);
+  if (!fastSupported)
+    return toast('Making one video needs Chrome or Safari — this browser cannot make the file.', 6000);
+  const res = await studioResolve();
+  if (!res.ready.length)
+    return toast('None of these games’ video files can be found. Connect your Games folder with 📁 Games so the cut can read the footage.', 7500);
+  if (res.missing.length)
+    toast('Plays from ' + res.missing.map(m => '“' + m.replace(/\.[^.]+$/, '') + '”').join(', ') +
+      ' are skipped — their video files are not here.', 6000);
+
+  const off = document.createElement('video');
+  off.muted = true; off.playsInline = true; off.preload = 'auto';
+  const urls = new Map();
+  const urlFor = file => {
+    if (!urls.has(file)) urls.set(file, URL.createObjectURL(file));
+    return urls.get(file);
+  };
+  const items = res.ready.map(({ it, file, proj }) => {
+    const spot = studioSpotFor(proj, it.trimIn, it.trimOut);
+    return {
+      clip: { id: it.clipId },
+      noTitleCard: true, noPauses: true,
+      tIn: it.trimIn, tOut: it.trimOut,
+      src: {
+        file, video: off, gameName: it.gameName,
+        annotations: it.spotlight && spot ? [spot] : [],
+        load: async () => {
+          const url = urlFor(file);
+          if (off.dataset.url !== url){ await loadRenderVideo(off, url); off.dataset.url = url; }
+        },
+      },
+      reframe: { pos: spot ? (t => spotPos(spot, t)) : (() => ({ x: 0.5, y: 0.5 })) },
+      caption: it.title || '',
+    };
+  });
+  const title = (studio.title || '').trim() ||
+    ((playerCard && playerCard.name) ? playerCard.name + ' — highlights' : 'Highlights');
+  const handle = playerCard &&
+    (String(playerCard.links || '').split(/[,;\s]+/)[0] || playerCard.name) || '';
+  try {
+    await exportProgram(items, title + ' (social)', {
+      size: { W: 1080, H: 1920 },
+      hook: title,
+      watermark: handle,
+      fileBase: profileFileBase(title + ' - social cut'),
+    });
+  } finally {
+    for (const url of urls.values()) URL.revokeObjectURL(url);
+  }
+}
+$('#studioSocial').onclick = studioRenderSocial;
+
 loadStudio();
 
 let trendGames = [];          // [{name, date, clips[], sessions}] newest last
