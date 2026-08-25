@@ -503,7 +503,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v5.0</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v6.0</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -6982,7 +6982,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v5.0';
+const APP_BUILD = 'v6.0';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   playerCard: { get: () => playerCard, lines: reelCardLines, fileBase: profileFileBase,
@@ -8170,11 +8170,14 @@ async function buildMetadataExport(){
     delete p.photo;                       // pixels never ride the metadata file
     out.player = p;
   }
-  if (studio && studio.items.length)
+  if (studio && studio.items.length){
     out.reelPlan = { title: studio.title || '', savedAt: studio.savedAt,
       items: studio.items.map(it => ({ game: it.gameName, clipId: it.clipId,
         trimIn: it.trimIn, trimOut: it.trimOut, spotlight: it.spotlight,
         freezeIntro: it.freezeIntro, label: it.label || '' })) };
+    const edits = planEdits();
+    if (edits) out.reelPlan.editsSinceImport = edits;   // the Autopilot's report card
+  }
   for (const g of games){
     const proj = await studioLoadProjectFor(g.name);
     out.games.push({
@@ -8235,8 +8238,40 @@ function importReelPlan(parsed){
   });
   studio.title = parsed.title || studio.title;
   studio.items = items;
+  /* the edit-distance ledger (v6-E): remember what the imported draft looked
+     like, so the next metadata export can say how many human corrections it
+     took — the Autopilot's own report card, measured not argued */
+  studio.imported = { at: new Date().toISOString(), title: studio.title,
+    fp: items.map(planFingerprint) };
   saveStudio();
   return { prev, loaded: items.length, missing: items.filter(i => i.missing).length };
+}
+const planFingerprint = it =>
+  ({ id: it.gameName + '/' + it.clipId,
+     trim: (+it.trimIn).toFixed(1) + '-' + (+it.trimOut).toFixed(1) });
+/* how far the human moved the plan since the Autopilot drafted it: removals,
+   additions, reorders (common plays out of sequence), re-trims, a retitle */
+function planEdits(){
+  if (!studio || !studio.imported) return null;
+  const was = studio.imported.fp, now = studio.items.map(planFingerprint);
+  const wasIds = was.map(f => f.id), nowIds = now.map(f => f.id);
+  const removed = wasIds.filter(id => !nowIds.includes(id)).length;
+  const added = nowIds.filter(id => !wasIds.includes(id)).length;
+  const a = wasIds.filter(id => nowIds.includes(id));
+  const b = nowIds.filter(id => wasIds.includes(id));
+  const L = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      L[i][j] = a[i - 1] === b[j - 1] ? L[i - 1][j - 1] + 1 : Math.max(L[i - 1][j], L[i][j - 1]);
+  const reordered = a.length - L[a.length][b.length];
+  const retrimmed = now.filter(f => {
+    const w = was.find(x => x.id === f.id);
+    return w && w.trim !== f.trim;
+  }).length;
+  const retitled = (studio.title || '') !== (studio.imported.title || '') ? 1 : 0;
+  return { removed, added, reordered, retrimmed, retitled,
+    total: removed + added + reordered + retrimmed + retitled,
+    importedAt: studio.imported.at };
 }
 
 $('#studioData').onclick = saveMetadataExport;

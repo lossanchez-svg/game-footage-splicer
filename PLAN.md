@@ -26,8 +26,17 @@ You are picking up a working, fully-tested product. Before writing any code:
    with matching chapters, coach email, one-page player site). Its acceptance status
    sits at the end of the v5 section — the one open measurement (occlusion clip's
    9:16 in-frame %) is bounded by the same v4 occlusion item above; `tests/realeval/
-   reframe.js` re-measures it in one command. **v6 "Cutting Room"** (moment finding,
-   auto-cut, and the opt-in Autopilot) is the next epic to build.
+   reframe.js` re-measures it in one command. **v6 "Cutting Room" is SHIPPED as
+   well (build `v6.0`, 2026-08-25)**: the ball rides the detection pass with honest
+   coverage numbers, "✨ Find his moments" scans a game into a yes/no checklist,
+   "✂ Tighten to the action?" proposes trims, the metadata socket exports the
+   season as words-and-numbers and imports reel plans as drafts, and `AUTOPILOT.md`
+   documents the opt-in E0 workflow with the app-measured edit-distance ledger.
+   Three v6 gates are INSTRUMENTS awaiting the user's data (see the v6 acceptance
+   status): ball accuracy needs hand-marked `ball` rings on the eval clips, and the
+   finder-recall + auto-cut gates need one hand-broken-down game (a project with
+   his saved clips) in `tests/realeval/clips/`. Nothing further is specced — the
+   next epic is the user's call.
 3. The single most important lesson from v2.5–v3.7: **measure before building.** Every
    fixture must be validated against real footage numbers (a tracking report or counted
    pixels from real frames) before any conclusion is drawn from it. Nine builds chased
@@ -1564,7 +1573,7 @@ re-measures it in one command once that item is solved.
 
 ---
 
-## Future epic: v6 — "Cutting Room" (find the moments, make the cuts, and an Autopilot)
+## ✅ Shipped epic: v6 — "Cutting Room" (find the moments, make the cuts, and an Autopilot)
 
 **Kickoff prompt for a fresh session:**
 > Read CLAUDE.md and PLAN.md. Implement the v6 "Cutting Room" epic exactly as specced in
@@ -1689,7 +1698,7 @@ it is graded — not trusted.
       toast-Undo away. Wrong format / newer version / empty plan are refused in
       plain words with the current plan untouched. Round trip proven lossless.
       `tests/socket.js`, 19 checks.)*
-- [ ] **E — Autopilot (the full-automation option; OFF unless switched on).** A
+- [x] **E — Autopilot (the full-automation option; OFF unless switched on).** A
       documented Claude Code workflow (checked into the repo as `AUTOPILOT.md`) that
       drives the whole line end to end on the user's own machine: read the metadata
       export → run the Moment Finder over the new game → pick and order the reel with
@@ -1714,6 +1723,21 @@ it is graded — not trusted.
       level" — the epic's own definition, not a vibe. Hard rules: Autopilot output is
       always a draft in the reel builder; it never exports on its own authority and
       never posts anywhere.
+      *(Shipped 2026-08-25 as E0. `AUTOPILOT.md` in the repo root is the whole
+      recipe — the hard rules in writing (draft-only, never posts, tiers escalating
+      only by explicit per-run choice, E2 explicitly "do not simulate"), the run
+      steps, the review-sheet format with a "Not sure" section, and the ledger
+      protocol. The app side: every imported plan is FINGERPRINTED
+      (`studio.imported`), and the next season-data export carries
+      `reelPlan.editsSinceImport` — removals, additions, reorders (LCS), re-trims,
+      retitle — so the report card is measured by the app, never self-graded by the
+      session. The render leg is `tests/autopilot/render.js`: drives the real app
+      headlessly (plan in → "DRAFT - …" mp4 out, never overwriting, one game per
+      run with multi-game plans refused toward the app's own button; real Chrome
+      via CHROME_PATH for H.264, `--check` says so). `tests/autopilot.js` asserts
+      the DOCUMENT's promises as tests, counts a real UI correction session
+      (reorder + retrim + retitle = 3) in the ledger, and runs the driver end to
+      end with the stub encoder. 14 checks.)*
 
 **Can it eventually make the whole video by itself?** Mechanically it already can —
 the render pipeline is drivable end to end today, headlessly, exactly the way the test
@@ -1730,6 +1754,23 @@ reel-plan import round-trips into the builder losslessly; one full Autopilot E0 
 produces a draft reel + review sheet with zero pixels leaving the machine; all
 existing suites green; the app alone (no Claude, no model files) still does everything
 it does today.
+
+**Acceptance status (2026-08-25, epic shipped, build v6.0):** ball/possession numbers
+published ✓ (near-play coverage 31.3% pan / 9.7% same-kit / 2.7% occlusion after the
+measured magnified-look change; player tracking bit-identical; ACCURACY awaits the
+user's hand-marked `ball` rings — `realeval` scores them the moment they exist).
+Reel-plan round trip ✓ (lossless, proven). Autopilot E0 machinery ✓ end to end (plan
+imported as draft → real-app headless render → "DRAFT - …" mp4, zero pixels read at
+any point; the first full JUDGMENT run happens on the user's machine per AUTOPILOT.md
+and its edit count becomes the ledger's first entry). All suites green ✓ (719 checks
+before this closeout, more after). App-alone ✓ (the lockon-absent path is tested
+every run). The two measured-against-his-history gates — finder recall ≥80% and
+auto-cut medians ≤1.5s — are INSTRUMENTS awaiting data: both run over any game
+folder that has his saved clips plus a detect report (`realeval/moments.js`,
+`realeval/autocut.js`); the eval clips carry no saved clips, so these numbers are
+honestly unmeasured until the user drops in a broken-down game. The finder and
+assist ship as offers either way — the gates decide when their numbers are worth
+advertising, not whether a parent may use them.
 
 ---
 
@@ -1993,6 +2034,10 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | The metadata export carries the reel plan by reference, never a copy of the pool | Ids + trims + toggles are the plan; duplicating clip content into it would let the two copies disagree by the next edit. The importer resolves references against the live pool, so a plan is always shown against the season as it IS — and a play this browser cannot see is marked, exactly like the storyboard's missing semantics |
 | 2026-08-25 | The socket refuses newer versions instead of guessing at them | A version-99 reelplan probably carries fields this build has never heard of; half-importing it would show a draft that silently dropped the Autopilot's decisions. "Update the app first" is the only honest answer, and the version field exists precisely so it can be said |
 | 2026-08-25 | No pixels in the metadata file — the photo stays home | filmroom-metadata.json is the E0 boundary made literal: an Autopilot reading it can know everything the family WROTE and nothing the camera SAW. The export is tested to contain no data: URI so the boundary cannot rot silently |
+| 2026-08-25 | The Autopilot's report card is measured by the APP, never self-graded by the session | A model asked "how good was your draft?" will answer optimistically and honestly believe it. The app fingerprints every imported plan and counts the human's actual corrections (removals, additions, LCS reorders, re-trims, retitle) into the next metadata export — the ledger the epic's "fully capable" definition reads |
+| 2026-08-25 | AUTOPILOT.md's promises are asserted by the test suite | "Draft-only" and "never posts anywhere" are worthless as vibes in a doc nobody re-reads. tests/autopilot.js greps the document for its own hard rules, so weakening the contract breaks the build — the jargon-ban lesson applied to a safety promise |
+| 2026-08-25 | The headless renderer does one game per run and refuses more, toward the app's own button | Serving multi-game footage into a headless page means base64-ing gigabytes through an init script — a memory cliff dressed as a feature. The app's real 🎬 button with the real Games folder already renders multi-game plans; the driver says so instead of half-working |
+| 2026-08-25 | The default ending of an Autopilot run is the PARENT pressing Make the reel | Even with a perfect draft, the render click is where review actually happens — the drag-what's-wrong moment. The headless render exists for the explicitly-asked hands-off case and still only writes "DRAFT - " files that never overwrite anything |
 
 ## Working agreements for future sessions
 

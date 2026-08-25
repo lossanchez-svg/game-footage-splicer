@@ -109,6 +109,11 @@ node socket.js         # the metadata socket (v6): the season exported as words 
                        # reel-plan import as a reviewable draft (resolved snapshots,
                        # clamped trims, unknown plays marked not dropped, Undo),
                        # plain-words refusals, and the lossless round trip
+node autopilot.js      # Autopilot (v6): the hard rules asserted IN AUTOPILOT.md
+                       # itself (draft-only, never posts, tiers, E0 no pixels), the
+                       # edit-distance ledger counted through real UI corrections,
+                       # and the headless render driver end to end — plan in,
+                       # "DRAFT - …" mp4 out, multi-game plans refused toward the app
 node trends.js         # progress dashboard: cross-game totals from localStorage and the
                        # Games folder, a bar per game in date order, most-used labels,
                        # early-vs-recent movement, filters, and the CSV export

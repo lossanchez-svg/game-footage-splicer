@@ -240,6 +240,15 @@ email to a coach with his details already filled in (read it once, make it sound
 you), and his one-page player site — a single HTML file with his photo, roster line
 and season index baked in, that you can attach to an email or drop on any hosting.
 
+Two quieter buttons round out the studio: **📋 Save the season as data** writes one
+file with everything about the season *except* the film (clips, labels, notes, his
+answers — no video, no pictures, nothing sent anywhere), and **📥 Load a reel plan**
+reads a plan file back in as a draft you review, with your old plan one Undo away.
+Together they are the doorway for the optional **Autopilot** — a recipe (in
+`AUTOPILOT.md`) that a Claude Code session can follow on your own computer to carry
+a new game all the way to a draft reel. It is off unless you run it, its drafts are
+always drafts, and it never posts anything anywhere.
+
 ### 🎽 His player card — fill it in once
 In the Clips tab, **✎ Fill in his card** takes his name, number, grad year, positions,
 club, height, GPA, a photo, and how a coach reaches you. From then on every reel's
