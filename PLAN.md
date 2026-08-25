@@ -1589,7 +1589,7 @@ it is graded — not trusted.
 
 ### Workstreams
 
-- [ ] **A — the ball joins the tracks.** YOLOX-Nano already knows COCO's "sports
+- [x] **A — the ball joins the tracks.** YOLOX-Nano already knows COCO's "sports
       ball" class; wire it into the detection pass as a second tracked object type.
       A ball is small, fast and motion-blurred — much harder than a player — so this
       gets its own eval before anything builds on it: hand-marked ball paths on the
@@ -1598,6 +1598,27 @@ it is graded — not trusted.
       signal**: stretches where the ball converges to his feet and travels with him.
       Gate: ball-in-frame coverage and possession windows validated against
       hand-marked truth on the real clips; numbers in the decision log.
+      *(Built and instrumented 2026-08-25; accuracy gate OPEN pending the user's
+      hand-marked ball paths. Class 32 rides the SAME inference (decode emits
+      `kind:'ball'`, NMS per kind, every player consumer stays ball-blind by one
+      filter); one greedy ball track — wide gate, honest recording only when seen,
+      pan-compensated with everyone else — lands in the report as `report.ball`
+      {coverage, samples}, and `possessionWindows()` (pure, proven on constructed
+      paths) reports per-spot possession. Measured on the real clips, player metrics
+      BIT-IDENTICAL with the ball riding along (WIN vs baseline on all three):
+      near-play ball coverage 17.7% pan / 0% same-kit / 0.9% occlusion at first —
+      the ball is tiny, blurred, and invisible to the model even at 4× crop
+      magnification in the same-kit crowd (probed at threshold 0.03) — then one
+      measured change, a dedicated MAGNIFIED ball look per step (a tighter crop at
+      the ball's predicted spot, else his feet), lifted it to 31.3% / 9.7% / 2.7%
+      with player numbers unchanged, and a plausible possession window appeared on
+      the pan clip. Honest reading: possession is a sometimes-signal on this
+      footage, so the Moment Finder (B) must treat it as one voice among several,
+      never the backbone. `realeval` now scores a GT ring labelled `ball`
+      (excluded from him/decoys; scoreBall: coverage-where-visible, meanErr,
+      on-ball%) and prints ball + possession lines; selftest proves the scorer on
+      fabricated paths; lockontrack S9 proves the whole chain with a scripted
+      ball whose possession window is known by construction.)*
 - [ ] **B — Moment Finder.** A whole-game scan (chunked, progress + cancel,
       overnight-friendly on an hour of film) that emits candidate moments
       `{start, end, why}`: on-ball touches (from A), sprints (track velocity), box
@@ -1915,6 +1936,9 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | The app stays dark; the outward artifacts (player page, cards, exports) are the light surface | A film room is dark for the same reason a cinema is — the footage is the bright thing. Retrofitting a second in-app palette would double the AA audit surface for a mode nobody asked for, while the things a stranger sees (the coach's email attachment, the player page) already got the considered light treatment. If a light mode is ever wanted, it is a deliberate future decision, not a checkbox |
 | 2026-08-25 | Studio motion is one curve, one duration, and off under prefers-reduced-motion | Micro-interactions read premium only when they are uniform — five different easings read as jitter. One 140ms ease-out for state changes, one 220ms rise for entering cards, and the media query turns all of it off for anyone who asked their OS for less motion |
 | 2026-08-25 | New surfaces enter the contrast audit the day they ship | comfort.js now opens Reel Studio with a real plan rendered before auditing. The v2 lesson (an audit that does not walk a screen silently exempts it) applied while the paint is wet, not after a regression |
+| 2026-08-25 | The ball rides the same inference and is invisible to player logic except through one filter | Class 32 comes out of the tensor the model already ran, so ball detection is free at decode time; kind:'ball' plus a single filter in detsAt means the entire v4 identity machinery is provably untouched — measured bit-identical player metrics on all three real clips with the ball on |
+| 2026-08-25 | The ball gets one dedicated magnified look per step; coverage numbers published honestly | Measured: a ~10px blurred ball is invisible to YOLOX-Nano in a 416 crop, and even 4× magnification finds nothing in the same-kit crowd (probed to threshold 0.03). A tighter crop at the ball's predicted spot (else his feet) lifted near-play coverage 17.7→31.3% pan, 0→9.7% same-kit, players unchanged. Recorded conclusion: possession is a sometimes-signal on real youth footage — the Moment Finder must treat it as one voice among several, never the backbone |
+| 2026-08-25 | A ball is only ever RECORDED when seen; a GT ring labelled "ball" is never him and never a decoy | A coasted ball is a guess and everything downstream (possession, moments) would inherit the guess — the honest-loss invariant applied to a second object. And counting the ball ring as a look-alike would fabricate identity switches in the eval, corrupting the very numbers the gate reads |
 
 ## Working agreements for future sessions
 

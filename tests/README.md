@@ -40,7 +40,10 @@ node lockontrack.js    # tracking-by-detection, end to end with a SCRIPTED
                        # players in one pass, occlusion carried + re-found,
                        # honest loss + one-tap resume stitching, the 40s no-cap
                        # clip, same-kit check-this-moment flags, association
-                       # unit checks (motion keeps identity, colour splits teams)
+                       # unit checks (motion keeps identity, colour splits teams),
+                       # and the ball (v6): a scripted ball tracked alongside
+                       # without touching player identity, with the possession
+                       # window known by construction
 node touch.js          # touch/iPad suite: responsive layout + tap interactions
 node fastexport.js     # WebCodecs mp4 export: end-to-end where H.264 encode exists,
                        # stubbed-encoder flow checks (frame counts, cadence) otherwise

@@ -30,6 +30,10 @@ const STUB = `(spec) => {
   const paths = {
     ballA: t => ({ x: 58 + 40 * t, y: 180 + 60 * Math.sin(t) }),
     ballB: t => ({ x: 578 - 45 * t, y: 108 + 50 * Math.cos(1.1 * t) }),
+    /* the match ball (v6): with B early, at A's feet 2..5s, cleared away after */
+    matchBall: t => (t < 2 ? { x: 578 - 45 * t, y: 108 + 50 * Math.cos(1.1 * t) }
+      : t <= 5 ? { x: 58 + 40 * t, y: 180 + 60 * Math.sin(t) }
+      : { x: 600, y: 60 }),
     longBall: t => ({ x: 12 + 6.5 * t, y: 90 + 30 * Math.sin(0.4 * t) }),
     smHim: t => ({ x: 74 + 58 * t, y: 160 + 22 * Math.sin(1.5 * t) }),
     smOther: t => ({ x: 524 - 40 * t, y: 129 + 18 * Math.cos(1.2 * t) }),
@@ -42,6 +46,15 @@ const STUB = `(spec) => {
     for (const s of window.__stubSpec){
       if ((s.drop || []).some(w => t >= w[0] && (w[1] == null || t <= w[1]))) continue;
       const c = paths[s.fn](t);
+      if (s.kind === 'ball'){
+        // a ball box is centred on the ball, not bottom-anchored like a body
+        const bb = { x: c.x - s.size / 2, y: c.y - s.size / 2,
+                     w: s.size, h: s.size, score: s.score || 0.5, kind: 'ball' };
+        if (Math.abs((bb.x + bb.w / 2) - cx) > crop / 2 + s.size) continue;
+        if (Math.abs((bb.y + bb.h / 2) - cy) > crop / 2 + s.size) continue;
+        out.push(bb);
+        continue;
+      }
       // the ring goes at box-bottom (his feet), so build the box around that
       // bottom-anchored so (y + 0.95h) === c.y — the ring marks his feet
       const b = { x: c.x - s.size / 2, y: c.y - s.size * 0.95,
@@ -336,6 +349,69 @@ const spotAt = (page, i, t) => page.evaluate(([i, t]) => {
     check('association: velocity keeps two same-kit tracks on their own detections through a crossing', r.okMotion);
     check('association: kit colour outweighs a small distance advantage across teams', r.okColour);
     check('association: every match carries its contested-margin', r.margined);
+    await ctx.close();
+  }
+
+  /* ---- S9 (v6-A): the ball joins the tracks, and possession falls out ----
+     A scripted ball travels with player B early, sits at A's feet from 2s to
+     5s, then is cleared away. Tracking A must: keep following A exactly as
+     before (the ball never enters player association), record the ball's own
+     path, and report one possession window over the constructed 2..5s. */
+  {
+    const { ctx, page, errors: e2, box } = await freshPage(browser, 'two.webm', true);
+    await installStub(page, [
+      { fn: 'ballA', size: 36 }, { fn: 'ballB', size: 36 },
+      { fn: 'matchBall', size: 10, kind: 'ball', score: 0.5 },
+    ]);
+    const p0 = ballA(0);
+    await placeSpot(page, box, p0.x, p0.y, 640, 360, 'A');
+    await trackSelected(page);
+    const rep = await page.evaluate(() => window.__filmroom.trackReport);
+    check('the ball never steals the player track (still on A, not lost)',
+      rep.result[0].lost === false);
+    const got3 = await spotAt(page, 0, 3), want3 = ballA(3);
+    const err3 = Math.hypot(got3.x - want3.x / 640, got3.y - want3.y / 360);
+    check(`tracking is unchanged with a ball in every frame (t=3 err ${err3.toFixed(3)})`, err3 < 0.04);
+    /* the crops follow the PLAY, so ball coverage is near-play coverage by
+       design: this ball is near A only during the built 2..5s window (24 of
+       64 steps) — the record must show exactly that, not pretend more */
+    check(`the ball is recorded when near the play and only then (${rep.ball.samples.length} samples, coverage ${rep.ball.coverage})`,
+      rep.ball && rep.ball.samples.length >= 20 && rep.ball.samples.length <= 30 &&
+      rep.ball.coverage > 0.28 && rep.ball.coverage < 0.55);
+    check('every ball sample sits inside the possession stretch it was built for',
+      rep.ball.samples.every(s => s.t >= 1.8 && s.t <= 5.3));
+    const pw = rep.result[0].possession;
+    check(`possession is one window where the ball was built to be his (${JSON.stringify(pw)})`,
+      Array.isArray(pw) && pw.length === 1 &&
+      Math.abs(pw[0].start - 2) < 0.5 && Math.abs(pw[0].end - 5) < 0.5);
+    errors.push(...e2);
+    await ctx.close();
+  }
+
+  /* ---- possession windows: pure checks with answers known by construction ---- */
+  {
+    const { ctx, page } = await freshPage(browser, 'two.webm', true);
+    const r = await page.evaluate(() => {
+      const poss = window.__filmroom.lockon.possession;
+      const his = []; for (let t = 0; t <= 10; t += 0.25) his.push({ t, x: 0.1 + 0.05 * t, y: 0.5 });
+      const withHim = his.filter(s => s.t >= 3 && s.t <= 6).map(s => ({ t: s.t, x: s.x + 0.01, y: s.y }));
+      const far = his.map(s => ({ t: s.t, x: s.x + 0.4, y: s.y }));
+      const blip = [{ t: 2, x: 0.2, y: 0.5 }];
+      const gapped = [...his.filter(s => s.t >= 1 && s.t <= 2), ...his.filter(s => s.t >= 2.4 && s.t <= 3.4)]
+        .map(s => ({ t: s.t, x: s.x, y: s.y }));
+      return {
+        win: poss(his, withHim),
+        none: poss(his, far),
+        blip: poss(his, blip),
+        joined: poss(his, gapped),
+      };
+    });
+    check(`a ball at his feet for 3s is one window (${JSON.stringify(r.win)})`,
+      r.win.length === 1 && Math.abs(r.win[0].start - 3) < 0.3 && Math.abs(r.win[0].end - 6) < 0.3);
+    check('a ball across the pitch is never possession', r.none.length === 0);
+    check('a single blip is too short to count', r.blip.length === 0);
+    check(`a short dropout joins into one window, not two (${JSON.stringify(r.joined)})`,
+      r.joined.length === 1 && Math.abs(r.joined[0].end - r.joined[0].start - 2.4) < 0.3);
     await ctx.close();
   }
 

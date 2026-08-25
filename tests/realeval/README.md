@@ -123,6 +123,15 @@ verdict measured as time-on-him, or it does not ship.
 scores, times) — never frames or footage. `out/` also keeps the app's own
 tracking report per case (`<case>-report.json`) for diagnosis.
 
+## Ball ground truth (v6)
+
+To open the v6-A ball gate, add a second hand-dragged ring labelled exactly
+`ball` to any case's project and track the ball with it wherever it is
+visible (gaps are fine — coverage is only asked where you could see it).
+The harness excludes that ring from him/decoys automatically and prints a
+`ball:` line per case — coverage where marked, mean error, on-ball % — plus
+the possession windows the tracker derived.
+
 ## The 9:16 reframe check (v5)
 
 `node realeval/reframe.js` measures the social cut's acceptance on the real

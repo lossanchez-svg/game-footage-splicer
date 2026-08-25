@@ -78,6 +78,32 @@ const { APP, FIXTURES, launch } = require('./common');
   check(`nms keeps the best of an overlap and the disjoint box (${nms.length} of 3)`,
     nms.length === 2 && nms[0].score === 0.9 && nms[1].score === 0.7);
 
+  /* the ball (v6-A): COCO class 32 rides the same fabricated tensor */
+  const ballDec = await page.evaluate(() => {
+    const data = new Float32Array(3549 * 85);
+    let o = 0;                                        // cell 0: a ball only
+    data[o] = 0.5; data[o + 1] = 0.5;
+    data[o + 2] = Math.log(1.5); data[o + 3] = Math.log(1.5);
+    data[o + 4] = 0.8; data[o + 37] = 0.9;            // obj x cls32 = 0.72
+    o = (5 * 52 + 10) * 85;                           // the familiar person cell
+    data[o] = 0.5; data[o + 1] = 0.5;
+    data[o + 2] = Math.log(2); data[o + 3] = Math.log(3);
+    data[o + 4] = 0.9; data[o + 5] = 0.8; data[o + 37] = 0.1;  // ball score 0.09
+    return {
+      both: window.__filmroom.lockon.decode(data, 416, 0.3, 0.25),
+      legacy: window.__filmroom.lockon.decode(data, 416, 0.3),
+    };
+  });
+  const balls = ballDec.both.filter(d => d.kind === 'ball');
+  const persons = ballDec.both.filter(d => !d.kind);
+  check(`class 32 decodes as a ball (${balls.length} ball, score ${balls[0] && balls[0].score.toFixed(2)})`,
+    balls.length === 1 && Math.abs(balls[0].score - 0.72) < 1e-4 &&
+    Math.abs(balls[0].w - 12) < 1e-4);
+  check('a weak ball score on a person cell stays a person only',
+    persons.length === 1 && Math.abs(persons[0].score - 0.72) < 1e-4);
+  check('decode without a ball threshold is exactly the old decode (no balls)',
+    ballDec.legacy.length === 1 && !ballDec.legacy.some(d => d.kind));
+
   /* a frame with no people in it comes back empty, not broken */
   const empty = await page.evaluate(async () => {
     const cv = document.createElement('canvas'); cv.width = 640; cv.height = 360;

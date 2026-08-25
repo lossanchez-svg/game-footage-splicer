@@ -22,7 +22,7 @@
 const path = require('path');
 const fs = require('fs');
 const { FIXTURES } = require('../common');
-const { interp, scoreCase, compareCase } = require('./score');
+const { interp, scoreCase, compareCase, scoreBall } = require('./score');
 const { discoverCases, runCase } = require('./run');
 
 let failures = 0;
@@ -126,6 +126,26 @@ const decoy = t => ({ x: 0.9 - 0.08 * t, y: 0.5 });
     compareCase(honest, wanderer).verdict === 'WIN');
   check('gate: and a wanderer can never beat it back',
     compareCase(wanderer, honest).verdict === 'LOSS');
+}
+
+// the ball scorer (v6-A): fabricated paths, answers by construction
+{
+  const gtBall = [];
+  for (let t = 0; t <= 8; t += 0.5) gtBall.push({ t, x: 0.1 + 0.08 * t, y: 0.5 });
+  const perfect = gtBall.map(k => ({ t: k.t, x: k.x, y: k.y, conf: 0.5 }));
+  const p = scoreBall(gtBall, perfect);
+  check(`ball: a perfect track scores perfect (coverage ${p.coverage}, err ${p.meanErr})`,
+    p.coverage === 1 && p.meanErr < 0.001 && p.onBallPct === 100);
+  const half = perfect.filter(s => s.t <= 4);
+  const h = scoreBall(gtBall, half);
+  check(`ball: recording only the first half is half the coverage (${h.coverage})`,
+    h.coverage > 0.4 && h.coverage < 0.62 && h.meanErr < 0.001);
+  const wrong = gtBall.map(k => ({ t: k.t, x: k.x + 0.3, y: k.y, conf: 0.5 }));
+  const w = scoreBall(gtBall, wrong);
+  check(`ball: a track on the wrong thing scores its error honestly (err ${w.meanErr}, on-ball ${w.onBallPct}%)`,
+    w.coverage === 1 && w.meanErr > 0.25 && w.onBallPct === 0);
+  check('ball: no recorded samples is zero coverage, not a crash',
+    scoreBall(gtBall, []).coverage === 0 && scoreBall(gtBall, []).meanErr === null);
 }
 
 /* ---------- 2. the whole pipeline on a real tracking run ---------- */

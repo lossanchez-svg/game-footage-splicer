@@ -40,7 +40,7 @@
 const path = require('path');
 const fs = require('fs');
 const { launch } = require('../common');
-const { scoreCase, compareCase } = require('./score');
+const { scoreCase, compareCase, scoreBall } = require('./score');
 
 const ROOT = __dirname;
 const CLIPS = path.join(ROOT, 'clips');
@@ -79,7 +79,11 @@ function discoverCases(clipsDir){
 
 function loadGroundTruth(c){
   const proj = JSON.parse(fs.readFileSync(c.gt, 'utf8'));
-  const spots = (proj.annotations || []).filter(a => a.type === 'spot' && a.keys && a.keys.length >= 2);
+  const allSpots = (proj.annotations || []).filter(a => a.type === 'spot' && a.keys && a.keys.length >= 2);
+  /* a ring labelled "ball" is BALL ground truth (v6-A) — never him, never a
+     decoy: counting the ball as a look-alike would fake identity switches */
+  const ballSpot = allSpots.find(s => /^ball$/i.test((s.label || '').trim()));
+  const spots = allSpots.filter(s => s !== ballSpot);
   if (!spots.length) throw new Error(`${c.name}: no spotlight with >=2 keys in ${path.basename(c.gt)}`);
   const off = c.manifest.timeOffset || 0;
   const shift = s => ({ ...s, keys: s.keys.map(k => ({ t: k.t - off, x: k.x, y: k.y }))
@@ -95,7 +99,7 @@ function loadGroundTruth(c){
   const decoys = spots.filter(s => s !== him &&
     (decoyLabels.length ? decoyLabels.includes(s.label || '') : true))
     .map(s => ({ label: s.label || 'decoy', keys: shift(s).keys }));
-  return { him: shift(him), decoys };
+  return { him: shift(him), decoys, ball: ballSpot ? shift(ballSpot).keys : null };
 }
 
 /* Drive one case through the app. Returns { trackedKeys, report, build, ringNow }. */
@@ -205,6 +209,11 @@ async function runCase(c, opts = {}){
     decoys: gt.decoys,
     report: spotReport,
   });
+  /* v6-A: when a ball ring exists in the ground truth AND the run recorded a
+     ball path, score it; either half missing just means "not measured yet" */
+  if (gt.ball && r.report && r.report.ball)
+    metrics.ball = scoreBall(gt.ball, r.report.ball.samples);
+  else if (gt.ball) metrics.ball = { note: 'ball ground truth present, but this path records no ball track' };
   return { name: c.name, build: r.build, path: r.path || 'template',
            anchor: r.anchor, direction: r.direction,
            notes: c.manifest.notes || '', metrics,
@@ -217,7 +226,13 @@ function fmtCase(rc){
     `    on him ${m.onHimPct}%   mean err ${m.meanErr}   p90 ${m.p90Err}   coverage ${Math.round(m.coverage * 100)}%\n` +
     `    switches ${m.switches}${m.switchTime ? ` (${m.switchTime}s on the wrong player)` : ''}` +
     `   ${m.lostReported ? `said lost (last good at ${rc.report && rc.report.result && rc.report.result[0] ? rc.report.result[0].lastGoodAt : '?'}s)` : 'never said lost'}` +
-    (m.lostWithin != null ? `   loss reported ${m.lostWithin === Infinity ? 'NEVER' : m.lostWithin + 's'} after he left frame` : '');
+    (m.lostWithin != null ? `   loss reported ${m.lostWithin === Infinity ? 'NEVER' : m.lostWithin + 's'} after he left frame` : '') +
+    (m.ball && m.ball.coverage != null
+      ? `\n    ball: coverage ${Math.round(m.ball.coverage * 100)}%   mean err ${m.ball.meanErr}` +
+        `   on-ball ${m.ball.onBallPct}%   (${m.ball.samples} samples vs ${m.ball.gtKeys} marked)` +
+        (rc.report && rc.report.result && rc.report.result[0] && rc.report.result[0].possession
+          ? `   possession windows ${JSON.stringify(rc.report.result[0].possession)}` : '')
+      : (m.ball && m.ball.note ? `\n    ball: ${m.ball.note}` : ''));
 }
 
 async function main(){

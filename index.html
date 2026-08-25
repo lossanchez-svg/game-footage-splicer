@@ -2606,6 +2606,9 @@ function thinSamples(pts, eps){
    automatic fallback; the model is an enhancement, never a requirement).
    Loaded lazily on first use so opening the app stays instant. */
 const LOCKON_INPUT = 416;                 // the model's square input side
+const LOCKON_BALL_THRESH = 0.2;           // balls are small, fast and blurred —
+                                          // start permissive; the real-clip eval
+                                          // owns this number (v6-A gate)
 let lockonState = 'untried';              // untried | loading | ready | absent
 let lockonRT = null;                      // { ort, model } from lockon.js
 let lockonSes = null;                     // cached InferenceSession
@@ -2644,9 +2647,12 @@ function loadLockon(){
 }
 /* YOLOX decode: raw output is [1, N, 85] over grids at strides 8/16/32 —
    box centre = (grid + xy) * stride, size = exp(wh) * stride, and the score is
-   objectness x class probability. Persons are class 0. Pure so the tests can
-   feed it a fabricated tensor and know the right answer by construction. */
-function lockonDecode(data, S, thresh){
+   objectness x class probability. Persons are class 0; COCO's "sports ball"
+   is class 32 (v6 — the ball joins the tracks) and rides the SAME inference
+   for free: ball detections carry kind:'ball' so every player consumer can
+   filter them out with one test. Pure so the tests can feed it a fabricated
+   tensor and know the right answer by construction. */
+function lockonDecode(data, S, thresh, ballThresh){
   const out = [];
   const strides = [8, 16, 32];
   let i = 0;
@@ -2656,10 +2662,15 @@ function lockonDecode(data, S, thresh){
       for (let gx = 0; gx < g; gx++, i++){
         const o = i * 85;
         const score = data[o + 4] * data[o + 5];         // objectness x person
-        if (score < thresh) continue;
+        const ball = ballThresh != null ? data[o + 4] * data[o + 37] : 0;
+        if (score < thresh && (ballThresh == null || ball < ballThresh)) continue;
         const bx = (data[o] + gx) * st, by = (data[o + 1] + gy) * st;
         const bw = Math.exp(data[o + 2]) * st, bh = Math.exp(data[o + 3]) * st;
-        out.push({ x: bx - bw / 2, y: by - bh / 2, w: bw, h: bh, score });
+        if (score >= thresh)
+          out.push({ x: bx - bw / 2, y: by - bh / 2, w: bw, h: bh, score });
+        if (ballThresh != null && ball >= ballThresh)
+          out.push({ x: bx - bw / 2, y: by - bh / 2, w: bw, h: bh,
+                     score: ball, kind: 'ball' });
       }
   }
   return out;
@@ -2683,8 +2694,8 @@ const lockonCtx = lockonCanvas.getContext('2d', { willReadFrequently: true });
    keeps a far-away player detectable: downscaling a whole 1280px frame to 416
    would shrink a 12px player to 4px, but a 416px crop around the play keeps
    him at full size. Returns boxes in SOURCE coordinates. */
-async function lockonDetect(src, cx, cy, crop, thresh){
-  if (lockonOverride) return lockonOverride(src, cx, cy, crop, thresh);
+async function lockonDetect(src, cx, cy, crop, thresh, opts){
+  if (lockonOverride) return lockonOverride(src, cx, cy, crop, thresh, opts);
   if (lockonState !== 'ready') return null;
   const S = LOCKON_INPUT;
   crop = Math.max(64, Math.min(crop || S, Math.max(src.width, src.height)));
@@ -2705,9 +2716,16 @@ async function lockonDetect(src, cx, cy, crop, thresh){
   feeds[lockonSes.inputNames[0]] = new lockonRT.ort.Tensor('float32', inp, [1, 3, S, S]);
   const res = await lockonSes.run(feeds);
   const raw = res[lockonSes.outputNames[0]].data;
-  return lockonNms(lockonDecode(raw, S, thresh == null ? 0.35 : thresh), 0.45)
-    .map(b => ({ x: x0 + b.x / scale, y: y0 + b.y / scale,
-                 w: b.w / scale, h: b.h / scale, score: b.score }));
+  const dec = lockonDecode(raw, S, thresh == null ? 0.35 : thresh,
+    opts && opts.ball != null ? opts.ball : null);
+  /* NMS per kind — a ball box must never suppress the player carrying it */
+  const kept = [
+    ...lockonNms(dec.filter(d => !d.kind), 0.45),
+    ...lockonNms(dec.filter(d => d.kind === 'ball'), 0.45),
+  ];
+  return kept.map(b => ({ x: x0 + b.x / scale, y: y0 + b.y / scale,
+                          w: b.w / scale, h: b.h / scale, score: b.score,
+                          ...(b.kind ? { kind: b.kind } : {}) }));
 }
 
 /* ---------------- tracking by detection (v4, Phases 2-3) ----------------
@@ -2732,6 +2750,42 @@ async function lockonDetect(src, cx, cy, crop, thresh){
 function lockonPathOn(){
   try { return localStorage.getItem('filmroom:lockonPath') !== 'off'; }
   catch (e) { return false; }
+}
+
+/* possession (v6-A): the stretches where the ball sits at his feet and
+   travels with him — derived purely from two sampled paths in normalized
+   coordinates, so the eval harness can prove it on constructed paths where
+   the right answer is known. reach ≈ a stride on sideline footage; the real
+   clips own the numbers once ball ground truth exists (the v6-A gate). */
+function possessionWindows(his, ball, opts = {}){
+  const reach = opts.reach != null ? opts.reach : 0.05;
+  const minDur = opts.minDur != null ? opts.minDur : 0.4;
+  const joinGap = opts.joinGap != null ? opts.joinGap : 0.6;
+  if (!his || !ball || his.length < 2 || !ball.length) return [];
+  const at = t => {
+    if (t <= his[0].t) return his[0];
+    if (t >= his[his.length - 1].t) return his[his.length - 1];
+    for (let i = 0; i < his.length - 1; i++){
+      if (t >= his[i].t && t <= his[i + 1].t){
+        const f = (t - his[i].t) / Math.max(1e-6, his[i + 1].t - his[i].t);
+        return { x: his[i].x + (his[i + 1].x - his[i].x) * f,
+                 y: his[i].y + (his[i + 1].y - his[i].y) * f };
+      }
+    }
+    return his[his.length - 1];
+  };
+  const t0 = his[0].t, t1 = his[his.length - 1].t;
+  const wins = [];
+  for (const b of ball){
+    if (b.t < t0 - 0.05 || b.t > t1 + 0.05) continue;
+    const h = at(b.t);
+    if (Math.hypot(h.x - b.x, h.y - b.y) > reach) continue;
+    const last = wins[wins.length - 1];
+    if (last && b.t - last.end <= joinGap) last.end = b.t;
+    else wins.push({ start: b.t, end: b.t });
+  }
+  return wins.filter(w => w.end - w.start >= minDur)
+    .map(w => ({ start: +w.start.toFixed(2), end: +w.end.toFixed(2) }));
 }
 
 function lockonIou(a, b){
@@ -2841,10 +2895,54 @@ async function autoTrackDetect(spots, dir){
   await seekTo(t0);
   let img = grab();
 
+  /* the ball rides the same inference (v6-A): ball detections are split off
+     here so every player consumer below stays ball-blind, and the step's
+     balls feed one lightweight ball track of their own */
+  let stepBalls = [];
   const detsAt = async (cx, cy) => {
-    const found = await lockonDetect(trackCanvas, cx, cy, CROP, 0.3) || [];
-    for (const d of found) if (!d.sig) d.sig = lockonSig(img, d);
-    return found;
+    const found = await lockonDetect(trackCanvas, cx, cy, CROP, 0.3,
+      { ball: LOCKON_BALL_THRESH }) || [];
+    const players = [];
+    for (const d of found){
+      if (d.kind === 'ball'){ stepBalls.push(d); continue; }
+      if (!d.sig) d.sig = lockonSig(img, d);
+      players.push(d);
+    }
+    return players;
+  };
+
+  /* one ball, tracked greedily: continuity within a wide gate (a ball outruns
+     any player), re-acquired on the clearest detection after a real absence,
+     and only ever RECORDED when actually seen — a coasted ball is a guess and
+     guesses feed nothing downstream */
+  const ballTrack = { x: 0, y: 0, vx: 0, vy: 0, alive: false, missed: 0, samples: [] };
+  const ballStep = (t, balls) => {
+    balls = lockonNms(balls, 0.5);
+    let pick = null;
+    if (ballTrack.alive){
+      const px = ballTrack.x + ballTrack.vx, py = ballTrack.y + ballTrack.vy;
+      let bd = gate * 2.5;
+      for (const b of balls){
+        const d = Math.hypot(b.x + b.w / 2 - px, b.y + b.h / 2 - py);
+        if (d < bd){ bd = d; pick = b; }
+      }
+    }
+    if (!pick && balls.length && (!ballTrack.alive || ballTrack.missed > 4))
+      pick = balls.reduce((p, q) => (q.score > p.score ? q : p));
+    if (pick){
+      const cx = pick.x + pick.w / 2, cy = pick.y + pick.h / 2;
+      if (ballTrack.alive && ballTrack.missed === 0){
+        ballTrack.vx = clamp(ballTrack.vx * 0.5 + (cx - ballTrack.x) * 0.5, -gate * 2.5, gate * 2.5);
+        ballTrack.vy = clamp(ballTrack.vy * 0.5 + (cy - ballTrack.y) * 0.5, -gate * 2.5, gate * 2.5);
+      } else { ballTrack.vx = 0; ballTrack.vy = 0; }
+      ballTrack.x = cx; ballTrack.y = cy;
+      ballTrack.alive = true; ballTrack.missed = 0;
+      ballTrack.samples.push({ t: +t.toFixed(3), x: +(cx / W).toFixed(4),
+        y: +(cy / H).toFixed(4), conf: +pick.score.toFixed(2) });
+    } else if (ballTrack.alive){
+      ballTrack.missed++;
+      if (ballTrack.missed > 10) ballTrack.alive = false;
+    }
   };
   /* which detected player is the ring on? the box that holds the ring point,
      or whose feet are nearest to it within reach */
@@ -2944,6 +3042,7 @@ async function autoTrackDetect(spots, dir){
     t = dir > 0 ? Math.min(t + dt, T_LAST) : Math.max(t - dt, T_LAST);
     await seekTo(t);
     img = grab();
+    stepBalls = [];
 
     /* one detection sweep covers everyone whose crops overlap. If association
        collapsed last step — what a camera whip looks like, every detection
@@ -3012,6 +3111,10 @@ async function autoTrackDetect(spots, dir){
             x.lastGoodX = clamp(x.lastGoodX + panX, 0, W - 1);
             x.lastGoodY = clamp(x.lastGoodY + panY, 0, H - 1);
           }
+          if (ballTrack.alive){
+            ballTrack.x = clamp(ballTrack.x + panX, 0, W - 1);
+            ballTrack.y = clamp(ballTrack.y + panY, 0, H - 1);
+          }
           ({ matches, usedD, usedT } = lockonStep(assocTracks, dets, gate));
         }
       }
@@ -3030,6 +3133,22 @@ async function autoTrackDetect(spots, dir){
       for (let i = 0; i < 6; i++) tr.sig[i] = tr.sig[i] * 0.9 + d.sig[i] * 0.1;
       tr.hits++; tr.missed = 0; tr.margin = m.margin; tr.score = d.score; tr.det = d;
     }
+    /* one dedicated MAGNIFIED look for the ball: a ball is a tenth of a
+       player's size, so it earns a tighter crop — at its predicted spot when
+       tracked, else at his feet, the likeliest place for it to matter. The
+       person threshold is pushed to 1 so this pass costs no player work. */
+    {
+      const zx = ballTrack.alive ? clamp(ballTrack.x + ballTrack.vx, 0, W - 1)
+        : (st[0].done || st[0].hunt ? null : st[0].tr.x);
+      const zy = ballTrack.alive ? clamp(ballTrack.y + ballTrack.vy, 0, H - 1)
+        : (st[0].done || st[0].hunt ? null : st[0].tr.y + st[0].tr.h * 0.45);
+      if (zx != null){
+        const zoom = await lockonDetect(trackCanvas, zx, zy,
+          Math.max(96, Math.round(CROP / 2)), 1.01, { ball: LOCKON_BALL_THRESH }) || [];
+        for (const d of zoom) if (d.kind === 'ball') stepBalls.push(d);
+      }
+    }
+    ballStep(t, stepBalls);   // the ball's own little track, from the same pass
     for (const tr of tracks){
       if (usedT.has(tr)) continue;
       tr.missed++; tr.det = null; tr.margin = null;
@@ -3171,7 +3290,15 @@ async function autoTrackDetect(spots, dir){
     label: x.spot.label || '', lost: x.lost, lastGoodAt: +x.lastGoodT.toFixed(3),
     refinds: x.refinds, uncertain: x.uncertain,
     keys: x.spot.keys.length, samples: x.trace,
+    /* v6-A: where the ball was at his feet and moving with him */
+    possession: possessionWindows(x.samples, ballTrack.samples),
   }));
+  /* the ball's own record: coverage is honest (recorded only when seen) */
+  lastTrackReport.ball = {
+    coverage: +(ballTrack.samples.length /
+      Math.max(1, Math.round(Math.abs(T_LAST - t0) / dt))).toFixed(3),
+    samples: ballTrack.samples,
+  };
   lastTrackReport.cancelled = !!ui.trackCancel;
   persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
 
@@ -6590,6 +6717,7 @@ window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP
   get trackReport(){ return lastTrackReport; },
   lockon: { load: loadLockon, detect: lockonDetect, decode: lockonDecode,
     nms: lockonNms, step: lockonStep, sigDist: lockonSigDist,
+    possession: possessionWindows,
     stub(fn){ lockonOverride = fn; if (fn) lockonState = 'ready'; },
     get state(){ return lockonState; }, get loadMs(){ return lockonLoadMs; } } };
 
