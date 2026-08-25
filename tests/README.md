@@ -68,6 +68,28 @@ node continuity.js     # cross-device continuity: the project written next to it
                        # in the Games folder, a second device picking it up, newest-wins
                        # when both have work, and silent fallback when the folder is
                        # read-only or the video came from somewhere else
+node profile.js        # his player card (v5): save + reload persistence, the reel card
+                       # leading with his name, coach-friendly file names, the photo
+                       # shrunk into IndexedDB, and the card travelling with the Games
+                       # folder (player.filmroom.json, newest savedAt wins, both ways)
+node studio.js         # Reel Studio storyboard (v5): season pool best-first with
+                       # work-ons excluded, draft + drag/button reorder, spotlight and
+                       # freeze-intro toggles, bounded half-second trims, editable
+                       # context labels, undo-able removes, the position checklist from
+                       # his player card, vanished games marked not dropped, and the
+                       # plan travelling via reels.filmroom.json
+node render.js         # Reel Studio renders (v5): the storyboard into files — master
+                       # reel across TWO games' footage from the Games folder (opening
+                       # card + freeze intros + trims + contact card, no coach cards or
+                       # question freezes), missing games called out then skipped only
+                       # on a second press, coach-named files, and the 9:16 social cut
+                       # whose crop provably follows the tracked path (stubbed encoder,
+                       # like fastexport.js; the muxer is proven in muxer.js)
+node kit.js            # the sharing kit (v5): YouTube title/description with chapter
+                       # times matching the rendered reel, the coach email filled from
+                       # his card, the self-contained one-page player site (poster
+                       # frame baked in, nothing fetched), the zip verified by real
+                       # unzip, and the no-card guard
 node trends.js         # progress dashboard: cross-game totals from localStorage and the
                        # Games folder, a bar per game in date order, most-used labels,
                        # early-vs-recent movement, filters, and the CSV export

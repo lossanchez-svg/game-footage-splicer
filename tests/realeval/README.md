@@ -123,6 +123,15 @@ verdict measured as time-on-him, or it does not ship.
 scores, times) — never frames or footage. `out/` also keeps the app's own
 tracking report per case (`<case>-report.json`) for diagnosis.
 
+## The 9:16 reframe check (v5)
+
+`node realeval/reframe.js` measures the social cut's acceptance on the real
+clips: does the auto-reframed 9:16 crop keep him in frame ≥95% of the cut?
+Pure arithmetic over an existing `--path detect` run's tracked path (the same
+follow math the renderer ships) against the hand-dragged ground truth. Run
+`node realeval/run.js --path detect` first; clips without a report are
+skipped with a note.
+
 ## Self-test
 
 `selftest.js` proves the instrument before it judges anything: fabricated

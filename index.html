@@ -264,6 +264,77 @@
   body.bigText .kpi .fig{font-size:34px;}
   body.bigText .kpi .cap{font-size:14px;}
 
+  /* ---- Reel Studio (v5) — its own calm, premium register ----
+     Tokens first: the studio reads quieter and more spacious than the editing
+     surfaces around it, and every motion is one short ease-out. */
+  :root{
+    --st-gap:14px;            /* the studio's base spacing unit */
+    --st-radius:12px;
+    --st-ease:cubic-bezier(.2,.7,.3,1);
+    --st-fast:140ms;
+    --st-card:#161d27;        /* one step calmer than --bg3 */
+    --st-card-edge:#232c38;
+  }
+  #studioModal .box{width:min(880px, 96vw);}
+  #studioModal h3{letter-spacing:-.2px;}
+  #studioModal .trendHead{padding-bottom:10px; border-bottom:1px solid var(--line);
+    margin-bottom:10px;}
+  .sbList{margin-top:10px;}
+  .sbCard{display:flex; align-items:center; gap:12px; background:var(--st-card);
+    border:1px solid var(--st-card-edge); border-radius:var(--st-radius);
+    padding:11px 12px; margin-bottom:8px;
+    transition:transform var(--st-fast) var(--st-ease),
+      box-shadow var(--st-fast) var(--st-ease),
+      border-color var(--st-fast) var(--st-ease),
+      opacity var(--st-fast) var(--st-ease);
+    animation:sbIn 220ms var(--st-ease);}
+  @keyframes sbIn{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+  .sbCard:hover{transform:translateY(-1px); border-color:#31547a;
+    box-shadow:0 4px 14px rgba(0,0,0,.28);}
+  .sbCard.dragging{opacity:.45; transform:scale(.995);}
+  .sbCard.missing{border-style:dashed; opacity:.75;}
+  .sbHandle{cursor:grab; color:var(--dim); font-size:16px; padding:8px 5px;
+    touch-action:none; user-select:none; border-radius:8px;
+    transition:background var(--st-fast) var(--st-ease);}
+  .sbHandle:hover{background:rgba(139,148,158,.12);}
+  .sbHandle:active{cursor:grabbing;}
+  .sbOrd{color:var(--dim); font-variant-numeric:tabular-nums; min-width:22px;
+    text-align:right; font-size:13px; font-weight:700; opacity:.75;}
+  .sbMain{flex:1; min-width:0;}
+  .sbTitle{font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    letter-spacing:-.1px;}
+  .sbSub{color:var(--dim); font-size:12px; display:flex; gap:8px; flex-wrap:wrap;
+    align-items:center; margin-top:2px;}
+  .sbSub input{font-size:12px; background:none; border:none;
+    border-bottom:1px dashed transparent; color:var(--dim); padding:1px 2px;
+    min-width:120px; flex:1; transition:border-color var(--st-fast) var(--st-ease),
+      color var(--st-fast) var(--st-ease);}
+  .sbSub input:hover{border-bottom-color:var(--line);}
+  .sbSub input:focus{border-bottom-color:var(--accent2); color:var(--text); outline:none;}
+  .sbCtl{display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end;}
+  .sbTog{padding:4px 9px; font-size:12px; border-radius:20px;
+    transition:background var(--st-fast) var(--st-ease),
+      border-color var(--st-fast) var(--st-ease), color var(--st-fast) var(--st-ease);}
+  /* on = a quiet tint, not a solid block: with ring+intro on by default,
+     every card would otherwise shout five green pills at once */
+  .sbTog.on{background:rgba(63,185,80,.13); border-color:rgba(63,185,80,.55);
+    color:#57d06d;}
+  .sbTrim{display:flex; align-items:center; gap:3px; color:var(--dim); font-size:12px;
+    font-variant-numeric:tabular-nums; margin-top:6px;
+    animation:sbIn 180ms var(--st-ease);}
+  body.bigText .sbSub, body.bigText .sbOrd, body.bigText .sbTog, body.bigText .sbTrim{font-size:14px;}
+  .studioHint{color:var(--dim); font-size:12.5px; margin:8px 0 6px; font-style:italic;}
+  body.bigText .studioHint{font-size:14px;}
+  .checkRow{display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;}
+  .checkRow .chip{cursor:default; transition:border-color var(--st-fast) var(--st-ease),
+    color var(--st-fast) var(--st-ease);}
+  .checkRow .chip.got{border-color:var(--pos); color:var(--pos);}
+  @media (prefers-reduced-motion: reduce){
+    .sbCard, .sbTrim{animation:none;}
+    .sbCard, .sbCard:hover, .sbHandle, .sbSub input, .sbTog, .checkRow .chip{transition:none;}
+    .sbCard:hover{transform:none;}
+  }
+
   .trendSection{margin-top:22px;}
   .trendSection h4{font-size:11px; text-transform:uppercase; letter-spacing:.8px;
     color:var(--dim); margin-bottom:2px;}
@@ -432,7 +503,7 @@
 <!-- ======================= TOP BAR ======================= -->
 <div id="topbar">
   <div class="logo">⚽ Film<span>Room</span></div>
-  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v4.0</span>
+  <span id="buildTag" data-tip="Which build of Film Room this is. Quote it if you are reporting something that looks wrong.">v5.0</span>
   <button id="btnOpen" class="primary" data-tip="Open a video of his game from this computer. Use it any time you want to switch to a different game — nothing is ever uploaded.">Open video…</button>
   <button id="btnLibrary" data-tip="Your folder of game films. Point Film Room at it once and every game is one click away from then on.">📁 Games</button>
   <span id="videoName"></span>
@@ -451,6 +522,7 @@
   <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
   <button id="btnBundle" data-tip="Pack everything from this game into one file to keep — the project, a spreadsheet of the moments, his answers, the boards and your voice-overs, and optionally a video of every moment.">📦 Keep this game</button>
   <div class="divider"></div>
+  <button id="btnStudio" data-tip="Build his recruiting reel from the best moments of the whole season — pick the plays, put them in order, and it remembers the plan.">🎬 Reel Studio</button>
   <button id="btnTrends" data-tip="How he is doing across every game you have broken down — what he does well, what keeps coming up, and what is getting better.">📈 Progress</button>
   <button id="btnTextSize" data-tip="Make everything on screen bigger — text, buttons, everything. Press it again to go back to normal.">Aa</button>
   <button id="btnHelp" data-tip="How everything works, plus a button to run the walkthrough again.">❓ Help</button>
@@ -698,6 +770,14 @@
         </div>
       </div>
       <div class="section">
+        <h4>🎽 Player card</h4>
+        <div class="hint" id="profileHint">Fill this in once — his name, number and grad year, the way a coach would ask for them. The opening card of every reel and the name of every saved video use it from then on.</div>
+        <div id="profileSummary" style="display:none"></div>
+        <div class="chipRow" style="margin-top:6px">
+          <button id="btnProfile" data-tip="His name, number, grad year, positions and how a coach can reach you — filled in once, printed on every reel automatically.">✎ Fill in his card</button>
+        </div>
+      </div>
+      <div class="section">
         <h4>🎞 Highlight reel</h4>
         <div class="fieldRow"><input type="text" id="reelTitle" placeholder="Reel title, e.g. Week 3 — playing between the lines" style="flex:1" data-tip="What to call this week's set of clips. It shows on the opening card of the video and at the top of a session."></div>
         <div id="reelList"></div>
@@ -864,6 +944,57 @@
   </div>
 </div>
 
+<!-- ======================= PLAYER CARD ======================= -->
+<div class="modal" id="profileModal">
+  <div class="box">
+    <h3>🎽 His player card</h3>
+    <div class="hint">Everything here is optional except his name. It is printed on the opening card of every reel, and saved videos are named after him — so a coach knows whose film it is before pressing play.</div>
+    <div class="fieldRow" style="margin-top:10px">
+      <label>His name</label>
+      <input type="text" id="profName" style="flex:1" placeholder="e.g. Jude Sanchez" data-tip="His full name, the way it should appear on the reel and in the file name a coach downloads.">
+      <label style="min-width:0">Number</label>
+      <input type="text" id="profJersey" style="width:64px" placeholder="81" data-tip="His jersey number. It helps a coach find him on the field before the spotlight does.">
+    </div>
+    <div class="fieldRow">
+      <label>Grad year</label>
+      <input type="text" id="profGrad" style="width:80px" placeholder="2032" data-tip="The year he finishes high school. College coaches sort every player by this first.">
+      <label style="min-width:0">Height</label>
+      <input type="text" id="profHeight" style="width:90px" placeholder="5'9&quot;" data-tip="How tall he is. Coaches expect it on a recruiting reel; leave it out if you would rather not say.">
+    </div>
+    <div class="fieldRow">
+      <label>Positions</label>
+      <input type="text" id="profPositions" style="flex:1" placeholder="e.g. Attacking Mid, Winger" data-tip="Where he plays, best position first. The first one is used in titles and file names.">
+    </div>
+    <div class="fieldRow">
+      <label>Club team</label>
+      <input type="text" id="profClub" style="flex:1" placeholder="e.g. FC Dallas 2032B" data-tip="The club or team he plays for, as it should read on the reel.">
+      <label style="min-width:0">League</label>
+      <input type="text" id="profLeague" style="width:130px" placeholder="e.g. MLS NEXT" data-tip="The league or level his team plays in, if a coach would recognise it.">
+    </div>
+    <div class="fieldRow">
+      <label>GPA</label>
+      <input type="text" id="profGpa" style="width:80px" placeholder="3.8" data-tip="His grade point average, if you want academics on the card — many college coaches look for it.">
+      <label style="min-width:0">Contact</label>
+      <input type="text" id="profContact" style="flex:1" placeholder="parent email or phone" data-tip="How a coach reaches you — an email address or phone number. It goes on the reel's contact card, so use one you are happy to share.">
+    </div>
+    <div class="fieldRow">
+      <label>Links</label>
+      <input type="text" id="profLinks" style="flex:1" placeholder="highlight channel, Instagram… (optional)" data-tip="Where more of his film lives — a YouTube channel or an Instagram handle. Printed on the contact card so a coach can see more.">
+    </div>
+    <div class="fieldRow" style="align-items:center">
+      <label>Photo</label>
+      <img id="profPhotoPrev" alt="" style="display:none; width:56px; height:56px; border-radius:10px; object-fit:cover; border:1px solid var(--line)">
+      <button id="profPhotoPick" data-tip="A photo of him for the reel's opening card and the player page — a head shot or an action shot both work.">📷 Choose a photo…</button>
+      <button id="profPhotoClear" style="display:none" data-tip="Take the photo off the card. You can add a different one any time.">✕ Remove it</button>
+      <input type="file" id="profPhotoFile" accept="image/*" style="display:none">
+    </div>
+    <div class="foot">
+      <button id="profCancel" data-tip="Close this without changing his card.">Cancel</button>
+      <button class="primary" id="profSave" data-tip="Keep his card. Every reel and saved video uses it from now on — you can come back and change it any time.">Save his card</button>
+    </div>
+  </div>
+</div>
+
 <!-- ======================= GAME LIBRARY MODAL ======================= -->
 <div class="modal" id="libModal">
   <div class="box">
@@ -907,6 +1038,42 @@
 </div>
 
 <!-- ======================= PROGRESS DASHBOARD ======================= -->
+<!-- ======================= REEL STUDIO ======================= -->
+<div class="modal" id="studioModal">
+  <div class="box">
+    <div class="trendHead">
+      <h3 style="margin:0">🎬 Reel Studio</h3>
+      <span class="hint" style="margin:0" id="studioScope"></span>
+    </div>
+    <div class="hint" id="studioIntro">His recruiting reel, planned from the whole season. Pick the plays below, put them in order, trim them tight — the plan is saved as you go, and it becomes one video a coach can watch.</div>
+    <div class="fieldRow" style="margin-top:10px">
+      <label>Reel title</label>
+      <input type="text" id="studioTitle" style="flex:1" placeholder="e.g. Jude Sanchez — 2027 season" data-tip="What this reel is called. It goes on the opening card and in the file name when the video is made.">
+    </div>
+    <div class="studioHint" id="studioCoachHint">Your best play goes first — coaches decide in the first 30 seconds.</div>
+    <div id="studioChecklist" style="display:none"></div>
+    <div class="sbList" id="sbList"></div>
+    <div class="hint" id="sbEmpty">Nothing planned yet. Add plays from the season list below, or let it draft a starting order from his strengths — you rearrange, it remembers.</div>
+    <div class="chipRow" style="margin-top:8px">
+      <button class="primary" id="studioDraft" data-tip="Fill the storyboard with his strength clips from every game, in a sensible starting order. You drag them into the order you want — nothing is final.">✨ Draft it for me</button>
+      <button id="studioClear" style="display:none" data-tip="Empty the storyboard and start the plan again. The clips themselves stay in their games.">Start the plan over</button>
+    </div>
+    <div class="trendSection">
+      <h4>From his season</h4>
+      <div class="why" id="studioPoolWhy">Every moment you have saved, best material first — strengths, then teachable moments. Work-ons stay out of a recruiting reel.</div>
+      <div id="studioPool"></div>
+    </div>
+    <div class="hint" id="studioMissing" style="display:none; margin-top:12px"></div>
+    <div class="chipRow" style="margin-top:12px">
+      <button class="primary" id="studioMake" data-tip="Make the storyboard into one full-quality video: his opening card, every play with its freeze and context line, and the contact card at the end. The footage is read from your Games folder — nothing is uploaded anywhere.">🎬 Make the reel</button>
+      <button id="studioSocial" data-tip="Make the tall phone-shaped cut of the same plays for Instagram, TikTok or Shorts: the picture follows him automatically, the reel title opens as a hook, each play is captioned, and his handle sits in the corner.">📱 Make the social cut</button>
+      <button id="studioKit" data-tip="One zip with everything that goes around the reel: YouTube words with chapter times that match it, an email to a coach with his details written in, and his one-page player site as a single file you can attach or host anywhere.">✉️ Save the sharing kit</button>
+    </div>
+    <div class="hint" id="studioNext">Both files are full quality and named after him. The reel is the wide one for coaches, with his cards and the game sound; the social cut is the tall one where the picture follows him on its own. Keep the social plan short — under a minute is what gets watched.</div>
+    <div class="foot"><button class="primary" id="studioClose" data-tip="Close the studio. The plan keeps itself saved — come back any time.">Close</button></div>
+  </div>
+</div>
+
 <div class="modal" id="trendModal">
   <div class="box">
     <div class="trendHead">
@@ -1380,6 +1547,255 @@ function updateContinuityUI(){
   if (on) el.textContent = '☁︎ Saving to your Games folder';
 }
 
+/* ---------------- his player card (v5-A) ----------------
+  One card, filled in once and reused everywhere: the opening card of every
+  reel, the names of saved videos, and (v5-D) the one-page player site. The
+  card lives in localStorage; the photo lives in IndexedDB (a photo would eat
+  the localStorage quota that autosave depends on — the voice-over lesson);
+  and both travel between devices as player.filmroom.json in the Games
+  folder, newest savedAt wins — the same rule as game sidecars. */
+const PROFILE_KEY = 'filmroom:playerCard';
+const PLAYER_SIDECAR = 'player.filmroom.json';
+let playerCard = null;
+let playerPhotoUrl = null;    // objectURL of the stored photo, for previews
+let playerPhotoImg = null;    // decoded and ready to draw onto cards
+let profPhotoStage;           // undefined = untouched, null = remove, Blob = replace
+
+function loadPlayerCard(){
+  try { playerCard = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); }
+  catch(e){ playerCard = null; }
+  refreshPlayerPhoto();
+}
+async function refreshPlayerPhoto(){
+  let blob = null;
+  try { blob = await libIdb.get('playerPhoto') || null; } catch(e){}
+  if (playerPhotoUrl){ URL.revokeObjectURL(playerPhotoUrl); playerPhotoUrl = null; }
+  playerPhotoImg = null;
+  if (blob){
+    playerPhotoUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { playerPhotoImg = img; };
+    img.src = playerPhotoUrl;
+  }
+  renderPlayerCard();
+}
+
+function savePlayerCard(p){
+  playerCard = { ...p, savedAt: new Date().toISOString() };
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(playerCard)); } catch(e){}
+  renderPlayerCard();
+  writePlayerSidecar();
+}
+
+/* shrink whatever photo was picked to something card-sized: 512px is plenty
+   for a corner of a 1080p title card, and it keeps the sidecar file small */
+async function storePlayerPhoto(file){
+  try {
+    const img = await createImageBitmap(file);
+    const s = Math.min(1, 512 / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * s)), h = Math.max(1, Math.round(img.height * s));
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+    if (!blob) return null;
+    return blob;
+  } catch(e){ return null; }
+}
+
+const blobToDataUrl = blob => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result); r.onerror = () => rej(r.error);
+  r.readAsDataURL(blob);
+});
+function dataUrlToBlob(u){
+  const i = String(u).indexOf(',');
+  const mime = (String(u).slice(0, i).match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+  const bytes = Uint8Array.from(atob(String(u).slice(i + 1)), ch => ch.charCodeAt(0));
+  return new Blob([bytes], { type: mime });
+}
+
+async function writePlayerSidecar(){
+  if (!playerCard || !gameDir) return;
+  try {
+    if (!await canWriteFolder(gameDir)) return;
+    const out = { ...playerCard };
+    try {
+      const blob = await libIdb.get('playerPhoto');
+      if (blob) out.photo = await blobToDataUrl(blob);
+    } catch(e){}
+    const h = await gameDir.getFileHandle(PLAYER_SIDECAR, { create: true });
+    const w = await h.createWritable();
+    await w.write(JSON.stringify(out));
+    await w.close();
+  } catch(e){ /* no folder or no permission — localStorage carries on alone */ }
+}
+
+/* called when the Games folder connects: the newer of the two copies wins,
+   in whichever direction, and adopting from the folder says so out loud */
+async function syncPlayerCardWithFolder(){
+  if (!gameDir) return;
+  let filed = null;
+  try {
+    const h = await gameDir.getFileHandle(PLAYER_SIDECAR);
+    filed = JSON.parse(await (await h.getFile()).text());
+  } catch(e){}
+  if (filed && filed.name && savedAtOf(filed) > savedAtOf(playerCard)){
+    const photo = filed.photo; delete filed.photo;
+    playerCard = filed;
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(playerCard)); } catch(e){}
+    try {
+      if (photo) await libIdb.set('playerPhoto', dataUrlToBlob(photo));
+      else await libIdb.del('playerPhoto');
+    } catch(e){}
+    await refreshPlayerPhoto();
+    toast('🎽 His player card came along from your Games folder.');
+  } else if (playerCard && savedAtOf(playerCard) > savedAtOf(filed)){
+    writePlayerSidecar();
+  }
+}
+
+/* the pieces a coach reads first, in reading order, only the ones that exist */
+function playerCardParts(p){
+  p = p || playerCard || {};
+  return [
+    p.jersey ? '#' + String(p.jersey).replace(/^#/, '') : '',
+    p.gradYear ? 'Class of ' + p.gradYear : '',
+    String(p.positions || '').split(/[,;·|]/)[0].trim(),
+    p.club || '',
+  ].filter(Boolean);
+}
+
+/* what the reel's opening card should SAY — kept separate from the drawing so
+   the words can be tested without reading pixels (the buildFastAudio lesson) */
+function reelCardLines(info){
+  const p = playerCard;
+  if (p && p.name){
+    const L = {
+      brand: '⚽ FILM ROOM',
+      name: String(p.name).toUpperCase(),
+      sub: playerCardParts(p).join('  ·  '),
+      title: info.title,
+      count: info.count + (info.count === 1 ? ' clip' : ' clips') + '  ·  watch · talk · rewatch',
+    };
+    if (info.kind === 'recruiting'){
+      /* the recruiting opener reads like a roster page, not a family movie:
+         height/league/GPA under the roster line, contact at the bottom */
+      L.count = info.count + (info.count === 1 ? ' play' : ' plays');
+      L.stats = [p.height, p.league, p.gpa ? 'GPA ' + p.gpa : ''].filter(Boolean).join('  ·  ');
+      L.reach = [p.contact, p.links].filter(Boolean).join('  ·  ');
+    }
+    return L;
+  }
+  return { brand: '⚽ FILM ROOM', name: null, sub: '', title: info.title,
+           count: info.count + (info.count === 1 ? ' clip' : ' clips')
+             + (info.kind === 'recruiting' ? '' : '  ·  watch · talk · rewatch') };
+}
+
+/* "Jude Sanchez - 2032 - Attacking Mid - Week 3" — the file a coach keeps
+   should say whose film it is; null when there is no card yet */
+function profileFileBase(label){
+  if (!(playerCard && playerCard.name)) return null;
+  const clean = s => String(s || '').replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/[—–]/g, '-').replace(/\s+/g, ' ').trim();
+  return [clean(playerCard.name), clean(playerCard.gradYear),
+          clean(String(playerCard.positions || '').split(/[,;·|]/)[0]), clean(label)]
+    .filter(Boolean).join(' - ');
+}
+
+function renderPlayerCard(){
+  const has = !!(playerCard && playerCard.name);
+  $('#profileHint').style.display = has ? 'none' : '';
+  $('#btnProfile').textContent = has ? '✎ Edit his card' : '✎ Fill in his card';
+  const sum = $('#profileSummary');
+  sum.style.display = has ? '' : 'none';
+  sum.innerHTML = '';
+  if (!has) return;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex; align-items:center; gap:10px';
+  if (playerPhotoUrl){
+    const img = document.createElement('img');
+    img.src = playerPhotoUrl; img.alt = '';
+    img.style.cssText = 'width:44px; height:44px; border-radius:10px; object-fit:cover; border:1px solid var(--line)';
+    row.appendChild(img);
+  }
+  const txt = document.createElement('div');
+  const nm = document.createElement('b'); nm.textContent = playerCard.name;
+  const sub = document.createElement('div');
+  sub.style.cssText = 'color:var(--dim); font-size:.92em';
+  sub.textContent = playerCardParts().join(' · ');
+  txt.appendChild(nm); txt.appendChild(sub);
+  row.appendChild(txt);
+  sum.appendChild(row);
+}
+
+function openProfileModal(){
+  const p = playerCard || {};
+  $('#profName').value = p.name || '';
+  $('#profJersey').value = p.jersey || '';
+  $('#profGrad').value = p.gradYear || '';
+  $('#profHeight').value = p.height || '';
+  $('#profPositions').value = p.positions || '';
+  $('#profClub').value = p.club || '';
+  $('#profLeague').value = p.league || '';
+  $('#profGpa').value = p.gpa || '';
+  $('#profContact').value = p.contact || '';
+  $('#profLinks').value = p.links || '';
+  profPhotoStage = undefined;
+  updateProfilePhotoRow(playerPhotoUrl);
+  $('#profileModal').classList.add('open');
+}
+function updateProfilePhotoRow(url){
+  const prev = $('#profPhotoPrev');
+  prev.style.display = url ? '' : 'none';
+  if (url) prev.src = url;
+  $('#profPhotoClear').style.display = url ? '' : 'none';
+  $('#profPhotoPick').textContent = url ? '📷 Change the photo…' : '📷 Choose a photo…';
+}
+$('#btnProfile').onclick = openProfileModal;
+$('#profCancel').onclick = () => {
+  if (profPhotoStage !== undefined && $('#profPhotoPrev').src.startsWith('blob:') &&
+      $('#profPhotoPrev').src !== playerPhotoUrl) URL.revokeObjectURL($('#profPhotoPrev').src);
+  $('#profileModal').classList.remove('open');
+};
+$('#profPhotoPick').onclick = () => $('#profPhotoFile').click();
+$('#profPhotoFile').onchange = async () => {
+  const f = $('#profPhotoFile').files[0];
+  $('#profPhotoFile').value = '';
+  if (!f) return;
+  const blob = await storePlayerPhoto(f);
+  if (!blob) return toast('That file could not be read as a picture — try a different photo.');
+  profPhotoStage = blob;
+  updateProfilePhotoRow(URL.createObjectURL(blob));
+};
+$('#profPhotoClear').onclick = () => { profPhotoStage = null; updateProfilePhotoRow(null); };
+$('#profSave').onclick = async () => {
+  const name = $('#profName').value.trim();
+  if (!name) return toast('At least his name is needed — it is what goes on every reel.', 4500);
+  savePlayerCard({
+    name,
+    jersey: $('#profJersey').value.trim(),
+    gradYear: $('#profGrad').value.trim(),
+    height: $('#profHeight').value.trim(),
+    positions: $('#profPositions').value.trim(),
+    club: $('#profClub').value.trim(),
+    league: $('#profLeague').value.trim(),
+    gpa: $('#profGpa').value.trim(),
+    contact: $('#profContact').value.trim(),
+    links: $('#profLinks').value.trim(),
+  });
+  if (profPhotoStage !== undefined){
+    try {
+      if (profPhotoStage) await libIdb.set('playerPhoto', profPhotoStage);
+      else await libIdb.del('playerPhoto');
+    } catch(e){}
+    await refreshPlayerPhoto();
+    writePlayerSidecar();   // the card was already written; ride along with the photo
+  }
+  $('#profileModal').classList.remove('open');
+  toast('🎽 His card is saved. Every reel and saved video uses it from now on.');
+};
+loadPlayerCard();
+
 async function openLibrary(){
   $('#libModal').classList.add('open');
   if (!gameDir){
@@ -1421,6 +1837,9 @@ async function renderLibrary(){
       return;
     }
   } catch(e){}
+
+  syncPlayerCardWithFolder();   // his card travels with the folder; newest wins
+  syncStudioWithFolder();       // so does the reel plan
 
   const files = [], sidecars = new Set();
   try {
@@ -1690,7 +2109,10 @@ function drawScene(ctx, W, H, t, opts){
   const lw = Math.max(2, W/480);           // base line width scales with size
   const fontPx = Math.max(11, W/55);
 
-  const active = project.annotations.filter(a =>
+  /* opts.annotations lets the renderer draw ANOTHER game's marks (the studio
+     reel spans games); the live overlay and same-game exports pass nothing
+     and get the open project, exactly as before */
+  const active = ((opts && opts.annotations) || project.annotations).filter(a =>
     a.type !== 'pause' && t >= a.tStart - 0.01 && t <= a.tEnd + 0.01);
 
   for (const a of active){
@@ -2150,14 +2572,15 @@ function deleteSelected(){
 const trackCanvas = document.createElement('canvas');
 const trackCtx = trackCanvas.getContext('2d', { willReadFrequently: true });
 
-function seekTo(t){
+function seekVid(v, t){
   return new Promise(res => {
     const to = setTimeout(done, 2000);           // safety: some containers mis-fire seeked
-    function done(){ clearTimeout(to); video.removeEventListener('seeked', done); res(); }
-    video.addEventListener('seeked', done);
-    video.currentTime = t;
+    function done(){ clearTimeout(to); v.removeEventListener('seeked', done); res(); }
+    v.addEventListener('seeked', done);
+    v.currentTime = t;
   });
 }
+function seekTo(t){ return seekVid(video, t); }
 
 function thinSamples(pts, eps){
   if (pts.length <= 2) return pts;
@@ -4028,7 +4451,8 @@ $('#btnExportReel').onclick = () => {
   const title = ($('#reelTitle').value || '').trim();
   exportProgram(clips.map(c => ({ clip: c, tIn: c.tIn, tOut: c.tOut })),
     title || 'highlight reel',
-    { reelCard: { title: title || 'Highlight Reel', count: clips.length } });
+    { reelCard: { title: title || 'Highlight Reel', count: clips.length },
+      fileBase: profileFileBase(title || 'Highlight reel') });
 };
 $('#btnClearReel').onclick = () => {
   if (!(project.reel || []).length) return;
@@ -5032,21 +5456,69 @@ function drawTitleCard(ctx, W, H, clip){
 }
 
 function drawReelCard(ctx, W, H, info){
+  const L = reelCardLines(info);
   ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
   const cx = W / 2;
   ctx.textAlign = 'center';
   ctx.fillStyle = '#2ea043';
   ctx.font = `700 ${Math.max(14, W / 40)}px -apple-system,sans-serif`;
-  ctx.fillText('⚽ FILM ROOM', cx, H * 0.3);
-  const big = Math.max(28, W / 16);
-  ctx.font = `800 ${big}px -apple-system,sans-serif`;
-  ctx.fillStyle = '#e6edf3';
-  let y = H * 0.3 + big * 1.5;
-  for (const line of wrapLines(ctx, info.title, W * 0.84)){ ctx.fillText(line, cx, y); y += big * 1.2; }
+  let y = H * (L.name ? 0.2 : 0.3);
+  ctx.fillText(L.brand, cx, y);
+  if (L.name){
+    /* the card leads with WHO once his player card is filled in */
+    if (playerPhotoImg){
+      const d = Math.round(H * 0.17);
+      const px = cx, py = y + d * 0.75;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(px, py + d / 2, d / 2, 0, Math.PI * 2); ctx.clip();
+      const s = Math.max(d / playerPhotoImg.width, d / playerPhotoImg.height);
+      ctx.drawImage(playerPhotoImg, px - playerPhotoImg.width * s / 2,
+        py + d / 2 - playerPhotoImg.height * s / 2,
+        playerPhotoImg.width * s, playerPhotoImg.height * s);
+      ctx.restore();
+      y = py + d;
+    }
+    const nameFs = Math.max(28, W / 16);
+    ctx.font = `800 ${nameFs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#e6edf3';
+    y += nameFs * 1.5;
+    ctx.fillText(L.name, cx, y);
+    if (L.sub){
+      const subFs = Math.max(15, W / 36);
+      ctx.font = `600 ${subFs}px -apple-system,sans-serif`;
+      ctx.fillStyle = '#9aa4b2';
+      y += subFs * 1.7;
+      ctx.fillText(L.sub, cx, y);
+    }
+    const midFs = Math.max(18, W / 26);
+    ctx.font = `700 ${midFs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#e6edf3';
+    y += midFs * 2;
+    for (const line of wrapLines(ctx, L.title, W * 0.84)){ ctx.fillText(line, cx, y); y += midFs * 1.2; }
+  } else {
+    const big = Math.max(28, W / 16);
+    ctx.font = `800 ${big}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#e6edf3';
+    y += big * 1.5;
+    for (const line of wrapLines(ctx, L.title, W * 0.84)){ ctx.fillText(line, cx, y); y += big * 1.2; }
+    y -= big * 1.2;
+  }
   ctx.font = `500 ${Math.max(15, W / 38)}px -apple-system,sans-serif`;
   ctx.fillStyle = '#8b949e';
-  y += big * 0.4;
-  ctx.fillText(info.count + (info.count === 1 ? ' clip' : ' clips') + '  ·  watch · talk · rewatch', cx, y);
+  y += Math.max(28, W / 16) * 0.9;
+  ctx.fillText(L.count, cx, y);
+  if (L.stats){
+    const fs = Math.max(14, W / 44);
+    ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#9aa4b2';
+    ctx.fillText(L.stats, cx, H * 0.87);
+  }
+  if (L.reach){
+    const fs = Math.max(14, W / 44);
+    ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#58a6ff';
+    ctx.fillText(L.reach, cx, H * 0.93);
+  }
   ctx.textAlign = 'start';
 }
 
@@ -5112,6 +5584,130 @@ function drawQuestionBanner(ctx, W, H, question){
   ctx.textAlign = 'start';
 }
 
+/* the context line burned in low during a studio play: which game, when.
+   Small, dark, out of the way — information, not decoration. */
+function drawContextTag(ctx, W, H, text){
+  if (!text) return;
+  const fs = Math.max(13, W / 60);
+  ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+  const tw = ctx.measureText(text).width;
+  const pad = fs * 0.6;
+  const bx = W * 0.03, by = H - fs * 2.6, bw = tw + pad * 2, bh = fs * 1.8;
+  roundRect(ctx, bx, by, bw, bh, fs * 0.4);
+  ctx.fillStyle = 'rgba(4,9,16,.72)'; ctx.fill();
+  ctx.fillStyle = '#e6edf3';
+  ctx.fillText(text, bx + pad, by + fs * 1.25);
+}
+
+/* the "watch him" freeze that opens a studio play: the first frame, dimmed,
+   a ring where he is, and who to watch — so a coach never hunts for him */
+function drawFreezeIntro(ctx, W, H, rect, intro){
+  ctx.fillStyle = 'rgba(2,6,12,.55)';
+  ctx.fillRect(0, 0, W, H);
+  if (intro.x != null && intro.y != null){
+    const x = rect.x + intro.x * rect.w, y = rect.y + intro.y * rect.h;
+    const rx = Math.max(26, rect.w * 0.045), ry = rx * 0.42;
+    ctx.save();
+    ctx.strokeStyle = '#ffd60a'; ctx.lineWidth = Math.max(3, W / 400);
+    ctx.shadowColor = '#ffd60a'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.textAlign = 'center';
+  const fs = Math.max(24, W / 24);
+  ctx.font = `800 ${fs}px -apple-system,sans-serif`;
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 8;
+  ctx.fillText(intro.text || 'Watch him', W / 2, H * 0.82);
+  if (intro.sub){
+    ctx.font = `600 ${Math.max(14, W / 48)}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#d7dde3';
+    ctx.fillText(intro.sub, W / 2, H * 0.82 + fs * 0.95);
+  }
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'start';
+}
+
+/* social-cut furniture: the hook line that earns the first two seconds, the
+   caption naming the play, and the small handle watermark */
+function drawHook(ctx, W, H, text){
+  ctx.textAlign = 'center';
+  const fs = Math.max(26, W / 14);
+  ctx.font = `800 ${fs}px -apple-system,sans-serif`;
+  ctx.shadowColor = 'rgba(0,0,0,.85)'; ctx.shadowBlur = 10;
+  ctx.fillStyle = '#fff';
+  let y = H * 0.16;
+  for (const line of wrapLines(ctx, text, W * 0.86).slice(0, 2)){
+    ctx.fillText(line, W / 2, y); y += fs * 1.15;
+  }
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'start';
+}
+function drawSocialCaption(ctx, W, H, text){
+  ctx.textAlign = 'center';
+  const fs = Math.max(16, W / 26);
+  ctx.font = `700 ${fs}px -apple-system,sans-serif`;
+  const lines = wrapLines(ctx, text, W * 0.8).slice(0, 2);
+  const bh = lines.length * fs * 1.3 + fs * 0.9;
+  const bw = Math.min(W * 0.88,
+    Math.max(...lines.map(l => ctx.measureText(l).width)) + fs * 1.6);
+  const bx = (W - bw) / 2, by = H * 0.84 - bh;
+  roundRect(ctx, bx, by, bw, bh, fs * 0.5);
+  ctx.fillStyle = 'rgba(4,9,16,.78)'; ctx.fill();
+  ctx.fillStyle = '#fff';
+  let y = by + fs * 1.15;
+  for (const line of lines){ ctx.fillText(line, W / 2, y); y += fs * 1.3; }
+  ctx.textAlign = 'start';
+}
+function drawWatermark(ctx, W, H, text){
+  const fs = Math.max(13, W / 40);
+  ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+  ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowBlur = 5;
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.textAlign = 'right';
+  ctx.fillText(text, W - fs, fs * 1.8);
+  ctx.textAlign = 'start';
+  ctx.shadowBlur = 0;
+}
+
+/* the closing contact card of a recruiting reel: who he is and how to reach
+   you, on screen long enough to photograph — never longer than a few seconds */
+function drawContactCard(ctx, W, H, info){
+  ctx.fillStyle = '#0d1117'; ctx.fillRect(0, 0, W, H);
+  const cx = W / 2;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#2ea043';
+  ctx.font = `700 ${Math.max(13, W / 46)}px -apple-system,sans-serif`;
+  ctx.fillText('⚽ FILM ROOM', cx, H * 0.16);
+  const big = Math.max(26, W / 18);
+  ctx.font = `800 ${big}px -apple-system,sans-serif`;
+  ctx.fillStyle = '#e6edf3';
+  let y = H * 0.34;
+  ctx.fillText(info.name || '', cx, y);
+  if (info.sub){
+    const fs = Math.max(15, W / 36);
+    ctx.font = `600 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#9aa4b2';
+    y += big * 0.95;
+    ctx.fillText(info.sub, cx, y);
+  }
+  if (info.contact){
+    const fs = Math.max(18, W / 28);
+    ctx.font = `700 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#58a6ff';
+    y += Math.max(30, H * 0.12);
+    ctx.fillText(info.contact, cx, y);
+  }
+  if (info.links){
+    const fs = Math.max(14, W / 42);
+    ctx.font = `500 ${fs}px -apple-system,sans-serif`;
+    ctx.fillStyle = '#8b949e';
+    y += Math.max(22, H * 0.07);
+    ctx.fillText(info.links, cx, y);
+  }
+  ctx.textAlign = 'start';
+}
+
 /* ---------------- fast export: WebCodecs H.264 → .mp4 ----------------
   Renders every frame deterministically (seek-stepping, not realtime capture),
   encodes with VideoEncoder (baseline H.264, no B-frames), and muxes into a
@@ -5135,16 +5731,26 @@ async function exportFast(tIn, tOut, label, clip){
 
 /* Renders a sequence of items — [{clip|null, tIn, tOut}] — into ONE fast mp4:
    optional reel intro card, then each item's title card + footage + decision
-   freezes. Single-clip exports and highlight reels share this path. */
+   freezes. Single-clip exports and highlight reels share this path.
+
+   The studio reel adds, per item and all optional (absent = the old behavior):
+     src            {video, file, annotations, gameName} — footage from ANOTHER
+                    game, played in an offscreen element; drawn contain-fit
+     noTitleCard    recruiting reels open plays with a freeze, not a coach card
+     noPauses       decision-point freezes are teaching, not recruiting
+     intro          {text, sub, x, y} — "Watch #81" freeze on the first frame
+     tag            context line burned in low ("vs Slammers FC · Mar 1")
+   and opts.size {W,H} fixes the output frame (16:9 1080p) regardless of any
+   source, opts.outroCard closes with the contact card. */
 async function exportProgram(items, label, opts = {}){
   if (ui.exporting || ui.tracking) return;
   ui.exporting = true; ui.exportCancel = false;
   hideDecision();
   const wasLoop = ui.loopClip; ui.loopClip = null;
 
-  const scale = Math.min(1, 1920 / video.videoWidth);
-  const W = Math.round(video.videoWidth * scale / 2) * 2;
-  const H = Math.round(video.videoHeight * scale / 2) * 2;
+  const scale = Math.min(1, 1920 / (video.videoWidth || 1920));
+  const W = opts.size ? opts.size.W : Math.round(video.videoWidth * scale / 2) * 2;
+  const H = opts.size ? opts.size.H : Math.round(video.videoHeight * scale / 2) * 2;
   const bitrate = Math.min(20_000_000, Math.max(6_000_000, Math.round(W * H * 30 * 0.2)));
   const FPS = 30;
 
@@ -5183,11 +5789,29 @@ async function exportProgram(items, label, opts = {}){
   const prevRate = video.playbackRate, prevT = video.currentTime;
   video.pause();
 
+  /* a long render should say how long is left, not just crawl a bar: the
+     total output is known up front, so the pace after a few seconds is an
+     honest estimate (in plain minutes, and only once it has settled) */
+  const estFrames = Math.round(FPS * (
+    (opts.reelCard ? 3.0 : 0) + (opts.outroCard ? 3.0 : 0) +
+    items.reduce((s, it) => s + (it.tOut - it.tIn)
+      + (it.clip && !it.noTitleCard ? 2.8 : 0) + (it.intro ? 1.4 : 0), 0)));
+  const renderT0 = Date.now();
+  const sayTimeLeft = () => {
+    const el = (Date.now() - renderT0) / 1000;
+    if (el < 5 || !n) return;
+    const left = Math.max(0, (estFrames - n) / (n / el));
+    const msg = left < 70 ? 'under a minute left'
+      : 'about ' + Math.round(left / 60) + ' minutes left';
+    $('#busyMsg').textContent = '⚡ Exporting “' + (label||'clip') + '” — ' + msg;
+  };
+
   let n = 0;
   async function pushFrame(){
     const f = new VideoFrame(c, { timestamp: Math.round(n * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
     enc.encode(f, { keyFrame: n % (FPS * 2) === 0 });
     f.close(); n++;
+    if (n % FPS === 0) sayTimeLeft();
     if (enc.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 10));
   }
   async function pushCardFrames(seconds){
@@ -5195,6 +5819,17 @@ async function exportProgram(items, label, opts = {}){
     for (let i = 0; i < Math.round(FPS * seconds) && !ui.exportCancel; i++) await pushFrame();
     segments.push({ type:'silence', frames: n - before });
   }
+  /* where the source picture lands in the output frame: same-size for the
+     classic path, contain-fit (centred, letterboxed if shapes differ) when
+     the output frame is fixed or the footage comes from another game */
+  const fitRect = v => {
+    const vw = v.videoWidth || W, vh = v.videoHeight || H;
+    const s = Math.min(W / vw, H / vh);
+    let w = Math.round(vw * s), h = Math.round(vh * s);
+    if (Math.abs(W - w) <= 2) w = W;      // same shape: fill exactly, no hairline
+    if (Math.abs(H - h) <= 2) h = H;
+    return { x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w, h };
+  };
 
   // audio timeline mirror: which stretches of output frames are source media
   // (at which video time) and which are burned-in silence (cards, freezes)
@@ -5208,20 +5843,66 @@ async function exportProgram(items, label, opts = {}){
     }
     for (const item of items){
       if (ui.exportCancel || encError) break;
-      if (item.clip){
+      const vid = (item.src && item.src.video) || video;
+      const anns = item.src ? (item.src.annotations || []) : null;
+      if (item.src && item.src.load) await item.src.load();   // switch game footage
+      if (item.clip && !item.noTitleCard){
         drawTitleCard(ctx, W, H, item.clip);
         await pushCardFrames(2.8);
       }
-      const pausePts = project.annotations
+      let followX = null;   // the 9:16 crop's smoothed centre, fresh per play
+      const drawMediaFrame = t => {
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+        if (item.reframe){
+          /* tall cut: a cover-crop window slides to keep HIM in frame — the
+             tracked spotlight path is the camera operator */
+          const vw = vid.videoWidth || W, vh = vid.videoHeight || H;
+          const cw = Math.min(vw, vh * W / H);
+          /* 0.08/frame, measured on the real eval clips (reframe.js): faster
+             chases tracking noise out of frame (same-kit 96.5%→90%), slower
+             than 0.05 buys nothing — and the pan clip holds 100% even here */
+          const target = clamp(item.reframe.pos(t).x * vw, cw / 2, vw - cw / 2);
+          followX = followX == null ? target : followX + (target - followX) * 0.08;
+          const sx = clamp(followX - cw / 2, 0, vw - cw);
+          ctx.drawImage(vid, sx, 0, cw, vh, 0, 0, W, H);
+          const s = H / vh;
+          ctx.save();
+          ctx.translate(-sx * s, 0);
+          drawScene(ctx, vw * s, vh * s, t,
+            anns ? { editing:false, annotations: anns } : { editing:false });
+          ctx.restore();
+        } else {
+          const r = fitRect(vid);
+          ctx.drawImage(vid, r.x, r.y, r.w, r.h);
+          ctx.save();
+          ctx.translate(r.x, r.y);
+          ctx.beginPath(); ctx.rect(0, 0, r.w, r.h); ctx.clip();
+          drawScene(ctx, r.w, r.h, t, anns ? { editing:false, annotations: anns } : { editing:false });
+          ctx.restore();
+        }
+        if (item.tag) drawContextTag(ctx, W, H, item.tag);
+        if (item.caption) drawSocialCaption(ctx, W, H, item.caption);
+        if (opts.watermark) drawWatermark(ctx, W, H, opts.watermark);
+        if (opts.hook && n < FPS * 2.2) drawHook(ctx, W, H, opts.hook);
+      };
+      if (item.intro){
+        await seekVid(vid, Math.min(item.tIn, vid.duration || item.tIn));
+        drawMediaFrame(item.tIn);
+        drawFreezeIntro(ctx, W, H, fitRect(vid), item.intro);
+        await pushCardFrames(1.4);
+      }
+      const pausePts = (item.noPauses ? [] : (anns || project.annotations))
         .filter(a => a.type === 'pause' && a.t > item.tIn + 0.05 && a.t < item.tOut - 0.05)
         .sort((a, b) => a.t - b.t);
       let pi = 0, curSeg = null;
       const dt = 1 / FPS;
       for (let t = item.tIn; t < item.tOut - 1e-4 && !ui.exportCancel && !encError; t += dt){
-        await seekTo(Math.min(t, video.duration || t));
-        ctx.drawImage(video, 0, 0, W, H);
-        drawScene(ctx, W, H, t, {editing:false});
-        if (!curSeg){ curSeg = { type:'media', t, frames: 0, item }; segments.push(curSeg); }
+        await seekVid(vid, Math.min(t, vid.duration || t));
+        drawMediaFrame(t);
+        if (!curSeg){
+          curSeg = { type:'media', t, frames: 0, item, file: item.src ? item.src.file : undefined };
+          segments.push(curSeg);
+        }
         await pushFrame();
         curSeg.frames++;
         if (pi < pausePts.length && t >= pausePts[pi].t){
@@ -5238,11 +5919,16 @@ async function exportProgram(items, label, opts = {}){
       doneMedia += item.tOut - item.tIn;
 
       // if this moment has a board attached, show it once the play has run
-      const linked = item.clip && (project.boards || []).find(b => b.id === item.clip.boardId);
+      const linked = item.clip && !item.noTitleCard &&
+        (project.boards || []).find(b => b.id === item.clip.boardId);
       if (linked && !ui.exportCancel && !encError){
         drawBoardCard(ctx, W, H, linked, item.clip);
         await pushCardFrames(3.2);
       }
+    }
+    if (opts.outroCard && !ui.exportCancel && !encError){
+      drawContactCard(ctx, W, H, opts.outroCard);
+      await pushCardFrames(3.0);
     }
     if (!ui.exportCancel && !encError) await enc.flush();
   } catch(e){ encError = e; }
@@ -5272,9 +5958,10 @@ async function exportProgram(items, label, opts = {}){
                        audio && audio.samples ? audio : null);
   const base = (project.videoName || 'clip').replace(/\.[^.]+$/, '');
   const safe = (label || 'clip').replace(/[^\w\- ]+/g, '').slice(0, 40).trim().replace(/ +/g, '_') || 'clip';
+  const outName = (opts.fileBase || `${base}__${safe}`) + '.mp4';
   const outBlob = new Blob([mp4], {type:'video/mp4'});
-  if (opts.collect) return { blob: outBlob, name: `${base}__${safe}.mp4` };   // bundling
-  downloadBlob(outBlob, `${base}__${safe}.mp4`);
+  if (opts.collect) return { blob: outBlob, name: outName };   // bundling
+  downloadBlob(outBlob, outName);
   if (audio && audio.samples) toast('Video saved with the game sound — check your Downloads folder. It plays on any iPhone or iPad.', 5000);
   else if (audio && audio.silentReason === 'encoder')
     toast('Video saved, but silent — this browser cannot carry sound over. Switch the picker to “Keeps sound, slower” when the sound matters.', 6500);
@@ -5660,12 +6347,22 @@ async function buildFastAudio(segments, totalFrames, FPS, opts = {}){
     }
     const haveVoice = voiceBlobs.size > 0;
 
-    const dmx = currentFile ? await demuxMp4Audio(currentFile).catch(() => null) : null;
-    const haveGame = !!(dmx && dmx.samples.length);
+    /* each media segment names its source file (a studio reel spans games);
+       segments without one come from the open video, exactly as before */
+    const dmxCache = new Map();
+    const dmxFor = async file => {
+      if (!file) return null;
+      if (!dmxCache.has(file))
+        dmxCache.set(file, await demuxMp4Audio(file).catch(() => null));
+      return dmxCache.get(file);
+    };
+    for (const seg of media) seg._dmx = await dmxFor(seg.file || currentFile);
+    const firstDmx = media.map(s => s._dmx).find(d => d && d.samples.length) || null;
+    const haveGame = !!firstDmx;
     if (!haveGame && !haveVoice) return null;
 
-    const rate = haveGame ? dmx.sampleRate : 48000;
-    const ch = haveGame ? Math.min(2, dmx.channels || 1) : 1;
+    const rate = haveGame ? firstDmx.sampleRate : 48000;
+    const ch = haveGame ? Math.min(2, firstDmx.channels || 1) : 1;
     const pureMedia = segments.length === 1 && segments[0].type === 'media';
     const mediaSecs = media.reduce((s, m) => s + m.frames / FPS, 0);
 
@@ -5674,11 +6371,12 @@ async function buildFastAudio(segments, totalFrames, FPS, opts = {}){
     // voice-over has to be mixed, which means encoding
     if (!haveVoice && haveGame && (mediaSecs > 600 || !(await aacEncodeSupported(rate, ch)))){
       if (!pureMedia) return { silentReason: mediaSecs > 600 ? 'long' : 'encoder' };
-      const m = segments[0];
-      const packets = await extractAudioPackets(dmx, m.t - 0.012, m.t + m.frames / FPS);
+      const m = segments[0], d0 = m._dmx;
+      if (!d0 || !d0.samples.length) return null;
+      const packets = await extractAudioPackets(d0, m.t - 0.012, m.t + m.frames / FPS);
       if (!packets.length) return null;
       return { samples: packets.map(p => ({ data: p.data, dur: p.dur })),
-               asc: dmx.asc, sampleRate: dmx.timescale, channels: dmx.channels };
+               asc: d0.asc, sampleRate: d0.timescale, channels: d0.channels };
     }
 
     if (haveVoice && !opts.returnPcm && !(await aacEncodeSupported(rate, ch)))
@@ -5708,12 +6406,13 @@ async function buildFastAudio(segments, totalFrames, FPS, opts = {}){
       const n = Math.round(seg.frames / FPS * rate);
       if (seg.type === 'media'){
         const segEnd = seg.t + seg.frames / FPS;
-        const packets = haveGame
-          ? await extractAudioPackets(dmx, Math.max(0, seg.t - 0.25), segEnd + 0.3) : [];
+        const segDmx = seg._dmx && seg._dmx.samples.length ? seg._dmx : null;
+        const packets = segDmx
+          ? await extractAudioPackets(segDmx, Math.max(0, seg.t - 0.25), segEnd + 0.3) : [];
         if (packets.length){
           const pcmStart = packets[0].t;
           const wrap = buildMp4(null, { samples: packets.map(p => ({ data: p.data, dur: p.dur })),
-            asc: dmx.asc, sampleRate: dmx.timescale, channels: dmx.channels });
+            asc: segDmx.asc, sampleRate: segDmx.timescale, channels: segDmx.channels });
           const oac = new OfflineAudioContext({ numberOfChannels: ch, length: 8, sampleRate: rate });
           const abuf = await new Promise((res, rej) => {
             const p = oac.decodeAudioData(wrap.buffer, res, rej);
@@ -5878,9 +6577,13 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* debug/test hook (also handy in the console) */
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
-const APP_BUILD = 'v4.0';
+const APP_BUILD = 'v5.0';
 window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
+  playerCard: { get: () => playerCard, lines: reelCardLines, fileBase: profileFileBase,
+    photo: () => libIdb.get('playerPhoto'), sync: syncPlayerCardWithFolder },
+  studio: { get: () => studio, pool: () => studioPool, suggestions: studioSuggestions,
+    kit: () => studioKitParts() },
   buildFastAudio, refreshVoiceIds, saveVoice: (id, b) => voiceSet(id, b),
   drawBoardCard,
   get voiceIds(){ return voiceIds; },
@@ -6246,6 +6949,786 @@ const RATING_META = [
   ['negative', '🔧 Work-ons',  'var(--neg)'],
   ['neutral',  '💡 Teachable', 'var(--warn)'],
 ];
+/* ---------------- Reel Studio (v5-B): the storyboard ----------------
+  The recruiting reel is planned across the WHOLE season, so it cannot live in
+  any one game's project. The plan lives in localStorage, travels with the
+  Games folder as reels.filmroom.json (newest savedAt wins, both ways — the
+  player-card rule), and stores a snapshot of each picked clip so the
+  storyboard renders even when a game's project is elsewhere; snapshots are
+  re-synced from the real clips every time the studio opens, and a clip whose
+  game has vanished is marked honestly rather than dropped. */
+const STUDIO_KEY = 'filmroom:reelStudio';
+const STUDIO_SIDECAR = 'reels.filmroom.json';
+let studio = null;            // { title, items:[...], savedAt }
+let studioPool = [];          // [{gameName, date, clip}] gathered when the studio opens
+let studioTrimOpen = null;    // which item id has its trim row unfolded
+
+function loadStudio(){
+  try { studio = JSON.parse(localStorage.getItem(STUDIO_KEY) || 'null'); } catch(e){ studio = null; }
+  if (!studio || !Array.isArray(studio.items)) studio = { title: '', items: [], savedAt: null };
+}
+function saveStudio(){
+  studio.savedAt = new Date().toISOString();
+  try { localStorage.setItem(STUDIO_KEY, JSON.stringify(studio)); } catch(e){}
+  writeStudioSidecar();
+}
+async function writeStudioSidecar(){
+  if (!gameDir || !studio || !studio.savedAt) return;
+  try {
+    if (!await canWriteFolder(gameDir)) return;
+    const h = await gameDir.getFileHandle(STUDIO_SIDECAR, { create:true });
+    const w = await h.createWritable();
+    await w.write(JSON.stringify(studio));
+    await w.close();
+  } catch(e){ /* no folder or no permission — localStorage carries on alone */ }
+}
+async function syncStudioWithFolder(){
+  if (!gameDir) return;
+  let filed = null;
+  try {
+    const h = await gameDir.getFileHandle(STUDIO_SIDECAR);
+    filed = JSON.parse(await (await h.getFile()).text());
+  } catch(e){}
+  if (filed && Array.isArray(filed.items) && savedAtOf(filed) > savedAtOf(studio)){
+    studio = filed;
+    try { localStorage.setItem(STUDIO_KEY, JSON.stringify(studio)); } catch(e){}
+    toast('🎬 His reel plan came along from your Games folder.');
+    if ($('#studioModal').classList.contains('open')) renderStudio();
+  } else if (studio && studio.savedAt && savedAtOf(studio) > savedAtOf(filed)){
+    writeStudioSidecar();
+  }
+}
+
+/* durations read rounded ("3:42"), unlike the frame-accurate transport clock */
+function fmtDur(t){
+  t = Math.round(Math.max(0, t || 0));
+  const m = Math.floor(t / 60), s = t % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function studioGameLabel(name, date){
+  const base = String(name || '').replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').trim();
+  if (!date) return base;
+  const d = new Date(date);
+  return base + ' · ' + MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+}
+
+async function studioCollect(){
+  const games = await collectGames();
+  const pool = [];
+  for (const g of games)
+    for (const c of g.clips)
+      pool.push({ gameName: g.name, date: g.date, clip: c });
+  return pool;
+}
+/* what makes one saved moment more reel-worthy than another, before a person
+   decides: a strength beats a teachable moment, and a play someone bothered to
+   diagram, question or annotate carries more evidence than a bare clip */
+function suggestScore(e){
+  return (e.clip.rating === 'positive' ? 200 : e.clip.rating === 'neutral' ? 100 : 0)
+    + (e.clip.boardId ? 20 : 0) + (e.clip.ask ? 10 : 0)
+    + Math.min(9, ((e.clip.notes || '').length) / 40);
+}
+function studioSuggestions(){
+  const used = new Set(studio.items.map(i => i.gameName + ' ' + i.clipId));
+  return studioPool
+    .filter(e => e.clip.rating !== 'negative')
+    .filter(e => !used.has(e.gameName + ' ' + e.clip.id))
+    .sort((a, b) => suggestScore(b) - suggestScore(a) || b.date - a.date);
+}
+function studioItemFrom(e){
+  return {
+    gameName: e.gameName, date: e.date, clipId: e.clip.id,
+    title: e.clip.title || 'Saved moment', rating: e.clip.rating,
+    tIn: e.clip.tIn, tOut: e.clip.tOut,
+    trimIn: e.clip.tIn, trimOut: e.clip.tOut,
+    spotlight: true, freezeIntro: true,
+    label: studioGameLabel(e.gameName, e.date),
+    tags: e.clip.tags || [], notes: e.clip.notes || '',
+  };
+}
+/* the plan holds snapshots; the games hold the truth. On open, every snapshot
+   is refreshed from its real clip, and one whose game is gone is marked. */
+function studioSyncSnapshots(){
+  for (const it of studio.items){
+    const e = studioPool.find(p => p.gameName === it.gameName && p.clip.id === it.clipId);
+    if (!e){ it.missing = true; continue; }
+    delete it.missing;
+    it.title = e.clip.title || it.title;
+    it.rating = e.clip.rating;
+    it.tags = e.clip.tags || []; it.notes = e.clip.notes || '';
+    if (e.clip.tIn !== it.tIn || e.clip.tOut !== it.tOut){
+      it.tIn = e.clip.tIn; it.tOut = e.clip.tOut;
+      it.trimIn = clamp(it.trimIn, it.tIn, it.tOut - 0.5);
+      it.trimOut = clamp(it.trimOut, it.trimIn + 0.5, it.tOut);
+    }
+  }
+}
+
+const studioSpan = it => Math.max(0, (it.trimOut - it.trimIn));
+function studioTotals(){
+  const media = studio.items.reduce((s, it) => s + studioSpan(it), 0);
+  const games = new Set(studio.items.map(i => i.gameName)).size;
+  return { n: studio.items.length, media, games };
+}
+
+/* the coaching that would otherwise be a tutorial, one quiet line at a time */
+function studioHintLine(){
+  const t = studioTotals();
+  if (!t.n) return 'Your best play goes first — coaches decide in the first 30 seconds.';
+  if (t.media > 330) return 'Over five and a half minutes — coaches rarely watch past five. Drop the maybes.';
+  if (t.n < 8) return '3–5 minutes is the sweet spot: 20–35 short plays, best first.';
+  return 'End on a high note — the last play is remembered too.';
+}
+
+/* what a coach looks for, by the position on his player card */
+const POSITION_CHECK = {
+  'Goalkeeper': [['Shot stopping', /save|stop|shot/i], ['Distribution', /distribut|throw|goal kick|pass/i], ['Commanding the box', /box|cross|claim|punch/i], ['1v1s', /1v1|one.v.one/i]],
+  'Defender': [['1v1 defending', /1v1|defend|tackle/i], ['Aerials', /aerial|header|head/i], ['First pass forward', /pass|forward|build/i], ['Recovery runs', /recover|track|chase/i]],
+  'Def Mid': [['Breaking up play', /intercept|tackle|break/i], ['Switching play', /switch|long|diagonal/i], ['Scanning', /scan|shoulder|check/i], ['Press resistance', /press|turn|escape/i]],
+  'Center Mid': [['Scanning', /scan|shoulder|check/i], ['Line-breaking passes', /line|break|through|split/i], ['Press resistance', /press|turn|escape/i], ['Work rate', /work|press|recover|track/i]],
+  'Attacking Mid': [['1v1s', /1v1|move|beat|dribbl/i], ['Final-third passes', /through|assist|final|key pass/i], ['Scanning', /scan|shoulder|check/i], ['Finishing', /finish|goal|shot/i]],
+  'Winger': [['1v1s', /1v1|move|beat|dribbl/i], ['Crosses', /cross|deliver/i], ['Runs in behind', /behind|run|depth/i], ['Work rate back', /track|recover|defend/i]],
+  'Striker': [['Finishing', /finish|goal|shot/i], ['Hold-up play', /hold|link|lay/i], ['Runs in behind', /behind|run|depth/i], ['Pressing', /press|chase/i]],
+};
+function studioChecklist(){
+  const pos = playerCard && String(playerCard.positions || '').split(/[,;·|]/)[0].trim();
+  const list = POSITION_CHECK[pos];
+  const host = $('#studioChecklist');
+  if (!list){ host.style.display = 'none'; return; }
+  const hay = studio.items.map(it =>
+    [it.title, it.notes, (it.tags || []).join(' ')].join(' ')).join('\n');
+  host.style.display = '';
+  host.innerHTML = '<div class="studioHint">What coaches look for in a ' +
+    escapeHtml(pos.toLowerCase()) + ' — covered so far:</div>';
+  const row = document.createElement('div');
+  row.className = 'checkRow';
+  for (const [label, re] of list){
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (re.test(hay) ? ' got' : '');
+    chip.textContent = (re.test(hay) ? '✓ ' : '') + label;
+    chip.setAttribute('data-tip', re.test(hay)
+      ? 'The plan already shows this — at least one picked play mentions it.'
+      : 'Nothing in the plan shows this yet. If he has a moment like it, a coach will look for it.');
+    row.appendChild(chip);
+  }
+  host.appendChild(row);
+}
+
+function renderStudio(){
+  $('#studioTitle').value = studio.title || '';
+  const t = studioTotals();
+  $('#studioScope').textContent = t.n
+    ? `${t.n} play${t.n === 1 ? '' : 's'} · ${fmtDur(t.media)} · from ${t.games} game${t.games === 1 ? '' : 's'}`
+    : '';
+  $('#studioCoachHint').textContent = studioHintLine();
+  $('#sbEmpty').style.display = t.n ? 'none' : '';
+  $('#studioDraft').style.display = t.n ? 'none' : '';
+  $('#studioClear').style.display = t.n ? '' : 'none';
+  studioChecklist();
+  renderStoryboard();
+  renderStudioPool();
+}
+
+function renderStoryboard(){
+  const host = $('#sbList');
+  host.innerHTML = '';
+  studio.items.forEach((it, i) => {
+    const card = document.createElement('div');
+    card.className = 'sbCard' + (it.missing ? ' missing' : '');
+    card.dataset.i = i;
+    const ratingMark = it.rating === 'positive' ? '👍' : it.rating === 'neutral' ? '💡' : '🎬';
+
+    const handle = document.createElement('span');
+    handle.className = 'sbHandle'; handle.textContent = '⠿';
+    handle.setAttribute('data-tip', 'Drag this play up or down to change its place in the reel.');
+    card.appendChild(handle);
+
+    const ord = document.createElement('span');
+    ord.className = 'sbOrd'; ord.textContent = (i + 1) + '.';
+    card.appendChild(ord);
+
+    const main = document.createElement('div');
+    main.className = 'sbMain';
+    const title = document.createElement('div');
+    title.className = 'sbTitle';
+    title.textContent = ratingMark + ' ' + it.title + (it.missing ? '  ⚠' : '');
+    if (it.missing) title.setAttribute('data-tip',
+      'The game this play belongs to is not in this browser or the Games folder any more. Its place in the plan is kept in case it comes back.');
+    main.appendChild(title);
+    const sub = document.createElement('div');
+    sub.className = 'sbSub';
+    const dur = document.createElement('span');
+    dur.textContent = fmtDur(studioSpan(it));
+    sub.appendChild(dur);
+    const lbl = document.createElement('input');
+    lbl.type = 'text'; lbl.value = it.label || '';
+    lbl.setAttribute('data-tip', 'The context line printed under this play — which game, when. Filled in from the game; change it to whatever a coach should read.');
+    lbl.onchange = () => { it.label = lbl.value.trim(); saveStudio(); };
+    sub.appendChild(lbl);
+    main.appendChild(sub);
+    if (studioTrimOpen === i){
+      const tr = document.createElement('div');
+      tr.className = 'sbTrim';
+      const mk = (txt, tip, fn) => {
+        const b = document.createElement('button');
+        b.className = 'miniBtn'; b.textContent = txt;
+        b.setAttribute('data-tip', tip); b.onclick = fn;
+        return b;
+      };
+      tr.append('Starts ' + (it.trimIn - it.tIn).toFixed(1) + 's in ');
+      tr.appendChild(mk('−½s', 'Start this play half a second earlier.', () => {
+        it.trimIn = clamp(it.trimIn - 0.5, it.tIn, it.trimOut - 0.5); saveStudio(); renderStudio();
+      }));
+      tr.appendChild(mk('+½s', 'Start this play half a second later — tighter is almost always better.', () => {
+        it.trimIn = clamp(it.trimIn + 0.5, it.tIn, it.trimOut - 0.5); saveStudio(); renderStudio();
+      }));
+      tr.append(' · ends ' + (it.tOut - it.trimOut).toFixed(1) + 's early ');
+      tr.appendChild(mk('−½s', 'End this play half a second sooner — cut it right after the moment lands.', () => {
+        it.trimOut = clamp(it.trimOut - 0.5, it.trimIn + 0.5, it.tOut); saveStudio(); renderStudio();
+      }));
+      tr.appendChild(mk('+½s', 'Let this play run half a second longer.', () => {
+        it.trimOut = clamp(it.trimOut + 0.5, it.trimIn + 0.5, it.tOut); saveStudio(); renderStudio();
+      }));
+      main.appendChild(tr);
+    }
+
+    card.appendChild(main);
+
+    const ctl = document.createElement('div');
+    ctl.className = 'sbCtl';
+    const tog = (on, txt, tip, fn) => {
+      const b = document.createElement('button');
+      b.className = 'miniBtn sbTog' + (on ? ' on' : '');
+      b.textContent = txt; b.setAttribute('data-tip', tip); b.onclick = fn;
+      return b;
+    };
+    ctl.appendChild(tog(it.spotlight, '🎯 Ring', it.spotlight
+      ? 'The spotlight ring is drawn on him in this play. Tap to leave it off.'
+      : 'The spotlight ring is off for this play. Tap to draw it on him.',
+      () => { it.spotlight = !it.spotlight; saveStudio(); renderStudio(); }));
+    ctl.appendChild(tog(it.freezeIntro, '⏸ Intro', it.freezeIntro
+      ? 'This play opens with a short freeze so a coach can find him first. Tap to skip it.'
+      : 'No freeze before this play. Tap to open it with a short “watch him” freeze.',
+      () => { it.freezeIntro = !it.freezeIntro; saveStudio(); renderStudio(); }));
+    ctl.appendChild(tog(studioTrimOpen === i, '✂ Trim', 'Trim where this play starts and ends, half a second at a time.',
+      () => { studioTrimOpen = studioTrimOpen === i ? null : i; renderStudio(); }));
+    const up = tog(false, '↑', 'Move this play earlier in the reel.', () => {
+      if (i === 0) return;
+      [studio.items[i-1], studio.items[i]] = [studio.items[i], studio.items[i-1]];
+      saveStudio(); renderStudio();
+    });
+    if (i === 0) up.disabled = true;
+    ctl.appendChild(up);
+    const down = tog(false, '↓', 'Move this play later in the reel.', () => {
+      if (i === studio.items.length - 1) return;
+      [studio.items[i+1], studio.items[i]] = [studio.items[i], studio.items[i+1]];
+      saveStudio(); renderStudio();
+    });
+    if (i === studio.items.length - 1) down.disabled = true;
+    ctl.appendChild(down);
+    const rm = tog(false, '✕', 'Take this play out of the plan. The clip itself stays in its game.', () => {
+      const snap = studio.items.splice(i, 1)[0];
+      if (studioTrimOpen === i) studioTrimOpen = null;
+      saveStudio(); renderStudio();
+      toast('Taken out of the plan.', 7000, { label: '↩ Undo', fn: () => {
+        studio.items.splice(Math.min(i, studio.items.length), 0, snap);
+        saveStudio(); renderStudio();
+      }});
+    });
+    rm.classList.add('danger');
+    ctl.appendChild(rm);
+    card.appendChild(ctl);
+
+    host.appendChild(card);
+    sbDragWire(card, handle, i);
+  });
+}
+
+/* drag to reorder: pointer-based so it works with a mouse and a finger alike */
+let sbDrag = null;
+function sbDragWire(card, handle, i){
+  handle.onpointerdown = ev => {
+    ev.preventDefault();
+    handle.setPointerCapture(ev.pointerId);
+    sbDrag = { from: i, to: i };
+    card.classList.add('dragging');
+  };
+  handle.onpointermove = ev => {
+    if (!sbDrag) return;
+    const cards = [...$('#sbList').children];
+    let to = studio.items.length - 1;
+    for (let k = 0; k < cards.length; k++){
+      const r = cards[k].getBoundingClientRect();
+      if (ev.clientY < r.top + r.height / 2){ to = k; break; }
+    }
+    if (to !== sbDrag.to){
+      sbDrag.to = to;
+      cards.forEach((c, k) => c.style.borderTop =
+        (k === to && to !== sbDrag.from) ? '2px solid var(--accent2)' : '');
+    }
+  };
+  handle.onpointerup = () => {
+    if (!sbDrag) return;
+    const { from, to } = sbDrag;
+    sbDrag = null;
+    card.classList.remove('dragging');
+    [...$('#sbList').children].forEach(c => c.style.borderTop = '');
+    if (to !== from){
+      const [moved] = studio.items.splice(from, 1);
+      studio.items.splice(to, 0, moved);
+      studioTrimOpen = null;
+      saveStudio();
+    }
+    renderStudio();
+  };
+}
+
+function renderStudioPool(){
+  const host = $('#studioPool');
+  host.innerHTML = '';
+  const sug = studioSuggestions();
+  if (!studioPool.length){
+    host.innerHTML = '<div class="hint">No saved moments yet anywhere. Break a game down first — save his best plays as clips — and they line up here.</div>';
+    return;
+  }
+  if (!sug.length){
+    host.innerHTML = '<div class="hint">Every strength and teachable moment of the season is already in the plan.</div>';
+    return;
+  }
+  for (const e of sug.slice(0, 40)){
+    const row = document.createElement('div');
+    row.className = 'annItem';
+    row.style.cssText = 'display:flex; align-items:center; gap:10px';
+    const mark = e.clip.rating === 'positive' ? '👍' : '💡';
+    const main = document.createElement('div');
+    main.style.cssText = 'flex:1; min-width:0';
+    const t1 = document.createElement('div');
+    t1.textContent = mark + ' ' + (e.clip.title || 'Saved moment');
+    t1.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600';
+    const t2 = document.createElement('div');
+    t2.textContent = studioGameLabel(e.gameName, e.date) + ' · ' + fmtDur(Math.max(0, e.clip.tOut - e.clip.tIn));
+    t2.style.cssText = 'color:var(--dim); font-size:12px';
+    main.appendChild(t1); main.appendChild(t2);
+    row.appendChild(main);
+    const add = document.createElement('button');
+    add.className = 'miniBtn';
+    add.textContent = '➕ Add';
+    add.setAttribute('data-tip', 'Put this play into the reel plan, at the end. Drag it into place from there.');
+    add.onclick = () => {
+      studio.items.push(studioItemFrom(e));
+      saveStudio(); renderStudio();
+    };
+    row.appendChild(add);
+    host.appendChild(row);
+  }
+}
+
+async function openStudio(){
+  $('#studioModal').classList.add('open');
+  $('#studioPool').innerHTML = '<div class="hint">Reading his season…</div>';
+  studioPool = await studioCollect();
+  studioSyncSnapshots();
+  renderStudio();
+}
+$('#btnStudio').onclick = openStudio;
+$('#studioClose').onclick = () => { $('#studioModal').classList.remove('open'); studioTrimOpen = null; };
+$('#studioTitle').onchange = () => { studio.title = $('#studioTitle').value.trim(); saveStudio(); };
+$('#studioDraft').onclick = () => {
+  const sug = studioSuggestions().slice(0, 20);
+  if (!sug.length) return toast('Nothing to draft from yet — save some clips in his games first, then come back.', 5000);
+  studio.items = sug.map(studioItemFrom);
+  saveStudio(); renderStudio();
+  toast('A starting order is drafted from his strengths. Put his single best play first — drag it to the top.', 6500);
+};
+$('#studioClear').onclick = () => {
+  if (!studio.items.length) return;
+  const snap = studio.items.slice();
+  studio.items = [];
+  studioTrimOpen = null;
+  saveStudio(); renderStudio();
+  toast('The plan is empty again.', 7000, { label: '↩ Undo', fn: () => {
+    studio.items = snap; saveStudio(); renderStudio();
+  }});
+};
+
+/* ---------------- making the reel (v5-C) ----------------
+  The storyboard spans games, so the render walks the Games folder for each
+  play's raw footage and each game's saved work (for the spotlight path),
+  plays them through ONE offscreen video element, and hands exportProgram a
+  16:9 1080p program: recruiting opening card, per-play "watch him" freeze +
+  context line + his ring only (no coach cards, no question freezes — those
+  teach the family, a recruiting reel argues for him), contact card at the
+  end. Game sound rides along per source file; voice-overs mix as always. */
+async function studioLoadProjectFor(gameName){
+  let best = null;
+  const take = p => {
+    if (!p || p.videoName !== gameName || !Array.isArray(p.annotations)) return;
+    if (!best || savedAtOf(p) > savedAtOf(best)) best = p;
+  };
+  for (let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith('filmroom:')) continue;
+    try { take(JSON.parse(localStorage.getItem(k))); } catch(e){}
+  }
+  try {
+    if (gameDir && gameDir.queryPermission &&
+        await gameDir.queryPermission({ mode:'read' }) === 'granted'){
+      const h = await gameDir.getFileHandle(gameName + SIDECAR_EXT);
+      take(JSON.parse(await (await h.getFile()).text()));
+    }
+  } catch(e){}
+  return best;
+}
+async function studioFileFor(gameName){
+  if (currentFile && project.videoName === gameName) return currentFile;
+  try {
+    if (gameDir && gameDir.queryPermission &&
+        await gameDir.queryPermission({ mode:'read' }) === 'granted'){
+      const h = await gameDir.getFileHandle(gameName);
+      return await h.getFile();
+    }
+  } catch(e){}
+  return null;
+}
+/* which ring the reel should follow in a play: the spotlight whose path has
+   the most keys overlapping it — that is his tracked run */
+function studioSpotFor(proj, tIn, tOut){
+  let best = null, bestKeys = 0;
+  for (const a of (proj && proj.annotations) || []){
+    if (a.type !== 'spot' || !Array.isArray(a.keys)) continue;
+    if (a.tEnd < tIn || a.tStart > tOut) continue;
+    if (a.keys.length > bestKeys){ best = a; bestKeys = a.keys.length; }
+  }
+  return best;
+}
+async function studioResolve(){
+  const ready = [], missingGames = new Set();
+  const fileCache = new Map(), projCache = new Map();
+  for (const it of studio.items){
+    if (!fileCache.has(it.gameName)) fileCache.set(it.gameName, await studioFileFor(it.gameName));
+    const file = fileCache.get(it.gameName);
+    if (!file){ missingGames.add(it.gameName); continue; }
+    if (!projCache.has(it.gameName)) projCache.set(it.gameName, await studioLoadProjectFor(it.gameName));
+    ready.push({ it, file, proj: projCache.get(it.gameName) });
+  }
+  return { ready, missing: [...missingGames] };
+}
+
+function loadRenderVideo(v, url){
+  return new Promise((res, rej) => {
+    const to = setTimeout(() => rej(new Error('video load timed out')), 20000);
+    v.onloadeddata = () => { clearTimeout(to); res(); };
+    v.onerror = () => { clearTimeout(to); rej(new Error('video would not load')); };
+    v.src = url;
+  });
+}
+
+let studioSkipOk = false;
+async function studioRenderMaster(){
+  if (!studio.items.length)
+    return toast('The plan is empty — add plays from the season list first.', 5000);
+  if (!fastSupported)
+    return toast('Making one video needs Chrome or Safari — this browser cannot make the file.', 6000);
+  const res = await studioResolve();
+  if (!res.ready.length)
+    return toast('None of these games’ video files can be found. Connect your Games folder with 📁 Games so the reel can read the footage.', 7500);
+  if (res.missing.length && !studioSkipOk){
+    studioSkipOk = true;
+    const skipped = studio.items.length - res.ready.length;
+    $('#studioMissing').style.display = '';
+    $('#studioMissing').textContent = '⚠ The video for ' +
+      res.missing.map(m => '“' + m.replace(/\.[^.]+$/, '') + '”').join(', ') +
+      ' is not in this browser or your Games folder, so ' +
+      (skipped === 1 ? 'one play' : skipped + ' plays') + ' cannot be read. ' +
+      'Press the button again to make the reel without ' + (skipped === 1 ? 'it' : 'them') + '.';
+    $('#studioMake').textContent = '🎬 Make it without ' + (skipped === 1 ? 'that play' : 'those plays');
+    return;
+  }
+
+  const off = document.createElement('video');
+  off.muted = true; off.playsInline = true; off.preload = 'auto';
+  const urls = new Map();
+  const urlFor = file => {
+    if (!urls.has(file)) urls.set(file, URL.createObjectURL(file));
+    return urls.get(file);
+  };
+  const jersey = playerCard && playerCard.jersey
+    ? '#' + String(playerCard.jersey).replace(/^#/, '') : null;
+
+  const items = res.ready.map(({ it, file, proj }) => {
+    const spot = studioSpotFor(proj, it.trimIn, it.trimOut);
+    const introPos = spot ? spotPos(spot, it.trimIn) : null;
+    return {
+      clip: { id: it.clipId },          // voice-overs are keyed by clip id
+      noTitleCard: true, noPauses: true,
+      tIn: it.trimIn, tOut: it.trimOut,
+      src: {
+        file, video: off, gameName: it.gameName,
+        annotations: it.spotlight && spot ? [spot] : [],
+        load: async () => {
+          const url = urlFor(file);
+          if (off.dataset.url !== url){ await loadRenderVideo(off, url); off.dataset.url = url; }
+        },
+      },
+      intro: it.freezeIntro ? {
+        text: jersey ? 'Watch ' + jersey : 'Watch for him',
+        sub: it.label || '',
+        x: introPos ? introPos.x : null, y: introPos ? introPos.y : null,
+      } : null,
+      tag: it.label || '',
+    };
+  });
+
+  const title = (studio.title || '').trim() ||
+    ((playerCard && playerCard.name) ? playerCard.name + ' — highlights' : 'Recruiting reel');
+  const outro = playerCard && playerCard.name ? {
+    name: playerCard.name, sub: playerCardParts().join('  ·  '),
+    contact: playerCard.contact || '', links: playerCard.links || '',
+  } : null;
+  try {
+    await exportProgram(items, title, {
+      size: { W: 1920, H: 1080 },
+      reelCard: { title, count: items.length, kind: 'recruiting' },
+      outroCard: outro,
+      fileBase: profileFileBase(title),
+    });
+  } finally {
+    for (const url of urls.values()) URL.revokeObjectURL(url);
+    studioSkipOk = false;
+    $('#studioMissing').style.display = 'none';
+    $('#studioMake').textContent = '🎬 Make the reel';
+  }
+}
+$('#studioMake').onclick = studioRenderMaster;
+
+/* the tall 9:16 cut: same plays, the crop follows his tracked path, hook up
+   top for the first two seconds, a caption per play, his handle in the
+   corner. No cards — a social cut earns its keep in the first moments. */
+async function studioRenderSocial(){
+  if (!studio.items.length)
+    return toast('The plan is empty — add plays from the season list first.', 5000);
+  if (!fastSupported)
+    return toast('Making one video needs Chrome or Safari — this browser cannot make the file.', 6000);
+  const res = await studioResolve();
+  if (!res.ready.length)
+    return toast('None of these games’ video files can be found. Connect your Games folder with 📁 Games so the cut can read the footage.', 7500);
+  if (res.missing.length)
+    toast('Plays from ' + res.missing.map(m => '“' + m.replace(/\.[^.]+$/, '') + '”').join(', ') +
+      ' are skipped — their video files are not here.', 6000);
+
+  const off = document.createElement('video');
+  off.muted = true; off.playsInline = true; off.preload = 'auto';
+  const urls = new Map();
+  const urlFor = file => {
+    if (!urls.has(file)) urls.set(file, URL.createObjectURL(file));
+    return urls.get(file);
+  };
+  const items = res.ready.map(({ it, file, proj }) => {
+    const spot = studioSpotFor(proj, it.trimIn, it.trimOut);
+    return {
+      clip: { id: it.clipId },
+      noTitleCard: true, noPauses: true,
+      tIn: it.trimIn, tOut: it.trimOut,
+      src: {
+        file, video: off, gameName: it.gameName,
+        annotations: it.spotlight && spot ? [spot] : [],
+        load: async () => {
+          const url = urlFor(file);
+          if (off.dataset.url !== url){ await loadRenderVideo(off, url); off.dataset.url = url; }
+        },
+      },
+      reframe: { pos: spot ? (t => spotPos(spot, t)) : (() => ({ x: 0.5, y: 0.5 })) },
+      caption: it.title || '',
+    };
+  });
+  const title = (studio.title || '').trim() ||
+    ((playerCard && playerCard.name) ? playerCard.name + ' — highlights' : 'Highlights');
+  const handle = playerCard &&
+    (String(playerCard.links || '').split(/[,;\s]+/)[0] || playerCard.name) || '';
+  try {
+    await exportProgram(items, title + ' (social)', {
+      size: { W: 1080, H: 1920 },
+      hook: title,
+      watermark: handle,
+      fileBase: profileFileBase(title + ' - social cut'),
+    });
+  } finally {
+    for (const url of urls.values()) URL.revokeObjectURL(url);
+  }
+}
+$('#studioSocial').onclick = studioRenderSocial;
+
+/* ---------------- the sharing kit (v5-D) ----------------
+  Everything that goes AROUND the reel, written once from his card and the
+  plan: the YouTube title + description with chapter timestamps that match
+  the rendered reel second for second, an email to a coach with his details
+  already in it, and a one-page player site — a single HTML file with his
+  photo, roster line and season index baked in, that works attached to an
+  email or dropped on any hosting. One zip, no accounts, nothing uploaded. */
+function kitFmtT(t){
+  t = Math.max(0, Math.round(t));
+  return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+}
+function kitChapters(ready){
+  const rows = [{ t: 0, label: 'Intro' }];
+  let t = 3.0;                                    // the opening card
+  for (const { it } of ready){
+    rows.push({ t, label: it.title + (it.label ? ' — ' + it.label : '') });
+    t += (it.freezeIntro ? 1.4 : 0) + Math.max(0, it.trimOut - it.trimIn);
+  }
+  return rows;
+}
+async function studioKitParts(){
+  const p = playerCard;
+  const res = await studioResolve();
+  const chapters = kitChapters(res.ready);
+  const roster = playerCardParts().join(' · ');
+  const stats = [p.height, p.league, p.gpa ? 'GPA ' + p.gpa : ''].filter(Boolean).join(' · ');
+  const title = (studio.title || '').trim() || (p.name + ' — highlights');
+
+  const ytTitle = [p.name,
+    [p.gradYear ? 'Class of ' + p.gradYear : '', String(p.positions || '').split(/[,;·|]/)[0].trim()]
+      .filter(Boolean).join(' '),
+    'Highlights'].filter(Boolean).join(' — ').slice(0, 100);
+  const youtube = [
+    'TITLE',
+    ytTitle,
+    '',
+    'DESCRIPTION',
+    [p.name, roster].filter(Boolean).join(' · '),
+    stats,
+    p.contact ? 'Contact: ' + p.contact : '',
+    p.links ? 'More film: ' + p.links : '',
+    '',
+    ...(res.ready.length ? ['Chapters:',
+      ...chapters.map(c => kitFmtT(c.t) + ' ' + c.label)] : []),
+  ].filter(l => l !== '').join('\n') + '\n';
+
+  const email = [
+    'SUBJECT',
+    [p.name, p.gradYear ? 'Class of ' + p.gradYear : '',
+     String(p.positions || '').split(/[,;·|]/)[0].trim(), 'highlight reel']
+      .filter(Boolean).join(' — '),
+    '',
+    'BODY',
+    'Coach,',
+    '',
+    `I wanted to share film of my son, ${p.name}` +
+      (p.jersey ? ` (#${String(p.jersey).replace(/^#/, '')})` : '') +
+      (p.gradYear ? `, Class of ${p.gradYear}` : '') + '.',
+    [String(p.positions || '').trim() && 'Positions: ' + p.positions,
+     p.club && 'Club: ' + p.club + (p.league ? ' (' + p.league + ')' : ''),
+     p.height && 'Height: ' + p.height,
+     p.gpa && 'GPA: ' + p.gpa].filter(Boolean).join('\n'),
+    '',
+    `His ${res.ready.length ? res.ready.length + '-play ' : ''}highlight reel is attached` +
+      (p.links ? `, and more film is at ${p.links}` : '') + '.',
+    'Every play opens with a freeze so you can find him instantly.',
+    '',
+    'Thank you for your time' + (p.contact ? ' — I can be reached at ' + p.contact : '') + '.',
+    '',
+  ].join('\n');
+
+  /* the one-page site: everything inline, nothing fetched */
+  let photoUrl = null;
+  try {
+    const blob = await libIdb.get('playerPhoto');
+    if (blob) photoUrl = await blobToDataUrl(blob);
+  } catch(e){}
+  let posterUrl = null;
+  if (res.ready.length){
+    try {
+      const { it, file } = res.ready[0];
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true;
+      const url = URL.createObjectURL(file);
+      await loadRenderVideo(v, url);
+      await seekVid(v, Math.min(it.trimIn, v.duration || it.trimIn));
+      const pc = document.createElement('canvas');
+      const s = Math.min(1, 960 / (v.videoWidth || 960));
+      pc.width = Math.round((v.videoWidth || 960) * s);
+      pc.height = Math.round((v.videoHeight || 540) * s);
+      pc.getContext('2d').drawImage(v, 0, 0, pc.width, pc.height);
+      posterUrl = pc.toDataURL('image/jpeg', 0.82);
+      URL.revokeObjectURL(url);
+    } catch(e){ /* no poster is fine */ }
+  }
+  const esc = escapeHtml;
+  const pageHtml = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(p.name)} — ${esc(p.gradYear ? 'Class of ' + p.gradYear : 'player page')}</title>
+<style>
+  body{margin:0; font:16px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif;
+    background:#f5f6f8; color:#15181d;}
+  .wrap{max-width:720px; margin:0 auto; padding:28px 20px 60px;}
+  header{display:flex; gap:18px; align-items:center; margin-bottom:8px;}
+  header img{width:96px; height:96px; border-radius:16px; object-fit:cover;}
+  h1{margin:0; font-size:30px; letter-spacing:-.3px;}
+  .roster{color:#5a6472; font-weight:600; margin-top:2px;}
+  .stats{display:flex; gap:10px; flex-wrap:wrap; margin:18px 0;}
+  .stats span{background:#fff; border:1px solid #e2e5ea; border-radius:10px;
+    padding:7px 12px; font-weight:600; font-size:14px;}
+  .poster{width:100%; border-radius:14px; margin:6px 0 18px; display:block;}
+  h2{font-size:13px; text-transform:uppercase; letter-spacing:.8px; color:#5a6472;
+    margin:26px 0 8px;}
+  ol{margin:0; padding-left:22px;}
+  li{margin:5px 0;}
+  li small{color:#5a6472;}
+  .contact{background:#fff; border:1px solid #e2e5ea; border-radius:14px;
+    padding:16px 18px; margin-top:22px;}
+  .contact a{color:#0b62d6; font-weight:700; text-decoration:none;}
+  footer{color:#9aa2ad; font-size:12px; margin-top:34px;}
+</style></head><body><div class="wrap">
+<header>${photoUrl ? `<img src="${photoUrl}" alt="${esc(p.name)}">` : ''}<div>
+  <h1>${esc(p.name)}</h1>
+  <div class="roster">${esc(roster)}</div>
+</div></header>
+${stats ? '<div class="stats">' + stats.split(' · ').map(s => '<span>' + esc(s) + '</span>').join('') + '</div>' : ''}
+${posterUrl ? `<img class="poster" src="${posterUrl}" alt="Game footage">` : ''}
+${res.ready.length ? '<h2>Highlight reel — ' + res.ready.length + ' plays</h2><ol>' +
+  res.ready.map(({ it }) => '<li>' + esc(it.title) +
+    (it.label ? ' <small>' + esc(it.label) + '</small>' : '') + '</li>').join('') + '</ol>' : ''}
+<div class="contact">
+  ${p.contact ? 'Contact: <a href="mailto:' + esc(p.contact) + '">' + esc(p.contact) + '</a><br>' : ''}
+  ${p.links ? 'More film: ' + esc(p.links) : ''}
+</div>
+<footer>Put together with Film Room — his film, straight from the sideline camera.</footer>
+</div></body></html>`;
+
+  return { youtube, email, pageHtml, chapters, ready: res.ready.length, missing: res.missing };
+}
+
+async function studioSaveKit(){
+  if (!(playerCard && playerCard.name))
+    return toast('Fill in his player card first — the kit is written from it.', 5500);
+  const parts = await studioKitParts();
+  const readme =
+`What is in this kit
+-------------------
+YouTube.txt        — a title and description ready to paste when you upload the
+                     reel. The chapter times match the reel exactly, so viewers
+                     can jump straight to a play.
+Email to a coach.txt — a short email with his details already written in.
+                     Read it once, make it sound like you, attach the reel.
+player page.html   — his one-page player site. Send it as an attachment or put
+                     it on any web hosting — everything is inside the one file.
+`;
+  const files = [
+    { name: 'YouTube.txt', blob: new Blob([parts.youtube], { type: 'text/plain' }) },
+    { name: 'Email to a coach.txt', blob: new Blob([parts.email], { type: 'text/plain' }) },
+    { name: 'player page.html', blob: new Blob([parts.pageHtml], { type: 'text/html' }) },
+    { name: 'READ ME FIRST.txt', blob: new Blob([readme], { type: 'text/plain' }) },
+  ];
+  const zip = await buildZip(files);
+  downloadBlob(zip, (profileFileBase('sharing kit') || 'sharing kit') + '.zip');
+  toast('The sharing kit is saved — YouTube words with chapters, a coach email, and his player page, all in one zip.', 6500);
+}
+$('#studioKit').onclick = studioSaveKit;
+
+loadStudio();
+
 let trendGames = [];          // [{name, date, clips[], sessions}] newest last
 
 /* every project this browser knows about, plus anything in the Games folder */

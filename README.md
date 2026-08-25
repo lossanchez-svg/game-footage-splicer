@@ -188,6 +188,49 @@ high note), give it a title, and **🎬 Save as one video** produces **one file*
 title card, then every clip with its own coaching card, decision-point freezes, and the
 game audio. AirDrop it once, AirPlay to the TV, and the whole week's review runs itself.
 
+### 🎬 Reel Studio — the recruiting reel, planned from the whole season
+**🎬 Reel Studio** in the top bar works across every game you have broken down — no
+video needs to be open. It lines up every strength and teachable moment of the season
+(work-ons stay out), and **✨ Draft it for me** proposes a starting order you then make
+yours: drag plays up and down, trim each one tighter half a second at a time, switch
+the spotlight ring or the "watch him first" freeze on or off per play, and reword the
+context line (which game, when) that gets printed under it. A quiet line of coaching
+keeps you honest — best play first, three to five minutes, end on a high — and if his
+player card names a position, a small checklist shows what a coach looks for and ticks
+what the plan already covers. The plan saves itself as you go and rides along in your
+Games folder.
+
+Then two buttons make the files, reading the footage straight from your Games folder
+(nothing is ever uploaded):
+
+- **🎬 Make the reel** — one full-1080p video for coaches: his opening card (name,
+  photo, number, grad year, height, GPA, contact), then every play — a short
+  "Watch #81" freeze so the coach finds him instantly, the game and date burned in
+  small, his spotlight ring if you left it on — and a contact card at the end. Game
+  sound and any voice-overs come along. The file is named the way a coach files it.
+- **📱 Make the social cut** — the same plays as a tall phone-shaped video for
+  Instagram, TikTok or Shorts. The picture follows him automatically (that is what
+  the tracker is for), your reel title opens as a hook, each play is captioned, and
+  his handle sits in the corner. Keep it under a minute — that is what gets watched.
+
+If a play's game video is missing from the folder, the studio names it and only makes
+the reel without it when you press the button a second time — never silently. Long
+renders say about how many minutes are left.
+
+And **✉️ Save the sharing kit** writes everything that goes around the reel into one
+zip: ready-to-paste YouTube words whose chapter times match the reel exactly, a short
+email to a coach with his details already filled in (read it once, make it sound like
+you), and his one-page player site — a single HTML file with his photo, roster line
+and season index baked in, that you can attach to an email or drop on any hosting.
+
+### 🎽 His player card — fill it in once
+In the Clips tab, **✎ Fill in his card** takes his name, number, grad year, positions,
+club, height, GPA, a photo, and how a coach reaches you. From then on every reel's
+opening card leads with *him* — name, photo, roster line — and saved videos are named
+the way a coach would file them (*Jude Sanchez - 2032 - Attacking Mid - Week 3.mp4*).
+It rides along in your Games folder, so a card filled in on the Mac shows up on the
+iPad. Everything except his name is optional; edit it any time.
+
 ### ▶ The front door — "this week's film session is ready"
 Open a game that already has clips lined up and a banner sits across the top of the
 screen: *"This week's film session is ready"*, with the reel title, how many clips and
