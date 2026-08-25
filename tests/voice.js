@@ -8,7 +8,7 @@
   though this Chromium has no H.264 encoder.
 */
 const path = require('path');
-const { APP, FIXTURES, launch } = require('./common');
+const { APP, FIXTURES, launch, openDisclosures } = require('./common');
 
 const VIDEO = path.join(FIXTURES, 'game.webm');   // WebM: no AAC, so voice is the ONLY audio
 
@@ -72,6 +72,7 @@ const saveClip = async (page, title, at) => {
 
   // ---- the recorder ----
   check('every clip offers a voice-over', await page.$('#clipList [data-act=voice]') !== null);
+  await openDisclosures(page);
   await page.click('#clipList [data-act=voice]');
   await page.waitForSelector('#voiceModal.open');
   check('the recorder names the clip it is for',
@@ -195,6 +196,7 @@ const saveClip = async (page, title, at) => {
   await page.waitForTimeout(400);
   check('the mark comes back from storage, not from memory',
     (await page.textContent('#clipList [data-act=voice]')).includes('✓'));
+  await openDisclosures(page);
   await page.click('#clipList [data-act=voice]');
   await page.waitForSelector('#voiceModal.open');
   await page.click('#voiceBtns [data-v=del]');

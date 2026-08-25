@@ -3,7 +3,7 @@
    suite — it's the evidence for "could Grandma figure this out with nobody in
    the room?", and it fails loudly if any step can't be reached. */
 const path = require('path');
-const { APP, FIXTURES, OUT, launch } = require('./common');
+const { APP, FIXTURES, OUT, launch, openDisclosures } = require('./common');
 
 const VIDEO = path.join(FIXTURES, 'game.webm');
 let n = 0;
@@ -108,6 +108,7 @@ const shot = async (page, name) =>
   await page.click('#btnTextSize');
 
   // 11. deleting is cheap
+  await openDisclosures(page);
   await page.click('#clipList [data-act=del]');
   await page.waitForTimeout(250);
   await shot(page, 'undo_toast');

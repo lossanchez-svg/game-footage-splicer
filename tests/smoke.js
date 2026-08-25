@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { APP, FIXTURES, OUT, launch } = require('./common');
+const { APP, FIXTURES, OUT, launch, openDisclosures } = require('./common');
 
 const VIDEO = path.join(FIXTURES, 'game.webm');
 
@@ -155,6 +155,7 @@ const VIDEO = path.join(FIXTURES, 'game.webm');
     const s = document.querySelector('#exportMode');
     if (s) s.value = 'realtime';
   });
+  await openDisclosures(page);
   const [dl2] = await Promise.all([
     page.waitForEvent('download', { timeout: 30000 }),
     page.click('#clipList [data-act=export]'),

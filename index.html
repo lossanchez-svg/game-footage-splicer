@@ -444,6 +444,35 @@
     font-size:14px; line-height:1.4; box-shadow:0 8px 28px rgba(0,0,0,.55);
     pointer-events:none;}
 
+  /* ---------- top-bar 📦 Project menu ---------- */
+  .topMenu{position:relative;}
+  .topMenu > summary{font:inherit; color:var(--text); background:var(--bg3);
+    border:1px solid var(--line); border-radius:6px; padding:5px 10px; cursor:pointer;
+    white-space:nowrap; list-style:none; user-select:none;}
+  .topMenu > summary::-webkit-details-marker{display:none;}
+  .topMenu > summary:hover{background:var(--bg-raise);}
+  .topMenu[open] > summary{background:var(--bg-raise);}
+  .menuPop{position:absolute; top:calc(100% + 6px); left:0; z-index:65; display:flex;
+    flex-direction:column; gap:6px; background:var(--bg2); border:1px solid var(--line);
+    border-radius:10px; padding:8px; box-shadow:var(--shadow-pane); min-width:190px;}
+  .menuPop button{text-align:left;}
+  body.bigText .topMenu > summary{font-size:17px; padding:10px 16px;}
+  @media (pointer:coarse){ .topMenu > summary{padding:9px 14px;} }
+
+  /* ---------- clip card "More" fold ---------- */
+  /* display:contents keeps the folded buttons in the same wrapping action row,
+     so opening the fold just extends the row instead of nesting a second box */
+  .clipItem .moreActs{display:contents;}
+  .clipItem .moreActs > summary{font:inherit; color:var(--dim); background:var(--bg3);
+    border:1px solid var(--line); border-radius:5px; padding:2px 7px; font-size:11px;
+    cursor:pointer; list-style:none; user-select:none;}
+  .clipItem .moreActs > summary::-webkit-details-marker{display:none;}
+  .clipItem .moreActs[open] > summary{color:var(--text); background:var(--bg-raise);}
+  .clipItem .moreActs .moreRow{display:contents;}
+  .clipItem .head .flags{color:var(--dim); font-size:12px; flex:none;}
+  body.bigText .clipItem .moreActs > summary{font-size:15px; padding:8px 13px;}
+  @media (pointer:coarse){ .clipItem .moreActs > summary{padding:7px 11px; font-size:12px;} }
+
   /* ---------- smart-drop zones ---------- */
   #dropZones{position:absolute; inset:0; display:none; z-index:45; pointer-events:none;}
   #dropZones .dz{position:absolute; top:10px; bottom:10px; border:2px dashed var(--line);
@@ -602,9 +631,14 @@
     <option value="realtime">Keeps sound, slower</option>
   </select>
   <div class="divider"></div>
-  <button id="btnSaveProj" data-tip="Save all his clips and drawings into one small file you can back up or move to another computer. Your work is already saved automatically here.">💾 Save project</button>
-  <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
-  <button id="btnBundle" data-tip="Pack everything from this game into one file to keep — the project, a spreadsheet of the moments, his answers, the boards and your voice-overs, and optionally a video of every moment.">📦 Keep this game</button>
+  <details class="topMenu" id="projectMenu">
+    <summary data-tip="The project-file jobs — saving a backup, loading one, or packing the whole game into one file to keep. Your work is already saved automatically as you go.">📦 Project ⌄</summary>
+    <div class="menuPop">
+      <button id="btnSaveProj" data-tip="Save all his clips and drawings into one small file you can back up or move to another computer. Your work is already saved automatically here.">💾 Save project</button>
+      <button id="btnLoadProj" data-tip="Open a project file you saved earlier, to bring back its clips and drawings.">📂 Load project</button>
+      <button id="btnBundle" data-tip="Pack everything from this game into one file to keep — the project, a spreadsheet of the moments, his answers, the boards and your voice-overs, and optionally a video of every moment.">📦 Keep this game</button>
+    </div>
+  </details>
   <div class="divider"></div>
   <button id="btnStudio" data-tip="Build his recruiting reel from the best moments of the whole season — pick the plays, put them in order, and it remembers the plan.">🎬 Reel Studio</button>
   <button id="btnTrends" data-tip="How he is doing across every game you have broken down — what he does well, what keeps coming up, and what is getting better.">📈 Progress</button>
@@ -5035,6 +5069,17 @@ function deleteClip(c){
     project.reel = (project.reel || []).filter(id => id !== c.id);
   });
 }
+/* which clip cards have their "⌄ More" fold open — session-only, keyed by clip id
+   so the fold survives the re-render that follows every state change */
+const moreOpen = new Set();
+
+/* the 📦 Project menu closes on any press outside it, and after any of its jobs */
+document.addEventListener('pointerdown', e => {
+  const m = $('#projectMenu');
+  if (m && m.open && !m.contains(e.target)) m.open = false;
+});
+$('#projectMenu .menuPop').addEventListener('click', () => { $('#projectMenu').open = false; });
+
 /* drag a clip card by its ⠿ dot onto the Highlight reel section — the same
    toggleReel() the button calls. Mouse only; ➕ Reel stays the touch path. */
 function wireDragToReel(card, c){
@@ -5102,24 +5147,34 @@ function renderClipList(){
         <span class="dragDot" data-tip="Drag this moment up onto the Highlight reel section to add it to this week’s set — or just press ➕ Reel below.">⠿</span>
         <span class="dot" style="background:${colors[c.rating]}"></span>
         <span class="title">${escapeHtml(c.title)}</span>
+        <span class="flags">${c.boardId ? '🗒' : ''}${voiceIds.has(c.id) ? '🎤' : ''}</span>
         <span class="timeTag">${fmtT(c.tIn)}–${fmtT(c.tOut)}</span>
       </div>
       <div class="tags">${[c.position, c.format, ...c.tags].map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
       ${c.notes ? `<div class="notes">${escapeHtml(c.notes)}</div>` : ''}
       <div class="actions">
         <button class="miniBtn" data-act="play" data-tip="Play just this moment, over and over, so you can watch it a few times and talk about it.">▶ Play (loops)</button>
-        <button class="miniBtn" data-act="export" data-tip="Turn this one moment into a video file with the drawings and your note burned in — ready to send to his phone.">🎬 Save video</button>
         <button class="miniBtn" data-act="reel" data-tip="Add this moment to this week's set, for one video or one guided session.">${(project.reel || []).includes(c.id) ? '✓ In reel' : '➕ Reel'}</button>
-        <button class="miniBtn" data-act="board" data-tip="Draw the idea behind this moment on a top-down pitch — shape, runs, where everyone should have been. It is shown right after this clip in any video you save.">🗒${c.boardId ? '✓' : ''}</button>
-        <button class="miniBtn" data-act="compare" data-tip="Put this moment next to another clip and play them side by side.">⚖</button>
-        <button class="miniBtn" data-act="voice" data-tip="Record yourself talking over this clip. Your voice goes into the video when you save it — so he hears the coaching even when you are not there.">🎤${voiceIds.has(c.id) ? '✓' : ''}</button>
         <button class="miniBtn" data-act="edit" data-tip="Change the name, the labels, the note or the question on this clip.">✏️ Edit</button>
         ${proposeCut(c, lastTrackReport) ? '<button class="miniBtn" data-act="tighten" data-tip="The tracking data thinks this clip has quiet air around the action. One tap trims it to start just before the play and end a beat after — and Undo puts it straight back.">✂ Tighten to the action?</button>' : ''}
-        <button class="miniBtn danger" data-act="del" data-tip="Delete this clip.">🗑</button>
+        <details class="moreActs"${moreOpen.has(c.id) ? ' open' : ''}>
+          <summary data-tip="Everything else you can do with this moment — save it as a video, compare it, draw its board, talk over it, or delete it.">⌄ More</summary>
+          <div class="moreRow">
+            <button class="miniBtn" data-act="export" data-tip="Turn this one moment into a video file with the drawings and your note burned in — ready to send to his phone.">🎬 Save video</button>
+            <button class="miniBtn" data-act="board" data-tip="Draw the idea behind this moment on a top-down pitch — shape, runs, where everyone should have been. It is shown right after this clip in any video you save.">🗒${c.boardId ? '✓' : ''}</button>
+            <button class="miniBtn" data-act="compare" data-tip="Put this moment next to another clip and play them side by side.">⚖</button>
+            <button class="miniBtn" data-act="voice" data-tip="Record yourself talking over this clip. Your voice goes into the video when you save it — so he hears the coaching even when you are not there.">🎤${voiceIds.has(c.id) ? '✓' : ''}</button>
+            <button class="miniBtn danger" data-act="del" data-tip="Delete this clip.">🗑</button>
+          </div>
+        </details>
       </div>`;
     el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
     el.querySelectorAll('.actions [data-act]').forEach(b =>
       b.onclick = () => clipAction(b.dataset.act, c));
+    const more = el.querySelector('details.moreActs');
+    more.addEventListener('toggle', () => {   // survive the constant re-renders
+      if (more.open) moreOpen.add(c.id); else moreOpen.delete(c.id);
+    });
     wireDragToReel(el, c);
     list.appendChild(el);
   }

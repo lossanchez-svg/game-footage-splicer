@@ -4,7 +4,7 @@
   export PNG, and persist through reload.
 */
 const path = require('path');
-const { APP, FIXTURES, launch } = require('./common');
+const { APP, FIXTURES, launch, openDisclosures } = require('./common');
 
 (async () => {
   const { browser, page, errors, check } = await launch();
@@ -99,6 +99,7 @@ const { APP, FIXTURES, launch } = require('./common');
   await page.fill('#clipTitle', 'Switch point');
   await page.click('#clipSave');
   await page.waitForTimeout(200);
+  await openDisclosures(page);
   await page.click('#clipList [data-act=board]');
   await page.waitForSelector('#boardWrap', { state: 'visible' });
   const all = await boards();

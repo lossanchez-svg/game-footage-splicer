@@ -1,7 +1,7 @@
 /* The friction backlog from real use: nothing fails silently, deleting is
    always take-back-able, and an expensive export says how expensive. */
 const path = require('path');
-const { APP, FIXTURES, launch } = require('./common');
+const { APP, FIXTURES, launch, openDisclosures } = require('./common');
 
 const VIDEO = path.join(FIXTURES, 'game.webm');
 const toasts = page => page.evaluate(() =>
@@ -30,6 +30,7 @@ const clearToasts = page => page.evaluate(() =>
                              ['#btnExport', 'save video'], ['#btnSnapshot', 'photo'],
                              ['#btnSaveProj', 'save project']]) {
     await clearToasts(page);
+    await openDisclosures(page);   // #btnSaveProj sits inside the Project menu now
     await page.click(sel);
     await page.waitForTimeout(120);
     check(`${what} with nothing open explains itself`, /no game open yet/i.test(await toasts(page)));
@@ -82,6 +83,7 @@ const clearToasts = page => page.evaluate(() =>
 
   await page.click('#tabs button[data-tab=clips]');
   await clearToasts(page);
+  await openDisclosures(page);
   await page.click('#clipList .clipItem >> nth=0 >> [data-act=del]');
   await page.waitForTimeout(200);
   check('deleting a clip asks nothing either', dialogs === 0);
@@ -93,6 +95,7 @@ const clearToasts = page => page.evaluate(() =>
 
   // undo still targets the right deletion after later edits
   await clearToasts(page);
+  await openDisclosures(page);
   await page.click('#clipList .clipItem >> nth=0 >> [data-act=del]');
   await page.waitForTimeout(150);
   await page.click('#clipList .clipItem >> nth=0 >> [data-act=reel]');   // an unrelated edit
@@ -108,6 +111,7 @@ const clearToasts = page => page.evaluate(() =>
   await page.waitForTimeout(200);
   await clearToasts(page);
   await page.click('#btnClearReel');
+  await openDisclosures(page);
   await page.waitForTimeout(200);
   check('clearing the list is undoable', /deleted/i.test(await toasts(page)));
   await page.click('.toast .toastBtn');

@@ -4,7 +4,7 @@
   align nudge, an outside file as the model side, and a composite PNG.
 */
 const path = require('path');
-const { APP, FIXTURES, launch } = require('./common');
+const { APP, FIXTURES, launch, openDisclosures } = require('./common');
 
 (async () => {
   const { browser, page, errors, check } = await launch();
@@ -33,6 +33,7 @@ const { APP, FIXTURES, launch } = require('./common');
   await makeClip(5, 7, 'Model touch');
 
   // open compare from the first clip's button
+  await openDisclosures(page);
   await page.click('#clipList .clipItem >> nth=0 >> [data-act=compare]');
   await page.waitForSelector('#compareWrap', { state: 'visible' });
   check('compare opens, video hidden', !(await page.isVisible('#videoWrap')));

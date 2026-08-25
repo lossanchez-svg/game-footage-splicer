@@ -1833,8 +1833,23 @@ export renderers are frozen so old exports keep matching the editor.
       dot (mouse only, hidden on touch) that drags onto the Highlight reel section —
       it lights up and the drop calls the same `toggleReel()` as ➕ Reel. Verified by
       `tests/dropzones.js` (14 checks) + 16-suite regression set.
-- [ ] Sprint 6 — progressive disclosure: clip cards two-tier, top-bar 📦 Project
-      group, spotlight fine-tune fold; test-suite selector updates
+- [x] **Sprint 6 — progressive disclosure (shipped).** Clip cards went two-tier:
+      the daily verbs (▶ Play · ➕ Reel · ✏️ Edit, plus ✂ Tighten when proposed)
+      stay out, and 🎬 Save video · 🗒 Board · ⚖ Compare · 🎤 Voice · 🗑 Delete sit
+      behind a "⌄ More" fold that remembers being open per clip across re-renders;
+      🗒/🎤 attachment glyphs moved into the card head so folded state stays
+      visible. The top bar's three project-file jobs (💾 Save / 📂 Load /
+      📦 Keep this game — same IDs, same tips) folded into one **📦 Project ⌄**
+      menu that closes on outside press or after a job. The spotlight panel fold
+      was **descoped with rationale**: `#selSection` is already progressive
+      (appears only on selection, buttons conditional by type), and folding it
+      would churn four tracking suites for no daily-density win. Tests: shared
+      `openDisclosures()` helper in `tests/common.js`; nine suites updated at
+      their now-folded click sites; full affected set green.
+
+**Epic status: all six sprints shipped.** Remaining from the audit doc: the optional
+Stretch S-A audio-energy strip (needs an iPad memory spike measurement first — see
+`UI_REFRESH_PLAN.md` §2.4) and the sidebar fold-labels-to-words refinement below.
 
 ## Roadmap
 

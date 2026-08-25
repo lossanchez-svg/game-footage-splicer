@@ -69,7 +69,7 @@ The best path depends on the device — each one leads with its strongest option
   it opened. Nothing is uploaded: it's your folder, syncing the way it already did.
 - Once a video is open, everything you do (clips, drawings, questions) **autosaves
   in the browser** and comes right back the next time you open the *same file*
-  (matched by name + size). Use **💾 Save project** for a portable backup file.
+  (matched by name + size). Use **💾 Save project** (under **📦 Project** in the top bar) for a portable backup file.
 
 ## What it does
 
@@ -363,7 +363,7 @@ control shows a clear focus ring when you move through the app with the keyboard
 
 ## 📦 Keeping a season
 
-**📦 Keep this game** packs everything from a game into one zip you can archive next to
+**📦 Keep this game** (under **📦 Project** in the top bar) packs everything from a game into one zip you can archive next to
 the film: the project file, a spreadsheet of every moment, his answers from each session,
 the tactics boards as pictures, and your voice-overs — those live only in the browser you
 recorded them in, so this is the only way to keep them or move them to another computer.

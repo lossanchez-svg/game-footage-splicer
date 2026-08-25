@@ -13,7 +13,7 @@
 const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
-const { APP, FIXTURES, OUT, launch } = require('./common');
+const { APP, FIXTURES, OUT, launch, openDisclosures } = require('./common');
 
 const STUB = () => {
   window.__fakeEnc = { frames: 0, keys: 0 };
@@ -93,6 +93,8 @@ async function hasRealSupport(page){
   await page.click('#clipSave');
   await page.waitForTimeout(200);
   await page.click('#tabs button[data-tab=clips]');
+
+  await openDisclosures(page);
 
   const [dl] = await Promise.all([
     page.waitForEvent('download', { timeout: 180000 }),
@@ -180,6 +182,7 @@ async function hasRealSupport(page){
   // is the board's own contribution rather than arithmetic about card lengths.
   await page.click('#tabs button[data-tab=clips]');
   if (stubbed) await page.evaluate(() => { window.__fakeEnc.frames = 0; window.__fakeEnc.keys = 0; });
+  await openDisclosures(page);
   const [dlBefore] = await Promise.all([
     page.waitForEvent('download', { timeout: 180000 }),
     page.click('#clipList .clipItem >> nth=0 >> [data-act=export]'),
@@ -187,6 +190,7 @@ async function hasRealSupport(page){
   await dlBefore.saveAs(path.join(OUT, 'noboard_' + dlBefore.suggestedFilename()));
   const framesBefore = stubbed ? await page.evaluate(() => window.__fakeEnc.frames) : 0;
 
+  await openDisclosures(page);
   await page.click('#clipList .clipItem >> nth=0 >> [data-act=board]');   // creates + opens it
   await page.waitForTimeout(700);
   await page.click('#boardClose');
@@ -198,6 +202,7 @@ async function hasRealSupport(page){
   }));
 
   if (stubbed) await page.evaluate(() => { window.__fakeEnc.frames = 0; window.__fakeEnc.keys = 0; });
+  await openDisclosures(page);
   const [dl4] = await Promise.all([
     page.waitForEvent('download', { timeout: 180000 }),
     page.click('#clipList .clipItem >> nth=0 >> [data-act=export]'),
