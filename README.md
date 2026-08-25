@@ -350,6 +350,7 @@ control shows a clear focus ring when you move through the app with the keyboard
 | `Delete` | Delete selected drawing |
 | `⌘Z` | Undo |
 | `?` | Help |
+| `⌘K` / `Ctrl K` | Do anything by typing a few letters of it — "save video", "board", a clip's name… |
 
 ## A suggested daily routine
 

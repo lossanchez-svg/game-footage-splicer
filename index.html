@@ -444,6 +444,19 @@
     font-size:14px; line-height:1.4; box-shadow:0 8px 28px rgba(0,0,0,.55);
     pointer-events:none;}
 
+  /* ---------- ⌘K command bar ---------- */
+  #cmdModal .box{padding:12px; width:min(560px, 94vw);}
+  #cmdInput{width:100%; font-size:16px; padding:10px 12px;}
+  #cmdList{margin-top:8px;}
+  .cmdRow{display:flex; gap:10px; align-items:baseline; padding:8px 10px;
+    border-radius:8px; cursor:pointer;}
+  .cmdRow.sel{background:var(--bg3); outline:1px solid var(--accent2);}
+  .cmdRow .lbl{white-space:nowrap;}
+  .cmdRow .why{color:var(--dim); font-size:12px; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;}
+  .cmdEmpty{color:var(--dim); font-size:13px; padding:8px 10px;}
+  body.bigText .cmdRow .why{font-size:14px;}
+
   /* ---------- guided first-run tour ---------- */
   #tourRing{position:fixed; border-radius:12px; pointer-events:none; z-index:130; display:none;
     box-shadow:0 0 0 9999px rgba(0,0,0,.6), 0 0 0 3px var(--accent2), 0 0 22px rgba(88,166,255,.55);
@@ -1195,6 +1208,7 @@
       <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Slower / faster playback</td></tr>
       <tr><td><kbd>Delete</kbd></td><td>Delete selected drawing</td></tr>
       <tr><td><kbd>⌘Z</kbd></td><td>Undo</td></tr>
+      <tr><td><kbd>⌘K</kbd> / <kbd>Ctrl K</kbd></td><td>Do anything by typing a few letters of it — “save video”, “board”, a clip’s name…</td></tr>
     </table>
     <h4>Spotlights that follow a player</h4>
     <p><b>Auto-track:</b> put a spotlight on him, move to where the play ends and press <b>Disappears here</b>, come back to the start, then press <b>🎯 Auto-track</b>. The ring follows him on its own, and you can still drag it anywhere it is not quite right (Esc stops it). If it says it lost him — players crossing, camera whip — drag the ring back onto him at that moment and press Auto-track again from there.</p>
@@ -1220,6 +1234,16 @@
 </div>
 
 <div id="tipBubble" role="tooltip"></div>
+
+<!-- ⌘K command bar: type a few letters of anything the app can do, press Return -->
+<div class="modal" id="cmdModal" style="z-index:85">
+  <div class="box">
+    <input type="text" id="cmdInput" autocomplete="off"
+      placeholder="Type what you want to do — like “save video” or “board”…"
+      data-tip="Type a few letters of anything Film Room can do and press Return to do it. Open this from anywhere with ⌘K (Ctrl+K on Windows).">
+    <div id="cmdList"></div>
+  </div>
+</div>
 
 <!-- quick-mark chips that follow the cursor along the timeline (mouse only) -->
 <div id="tlHover">
@@ -4818,6 +4842,62 @@ $$('#clipFilterRow .chip').forEach(b => b.onclick = () => {
 });
 $('#clipTagFilter').onchange = () => { ui.clipTagFilter = $('#clipTagFilter').value; renderClipList(); };
 
+/* one source of truth for everything you can do to a clip — the sidebar buttons and
+   the ⌘K command bar both call this, so guards, undo and hints stay identical */
+function toggleReel(c){
+  let added = false;
+  mutate(() => {
+    project.reel = project.reel || [];
+    const i = project.reel.indexOf(c.id);
+    if (i >= 0) project.reel.splice(i, 1);
+    else { project.reel.push(c.id); added = true; }
+  });
+  if (added) hintOnce('reel', 'That is this week’s set. Press 🎬 Save as one video to make one file for the TV, or 🎓 Watch together to go through them right here.', 6500);
+}
+function openClipBoard(c){
+  let board = (project.boards || []).find(b => b.id === c.boardId);
+  if (!board){
+    mutate(() => {
+      board = newBoard(c.title.slice(0, 30), c.format || '9v9');
+      c.boardId = board.id;
+    });
+  }
+  openBoard(board.id);
+}
+function tightenClip(c){
+  const prop = proposeCut(c, lastTrackReport);
+  if (!prop) return renderClipList();
+  const was = { tIn: c.tIn, tOut: c.tOut };
+  mutate(() => {
+    c.tIn = prop.tIn; c.tOut = prop.tOut;
+    if (prop.ramp) c.ramp = prop.ramp;   // the fastest bit — for social cuts
+  });
+  toast('Tightened: ' + prop.why + '. It now runs ' + fmtDur(c.tOut - c.tIn) + '.',
+    8000, { label: '↩ Undo', fn(){
+      mutate(() => { c.tIn = was.tIn; c.tOut = was.tOut; delete c.ramp; });
+      toast('Put back the way you had it.');
+    } });
+}
+function deleteClip(c){
+  deleteWithUndo('“' + c.title + '”', () => {
+    project.clips = project.clips.filter(x => x.id !== c.id);
+    project.reel = (project.reel || []).filter(id => id !== c.id);
+  });
+}
+function clipAction(act, c){
+  switch (act){
+    case 'play':    return playClip(c);
+    case 'export':  return doExport(c.tIn, c.tOut, c.title, c);
+    case 'reel':    return toggleReel(c);
+    case 'board':   return openClipBoard(c);
+    case 'compare': return openCompare(c.id);
+    case 'voice':   return openVoice(c);
+    case 'edit':    return openClipModal(c);
+    case 'tighten': return tightenClip(c);
+    case 'del':     return deleteClip(c);
+  }
+}
+
 function renderClipList(){
   const list = $('#clipList');
   list.innerHTML = '';
@@ -4857,52 +4937,8 @@ function renderClipList(){
         <button class="miniBtn danger" data-act="del" data-tip="Delete this clip.">🗑</button>
       </div>`;
     el.querySelector('.head').onclick = () => { video.currentTime = c.tIn; };
-    const tightenBtn = el.querySelector('[data-act=tighten]');
-    if (tightenBtn) tightenBtn.onclick = () => {
-      const prop = proposeCut(c, lastTrackReport);
-      if (!prop) return renderClipList();
-      const was = { tIn: c.tIn, tOut: c.tOut };
-      mutate(() => {
-        c.tIn = prop.tIn; c.tOut = prop.tOut;
-        if (prop.ramp) c.ramp = prop.ramp;   // the fastest bit — for social cuts
-      });
-      toast('Tightened: ' + prop.why + '. It now runs ' + fmtDur(c.tOut - c.tIn) + '.',
-        8000, { label: '↩ Undo', fn(){
-          mutate(() => { c.tIn = was.tIn; c.tOut = was.tOut; delete c.ramp; });
-          toast('Put back the way you had it.');
-        } });
-    };
-    el.querySelector('[data-act=play]').onclick = () => playClip(c);
-    el.querySelector('[data-act=export]').onclick = () => doExport(c.tIn, c.tOut, c.title, c);
-    el.querySelector('[data-act=reel]').onclick = () => {
-      let added = false;
-      mutate(() => {
-        project.reel = project.reel || [];
-        const i = project.reel.indexOf(c.id);
-        if (i >= 0) project.reel.splice(i, 1);
-        else { project.reel.push(c.id); added = true; }
-      });
-      if (added) hintOnce('reel', 'That is this week\u2019s set. Press 🎬 Save as one video to make one file for the TV, or 🎓 Watch together to go through them right here.', 6500);
-    };
-    el.querySelector('[data-act=board]').onclick = () => {
-      let board = (project.boards || []).find(b => b.id === c.boardId);
-      if (!board){
-        mutate(() => {
-          board = newBoard(c.title.slice(0, 30), c.format || '9v9');
-          c.boardId = board.id;
-        });
-      }
-      openBoard(board.id);
-    };
-    el.querySelector('[data-act=compare]').onclick = () => openCompare(c.id);
-    el.querySelector('[data-act=voice]').onclick = () => openVoice(c);
-    el.querySelector('[data-act=edit]').onclick = () => openClipModal(c);
-    el.querySelector('[data-act=del]').onclick = () => {
-      deleteWithUndo('“' + c.title + '”', () => {
-        project.clips = project.clips.filter(x => x.id !== c.id);
-        project.reel = (project.reel || []).filter(id => id !== c.id);
-      });
-    };
+    el.querySelectorAll('.actions [data-act]').forEach(b =>
+      b.onclick = () => clipAction(b.dataset.act, c));
     list.appendChild(el);
   }
   renderReelList();
@@ -7044,6 +7080,102 @@ document.addEventListener('keydown', e => {
     case '?': $('#helpModal').classList.add('open'); break;
   }
 });
+
+/* ---------------- ⌘K command bar ----------------
+   A router over the buttons that already exist: every entry just clicks the real
+   control (or calls clipAction), so guards, toasts and undo are inherited, never
+   duplicated. The searchable text is each control's label + its data-tip sentence. */
+const CMD_STATIC = ['#btnOpen','#btnLibrary','#btnBoard','#btnCompare','#btnSnapshot',
+  '#btnExport','#btnSaveProj','#btnLoadProj','#btnBundle','#btnStudio','#btnTrends',
+  '#btnTextSize','#btnHelp','#btnPlay','#btnBack5','#btnFwd5','#btnFrameBack',
+  '#btnFrameFwd','#btnMarkIn','#btnMarkOut','#btnSaveClip','#btnFindMoments',
+  '#btnProfile','#btnExportReel','#btnRunSession'];
+/* labels that are icons on screen get words here so they can be typed for */
+const CMD_NAMES = { '#btnPlay':'Play / pause', '#btnBack5':'Back 5 seconds',
+  '#btnFwd5':'Forward 5 seconds', '#btnFrameBack':'Back one single picture',
+  '#btnFrameFwd':'Forward one single picture', '#btnTextSize':'Bigger text (Aa)',
+  '#btnSnapshot':'📸 Photo of this frame' };
+function cmdEntries(){
+  const out = [];
+  for (const sel of CMD_STATIC){
+    const el = $(sel);
+    if (!el || el.disabled) continue;
+    const label = CMD_NAMES[sel] || el.textContent.trim();
+    if (!label) continue;
+    out.push({ label, tip: el.dataset.tip || '', run: () => el.click() });
+  }
+  for (const b of $$('#tabs button'))
+    out.push({ label: 'Go to ' + b.textContent.trim(), tip: b.dataset.tip || '',
+      run: () => b.click() });
+  for (const c of project.clips)
+    out.push({ label: '▶ Play “' + c.title + '”',
+      tip: 'Plays this saved moment on a loop.', run: () => clipAction('play', c) });
+  return out;
+}
+function cmdScore(q, e){
+  const hay = (e.label + ' ' + e.tip).toLowerCase();
+  let s = 0;
+  for (const w of q.toLowerCase().split(/\s+/).filter(Boolean)){
+    const i = hay.indexOf(w);
+    if (i < 0) return -1;
+    s += (i === 0 || /[\s“"(]/.test(hay[i-1])) ? 3 : 1;   // word starts beat substrings
+  }
+  if (e.label.toLowerCase().startsWith(q.toLowerCase())) s += 4;
+  return s;
+}
+let cmdSel = 0, cmdShown = [];
+function renderCmd(){
+  const q = $('#cmdInput').value.trim();
+  const all = cmdEntries();
+  cmdShown = !q ? all.slice(0, 9)
+    : all.map(e => [cmdScore(q, e), e]).filter(x => x[0] >= 0)
+         .sort((a, b) => b[0] - a[0]).slice(0, 9).map(x => x[1]);
+  cmdSel = Math.min(cmdSel, Math.max(0, cmdShown.length - 1));
+  const host = $('#cmdList');
+  host.innerHTML = '';
+  if (!cmdShown.length){
+    host.innerHTML = '<div class="cmdEmpty">Nothing matches that — try fewer letters.</div>';
+    return;
+  }
+  cmdShown.forEach((e, i) => {
+    const d = document.createElement('div');
+    d.className = 'cmdRow' + (i === cmdSel ? ' sel' : '');
+    d.innerHTML = '<span class="lbl"></span><span class="why"></span>';
+    d.querySelector('.lbl').textContent = e.label;
+    d.querySelector('.why').textContent = (e.tip.split('. ')[0] || '');
+    d.onclick = () => runCmd(e);
+    host.appendChild(d);
+  });
+}
+function runCmd(e){ closeCmd(); e.run(); }
+function openCmd(){
+  if (ui.session || ui.tracking || ui.exporting) return;
+  $('#cmdModal').classList.add('open');
+  $('#cmdInput').value = ''; cmdSel = 0;
+  renderCmd();
+  $('#cmdInput').focus();
+}
+function closeCmd(){
+  $('#cmdModal').classList.remove('open');
+  $('#cmdInput').blur();   // or the hidden input keeps swallowing the shortcut keys
+}
+$('#cmdInput').addEventListener('input', () => { cmdSel = 0; renderCmd(); });
+$('#cmdInput').addEventListener('keydown', e => {
+  if (e.key === 'Escape'){ e.preventDefault(); closeCmd(); }
+  else if (e.key === 'ArrowDown'){ e.preventDefault(); cmdSel = Math.min(cmdSel + 1, cmdShown.length - 1); renderCmd(); }
+  else if (e.key === 'ArrowUp'){ e.preventDefault(); cmdSel = Math.max(cmdSel - 1, 0); renderCmd(); }
+  else if (e.key === 'Enter'){ e.preventDefault(); if (cmdShown[cmdSel]) runCmd(cmdShown[cmdSel]); }
+});
+/* capture phase: the main shortcut map ignores inputs and releases ⌘ combos,
+   so ⌘K needs its own listener to work from anywhere */
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'){
+    const open = $('#cmdModal').classList.contains('open');
+    if (!open && $$('.modal.open').length) return;   // never stack over another dialog
+    e.preventDefault();
+    open ? closeCmd() : openCmd();
+  }
+}, true);
 
 /* ---------------- main loop ---------------- */
 function tick(){

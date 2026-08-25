@@ -1803,8 +1803,18 @@ export renderers are frozen so old exports keep matching the editor.
       and handlers. Verified: chips mark, handles retime a saved clip end-to-end,
       plain click still seeks; smoke/touch/comfort/tips/plainwords/tour/
       walkthrough/friction/watch green.
-- [ ] Sprint 3 — ⌘K command bar over an action registry (`clipAction()` dispatcher
-      refactor first)
+- [x] **Sprint 3 — ⌘K command bar (shipped).** First a pure extraction: the nine
+      inline clip-card closures became named functions behind one `clipAction(act, c)`
+      dispatcher (identical behavior, one source of truth for what you can do to a
+      clip). Then the bar: ⌘K / Ctrl+K from anywhere opens a typed palette whose
+      entries are the real buttons (label + `data-tip` sentence is the search text;
+      running an entry clicks the real control, so guards, toasts, undo and hints are
+      inherited) plus tab switches and every saved clip by name. Word-start-weighted
+      scoring, ↑/↓/Return/Esc, never stacks over an open dialog, closes cleanly
+      (blur — a hidden focused input would swallow the shortcut map), disabled during
+      sessions/tracking/export. In the Help table and README. No proactive hint —
+      it must never become a step Grandma needs. Verified by `tests/cmdbar.js`
+      (15 checks) + full UI regression set green.
 - [ ] Sprint 4 — timeline clip hover micro-menu (desktop hover only; touch keeps the
       sidebar path)
 - [ ] Sprint 5 — smart-drop zones over the stage + drag-clip-card-to-reel

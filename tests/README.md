@@ -55,6 +55,9 @@ node watch.js          # the "this week's session is ready" front door: when it 
 node comfort.js        # comfort mode + accessibility: the Aa text-size toggle (sizes,
                        # persistence, longer toasts), a real WCAG AA contrast audit of
                        # every screen in both sizes, and visible keyboard focus
+node cmdbar.js         # the ⌘K command bar: opens from anywhere, finds actions and
+                       # saved clips by their plain words, runs the real button
+                       # handlers, never stacks over a dialog, leaves plain-K alone
 node friction.js       # friction backlog: no control fails silently without a video,
                        # every delete is undoable from its own message (even after later
                        # edits), whole-game export states its length
