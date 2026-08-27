@@ -290,9 +290,13 @@ Driven directly by the design inputs above:
   coarse pointers, taller timeline, 16px inputs (stops iOS focus-zoom), no tap-highlight/
   double-tap zoom, safe-area padding. Responsive layout stacks the sidebar under the
   video below 980px (iPad portrait / phones).
-- **PWA (when hosted)**: manifest + service worker + icons; register only over http(s).
-  One-time setup: enable GitHub Pages on this repo → open on iPad Safari → share →
-  Add to Home Screen. Fully offline afterwards; footage still never leaves the device.
+- **PWA (hosted, and live)**: manifest + service worker + icons; register only over
+  http(s). **GitHub Pages is enabled and has deployed every merge to `main` since
+  2026-08-18** — the app is served at
+  `https://lossanchez-svg.github.io/game-footage-splicer/`. Open it on iPhone/iPad Safari
+  → Share → Add to Home Screen. Fully offline afterwards; footage still never leaves the
+  device. (The app shell is network-first since v2.9.1, so a returning visitor gets the
+  newly deployed build rather than a cached one.)
   Opening index.html locally stays fully supported (SW is a no-op on file://).
 - **⚡ WebCodecs H.264 export**: renders frame-by-frame (seek-stepping, deterministic —
   no dropped frames) through VideoEncoder into a **hand-rolled zero-dependency ISO-BMFF
@@ -1823,9 +1827,14 @@ localStorage first and treats the Games folder as an extra, so the season featur
       does rename picks, export of one clip on-device, and how a full-length game file
       behaves for memory and heat
 
-**Open (needs the user, cannot be done from here):** GitHub Pages must be enabled on the
-repo (Settings → Pages → `main`) — that is the only way onto the phone's home screen, and
-nothing in this epic reaches a phone until it is on.
+**Hosting is live (checked 2026-08-27):** GitHub Pages has been deploying every merge to
+`main` since 2026-08-18 — 31 successful `pages build and deployment` runs, the latest
+being the v8 Sprint 1 merge (`5f63a09`), all three jobs green. The app is on the phone's
+home screen path at `https://lossanchez-svg.github.io/game-footage-splicer/`. This was
+recorded as an open blocker in three places for far longer than it was true; the lesson is
+the usual one — **check the record against reality before repeating it**. Note that a
+sandboxed session cannot fetch `github.io` (egress proxy), so deployment is verified
+through the Actions API, and only a real device confirms the page renders.
 
 ## 🚧 Current epic — v7 "Onyx" (UI refresh)
 
@@ -1949,9 +1958,10 @@ Stretch S-A audio-energy strip (needs an iPad memory spike measurement first —
       updates the busy message every second of output once 5s of pace has settled.
       Verified wired (`sayTimeLeft` called from `pushFrame`); nothing to add.
 - [ ] Board: no undo *within* a chip drag (each drag is one undo step — verify feel).
-- [ ] PWA: verify installed-app behavior on a real iPad (icon, offline, orientation).
-      GitHub Pages still needs enabling on the repo (Settings → Pages → main) — that is
-      the iPad "Add to Home Screen" path, and nobody has confirmed it deploys.
+- [ ] PWA: verify installed-app behavior on a real iPad/iPhone (icon, offline,
+      orientation). Hosting is no longer the blocker — **Pages is enabled and deploying**
+      (see the v8 epic); what is unverified is how the *installed* app behaves on a real
+      device, which is v8 Sprint 3.
 - [ ] Tag editor renames update the current project only — decide whether that's enough
       or renames should also rewrite other stored projects when opened (migration note).
 
@@ -2186,6 +2196,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | v7 "Onyx" recolors chrome only — PALETTE, drawScene() and the export/title-card renderers are frozen | Overlay and export share one renderer, and title cards are burned into saved files: restyling them would make every previously exported video mismatch the editor. On the new neutral-gray workspace the untouched vibrant annotations become the loudest thing on screen — which is the product's point. Chroma in the UI is budgeted to selection, live state, in/out + playhead, clip-rating data, and the one primary action per screen |
 | 2026-08-26 | On a phone the vault (IndexedDB) is the real store and localStorage is a cache | iOS clears script-writable storage for idle sites and caps localStorage at ~5MB. Mirroring every save keeps the sync read paths (and every existing test) working while making the work actually durable — a rewrite to async storage would have touched every render path for no user-visible gain |
 | 2026-08-26 | A game is identified by size and length, not by its file name | The Photos picker can rename or re-encode the same video, and the old name:size key read that as a new game — silently orphaning every clip. Size match is conclusive; length within 0.35s is close enough to offer. A different video is never adopted, which the suite asserts |
+| 2026-08-27 | Pages was live the whole time; the plan said otherwise for nine days | Three places recorded "Pages still needs enabling — nobody has confirmed it deploys" while 31 successful deployments had already run. A stale doc is worse than no doc: it was quoted back as fact and sent the user to flip a switch that was already on. Deployment state is now verified from the Actions API when it matters, not read from this file |
 
 ## Working agreements for future sessions
 

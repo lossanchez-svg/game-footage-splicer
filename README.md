@@ -29,13 +29,19 @@ Bookmark the page and it's a daily tool.
 The whole editor works by touch — tap tools, tap to spotlight, drag arrows and zones,
 tap the timeline to scrub. On narrow screens the panel moves below the video.
 
-To make it a real home-screen app on the iPad:
-1. **One-time:** on GitHub, open this repo's *Settings → Pages* and enable Pages from
-   the main branch. That gives the app a private-enough URL (the page is just the app —
-   your footage still never leaves the device; videos load from the iPad's Files/Photos).
-2. On the iPad, open that URL in Safari → Share → **Add to Home Screen**.
-3. It now launches full-screen like an app and works offline. Open game video straight
-   from Files or Photos with the **Open video…** button.
+To make it a real home-screen app on the iPhone or iPad — **the app is already hosted**,
+so this is two taps:
+
+1. Open **https://lossanchez-svg.github.io/game-footage-splicer/** in Safari. (The page
+   is just the app — your footage still never leaves the device; videos load from the
+   device's own Photos or Files.)
+2. Share → **Add to Home Screen**.
+3. It now launches full-screen like an app and works offline. Open a game video straight
+   from Photos or Files with the **Open video…** button.
+
+Every merge to `main` redeploys that URL automatically, and the app asks the network for
+a fresh copy before falling back to its offline cache — so the installed app updates
+itself rather than pinning you to an old build.
 
 ### Working on the iPhone as your main device
 
