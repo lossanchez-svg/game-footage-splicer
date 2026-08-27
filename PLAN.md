@@ -1870,6 +1870,29 @@ localStorage first and treats the Games folder as an extra, so the season featur
          🎯 Auto-track for a few seconds. Usable speed on the phone?
       Report what misbehaves — each numbered item maps to a specific subsystem.
 
+- [x] **Sprint 4 — sideways and closer (shipped, from the first field report).** The
+      user's on-device report: scrubbing was hard without a wider landscape view, pinch
+      zoom into the players, and the marking buttons at hand. All three delivered:
+      - **Rotate to watch:** turning the phone sideways hides the top bar (a portrait
+        job), auto-tucks the panel sheet, and gives the film the height — any tab tap
+        brings the panel back, turning upright restores everything, and a one-time hint
+        explains it. The transport controls become one sideways-scrollable row (they
+        wrapped to four rows at phone width and quietly starved the video — fixed in
+        portrait too). Root cause fixed along the way: `#left` had `min-width:0` but not
+        `min-height:0`, so in the stacked column the fixed-pixel video wrap set the
+        column's minimum and pushed the transport and tabs off a landscape screen.
+      - **Pinch to zoom:** two fingers zoom (1-5×) and pan the picture, anchored under
+        the fingers; a 1× chip brings the whole picture back; a new game starts
+        unzoomed. Pure VIEW transform on the wrap — `evNorm()` reads the transformed
+        rect, so one-finger drawing stays exact at any zoom (asserted to 0.03), and
+        exports are untouched. A second finger landing mid-gesture unwinds whatever
+        the first accidentally started (undo for keyed moves, discard for previews);
+        `pointercancel`/`lostpointercapture` clean the finger bookkeeping (the Sprint 1
+        lesson, applied from the start).
+      - Tests: `tests/pinchzoom.js` (17 checks) drives real two-finger CDP touch
+        gestures and asserts elements are ON SCREEN (`rect.bottom <= innerHeight`),
+        not merely rendered — the weaker check had passed while the tab row sat 128px
+        below a landscape screen.
 **Hosting is live (checked 2026-08-27):** GitHub Pages has been deploying every merge to
 `main` since 2026-08-18 — 31 successful `pages build and deployment` runs, the latest
 being the v8 Sprint 1 merge (`5f63a09`), all three jobs green. The app is on the phone's
@@ -2242,6 +2265,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-27 | Pages was live the whole time; the plan said otherwise for nine days | Four spots (three in this file, one in the README) recorded "Pages still needs enabling — nobody has confirmed it deploys" while 31 successful deployments had already run. A stale doc is worse than no doc: it was quoted back as fact and sent the user to flip a switch that was already on. Deployment state is now verified from the Actions API when it matters, not read from this file |
 | 2026-08-27 | Phone top bar scrolls sideways in one row; nothing collapses into icons | Wrapping ate half an iPhone screen, but the Grandma-Test rule (plain words over icons) forbids the usual icon-only compaction. The board and compare bars already scroll horizontally, so the pattern was in the house style. Below 640px the 📦 Project popover becomes a fixed sheet measured off the live bar height — bigText and a notch outgrow any hardcoded offset |
 | 2026-08-27 | The panel-sheet tuck is raised by a USER tap on a tab, never by programmatic tab switches, and is not persisted | Saving a clip switches to the Clips tab in code; if that raised the sheet, every save would undo the tuck the parent chose seconds earlier. And a remembered tuck across visits would greet them with a missing panel and no memory of hiding it — the tuck is a this-viewing choice |
+| 2026-08-27 | Rotating the phone IS the watch gesture: landscape hides the top bar and auto-tucks the panel | The bar's jobs (open, export, help) are portrait jobs; sideways exists to see the film. Everything returns on turning upright or tapping a tab, and a one-time hint says so — hiding chrome is safe only when the way back is the same motion that hid it |
+| 2026-08-27 | Pinch zoom is a view transform on the wrap, never a change to coordinates or exports | evNorm() reads getBoundingClientRect(), which already reflects CSS transforms — so drawing stays exact at any zoom with zero new math, and drawScene/export code paths are untouched. A second finger unwinds what the first started: zooming must never leave an accidental ring behind |
 
 ## Working agreements for future sessions
 
