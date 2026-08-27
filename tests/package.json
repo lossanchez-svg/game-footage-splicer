@@ -4,7 +4,7 @@
   "description": "Playwright smoke tests for Film Room (../index.html)",
   "scripts": {
     "fixtures": "./make-fixtures.sh",
-    "test": "node tour.js && node tips.js && node plainwords.js && node smoke.js && node tracking.js && node hardtrack.js && node multitrack.js && node smalltrack.js && node lockon.js && node lockontrack.js && node touch.js && node phonefirst.js && node fastexport.js && node muxer.js && node session.js && node watch.js && node comfort.js && node cmdbar.js && node micromenu.js && node dropzones.js && node friction.js && node walkthrough.js && node board.js && node compare.js && node library.js && node continuity.js && node profile.js && node studio.js && node render.js && node kit.js && node moments.js && node autocut.js && node socket.js && node autopilot.js && node trends.js && node insights.js && node voice.js && node bundle.js && node realeval/selftest.js"
+    "test": "node tour.js && node tips.js && node plainwords.js && node smoke.js && node tracking.js && node hardtrack.js && node multitrack.js && node smalltrack.js && node lockon.js && node lockontrack.js && node touch.js && node phonefirst.js && node portrait.js && node fastexport.js && node muxer.js && node session.js && node watch.js && node comfort.js && node cmdbar.js && node micromenu.js && node dropzones.js && node friction.js && node walkthrough.js && node board.js && node compare.js && node library.js && node continuity.js && node profile.js && node studio.js && node render.js && node kit.js && node moments.js && node autocut.js && node socket.js && node autopilot.js && node trends.js && node insights.js && node voice.js && node bundle.js && node realeval/selftest.js"
   },
   "devDependencies": {
     "playwright-core": "^1.49.0"
