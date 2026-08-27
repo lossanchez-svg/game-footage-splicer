@@ -68,11 +68,15 @@ const { APP, FIXTURES, launch } = require('./common');
   check('opened game shows the has-work marker', marked.includes('week2.webm') && marked.includes('has work'));
   await page.click('#libClose');
 
-  // without the API, the buttons hide
+  /* Without the API there is no folder to offer — and on a device with no work
+     yet the button stays hidden rather than opening an empty drawer. Once the
+     device HAS work it becomes the "My games" list instead; tests/phonefirst.js
+     covers that half. */
   const page2 = await (await browser.newContext()).newPage();
   await page2.addInitScript(() => { delete window.showDirectoryPicker; });
   await page2.goto(APP);
-  check('library hidden when API absent', !(await page2.isVisible('#btnLibrary')));
+  check('library hidden when API absent and nothing worked on yet',
+    !(await page2.isVisible('#btnLibrary')));
 
   console.log('\n--- errors collected:', errors.length);
   errors.forEach(e => console.log('  ', e));

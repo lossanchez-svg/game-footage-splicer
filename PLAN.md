@@ -1774,6 +1774,59 @@ advertising, not whether a parent may use them.
 
 ---
 
+## 🚧 Current epic — v8 "Phone-first" (the iPhone as the primary device)
+
+**Goal:** the parent films the game on the iPhone and breaks it down *on the iPhone*,
+picking footage straight out of Photos. The Mac stays the place for the heavy jobs
+(the season reel), but nothing about the daily loop should require it.
+
+**What made this possible without a rewrite:** `collectGames()` already reads
+localStorage first and treats the Games folder as an extra, so the season features
+(Progress, Reel Studio planning) work with no folder API at all. The gaps were about
+*keeping* work and *finding it again*, not about the editing itself.
+
+**The three phone truths this epic answers:**
+1. There is no File System Access API in any iOS browser — Chrome and Edge on iOS are
+   Safari underneath — so the Games folder can never exist there. The library has to be
+   built from the work itself, not from a folder of films.
+2. localStorage is small (~5MB) and iOS clears it for sites left idle. Autosave alone is
+   not safekeeping.
+3. The Photos picker can hand the same video back under a different name (and re-encoded),
+   which the old `videoKey` (`name:size`) read as a brand-new game — silently orphaning
+   every clip attached to it.
+
+- [x] **Sprint 1 — the vault, the list, and re-linking (shipped).**
+      - **Vault:** every save is mirrored into IndexedDB (`vault:<videoKey>`) alongside
+        localStorage, which stays the fast synchronous read. Work now survives an iOS
+        storage clear-out; a quota failure says so once in plain words instead of
+        failing silently, and `navigator.storage.persist()` is requested at boot.
+      - **My games:** with no folder API, 📁 Games becomes the list of games this device
+        has work for (built from localStorage + vault, newest first, with clip counts and
+        length). It stays hidden until there is at least one, so a first run never offers
+        an empty drawer. Tapping one opens the Photos picker.
+      - **Re-linking:** projects now record `videoSize` and `videoDuration`. When an exact
+        key misses, `findSameGame()` matches an identical byte size (conclusive) or the
+        same running length within 0.35s, and the work follows the renamed file — with a
+        toast that says which name it used to have. A genuinely different video is not
+        adopted (asserted).
+      - **Honest limits:** the season reel needs footage from many games, so on a device
+        with no folder it says the reel is made on the computer that holds the films —
+        single-moment exports still work on the phone.
+      - `manifest.webmanifest` theme/background moved to Onyx `#121212`.
+      - Tests: `tests/phonefirst.js` (13 checks) runs the whole suite with
+        `showDirectoryPicker` removed — vault mirroring, clear-out recovery, the games
+        list, a renamed re-link, and the negative case. `tests/library.js` updated for the
+        button's new job.
+- [ ] Sprint 2 — portrait-first layout: the editing surface on a phone-sized screen
+      (video, transport and marking within thumb reach; the sidebar as a sheet)
+- [ ] Sprint 3 — verify on a real iPhone: installed-app behaviour, whether Photos really
+      does rename picks, export of one clip on-device, and how a full-length game file
+      behaves for memory and heat
+
+**Open (needs the user, cannot be done from here):** GitHub Pages must be enabled on the
+repo (Settings → Pages → `main`) — that is the only way onto the phone's home screen, and
+nothing in this epic reaches a phone until it is on.
+
 ## 🚧 Current epic — v7 "Onyx" (UI refresh)
 
 The audit and sprint-by-sprint spec live in **`UI_REFRESH_PLAN.md`** — same tool,
@@ -2131,6 +2184,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | The headless renderer does one game per run and refuses more, toward the app's own button | Serving multi-game footage into a headless page means base64-ing gigabytes through an init script — a memory cliff dressed as a feature. The app's real 🎬 button with the real Games folder already renders multi-game plans; the driver says so instead of half-working |
 | 2026-08-25 | The default ending of an Autopilot run is the PARENT pressing Make the reel | Even with a perfect draft, the render click is where review actually happens — the drag-what's-wrong moment. The headless render exists for the explicitly-asked hands-off case and still only writes "DRAFT - " files that never overwrite anything |
 | 2026-08-25 | v7 "Onyx" recolors chrome only — PALETTE, drawScene() and the export/title-card renderers are frozen | Overlay and export share one renderer, and title cards are burned into saved files: restyling them would make every previously exported video mismatch the editor. On the new neutral-gray workspace the untouched vibrant annotations become the loudest thing on screen — which is the product's point. Chroma in the UI is budgeted to selection, live state, in/out + playhead, clip-rating data, and the one primary action per screen |
+| 2026-08-26 | On a phone the vault (IndexedDB) is the real store and localStorage is a cache | iOS clears script-writable storage for idle sites and caps localStorage at ~5MB. Mirroring every save keeps the sync read paths (and every existing test) working while making the work actually durable — a rewrite to async storage would have touched every render path for no user-visible gain |
+| 2026-08-26 | A game is identified by size and length, not by its file name | The Photos picker can rename or re-encode the same video, and the old name:size key read that as a new game — silently orphaning every clip. Size match is conclusive; length within 0.35s is close enough to offer. A different video is never adopted, which the suite asserts |
 
 ## Working agreements for future sessions
 

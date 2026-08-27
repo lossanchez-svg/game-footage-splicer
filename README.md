@@ -37,6 +37,25 @@ To make it a real home-screen app on the iPad:
 3. It now launches full-screen like an app and works offline. Open game video straight
    from Files or Photos with the **Open video…** button.
 
+### Working on the iPhone as your main device
+
+You can break a game down entirely on the phone. A few things work differently there,
+because no iOS browser (Chrome and Edge on iOS included — they are Safari underneath)
+can be given a folder:
+
+- **📁 My games** replaces the Games folder. It lists the games you have already worked
+  on, newest first. Tap one, pick that same video from Photos again, and your clips and
+  drawings come back with it. The button appears once you have worked on something.
+- **Renamed by Photos? It still finds it.** Photos sometimes hands a video back under a
+  different name. Film Room recognises a game by how long it runs and how big it is, so
+  the work follows it and a message tells you which name it used to have.
+- **Your work is kept twice** — in the browser's quick storage and in a bigger store that
+  survives iOS clearing out sites you have not opened in a while. Press **💾 Save project**
+  now and then anyway for a copy you can hold on to.
+- **The season reel is a computer job.** Making one video out of plays from many games
+  needs all those films, so build the plan on the phone and press 🎬 Make the reel on the
+  Mac with your Games folder. Saving a *single* moment as a video works fine on the phone.
+
 ## Getting your footage in
 
 The best path depends on the device — each one leads with its strongest option:

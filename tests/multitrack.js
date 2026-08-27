@@ -10,7 +10,7 @@
   (still the fallback). The detection path has its own suites.
 */
 const path = require('path');
-const { APP, FIXTURES, launch } = require('./common');
+const { APP, FIXTURES, launch, wipeWork} = require('./common');
 
 const TWO = path.join(FIXTURES, 'two.webm');
 const BALL = path.join(FIXTURES, 'ball.webm');
@@ -173,7 +173,7 @@ const placeSpot = async (page, box, pos, label) => {
   // that matters and work back.
   // clear the autosave first: this fixture was already tracked earlier in this
   // suite, and restoring that work would leave two spotlights in the list
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();

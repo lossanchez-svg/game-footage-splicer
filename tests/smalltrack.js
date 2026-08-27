@@ -16,7 +16,7 @@
    an accident of the fixture (it sees the body-shaped player in feet.webm and
    nothing in the rectangles). The detection path has its own suites. */
 const path = require('path');
-const { APP, FIXTURES, launch } = require('./common');
+const { APP, FIXTURES, launch, wipeWork} = require('./common');
 
 const SMALL = path.join(FIXTURES, 'small.webm');
 /* straight from the fixture's own overlay expressions */
@@ -83,7 +83,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      here, so the grass streams past while the player drifts only slowly within
      it: a template made mostly of grass would follow the FIELD, which is moving
      with the camera, rather than the player. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -124,7 +124,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      template reaches further above his head than the ring suggests. Canopy has
      far more contrast than grass or a small player, so it can dominate the
      match. This guards that it does not. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -165,7 +165,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      pixels — a smear that correlates with itself very convincingly. The player
      here leaves the frame at about t=4.7; after that the only honest answers
      are "inside the picture" and "lost him". */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -246,7 +246,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      why three rounds of fixture-building failed to reproduce anything. This
      clip is built to the measurement instead of to a guess — muddy smudges on
      noisy, textured grass, crossing each other at the same depth. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -324,7 +324,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      torso and two legs that scissor as he runs, and a look-alike in the same kit
      crosses him around t=5 — the case where colour cannot help at all.
      Measured with a square template: err 0.142 at t=5 and 0.403 at t=7. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -375,7 +375,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      could see or the tracker gave up. Nothing about it was discoverable.
      "Follow him from here" means follow him; only an end set on this spotlight
      may stop it early, and when one does the message now says so. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -426,7 +426,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
 
      There is no single guessed choice any more: several templates run together
      and each has to prove on the next frame that it can find him at all. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -482,7 +482,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      selected. The user's answer was "I didn't know how to create a smaller
      ring", which is the right answer: the app has already measured which size
      works, so asking anyone to go and find a button was the bug. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -529,7 +529,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      the ring, and the template never looked at it once. With a square template
      this clip fails at err 0.061 / 0.179 / 0.297 / 0.416 while reporting a peak
      of 0.859 and no loss — confident and completely wrong. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -584,7 +584,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      plainly there again. Ending at that point is what "it tracks for a bit then
      stops" is. Here he passes behind an obstacle for about two and a half
      seconds, which is longer than coasting can bridge. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();
@@ -639,7 +639,7 @@ const other = t => ({ x: (524 - 40 * t) / 640, y: (129 + 18 * Math.cos(1.2 * t))
      for arrows and scribbles, so a ring dropped at 0:00 simply stopped being
      drawn at 0:04 — and pinning him later than that recorded the pin while
      showing nothing, which makes tracking him by hand impossible. */
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
   await page.evaluate(() => { localStorage.setItem('filmroom:tourDone', '1'); localStorage.setItem('filmroom:lockonPath', 'off'); });
   await page.reload();

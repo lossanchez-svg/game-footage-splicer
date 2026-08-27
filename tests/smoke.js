@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { APP, FIXTURES, OUT, launch, openDisclosures } = require('./common');
+const { APP, FIXTURES, OUT, launch, openDisclosures, wipeWork} = require('./common');
 
 const VIDEO = path.join(FIXTURES, 'game.webm');
 
@@ -8,7 +8,7 @@ const VIDEO = path.join(FIXTURES, 'game.webm');
   const { browser, page, errors, check } = await launch();
 
   await page.goto(APP);
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
 
   // first run now opens the guided tour (see tour.js) instead of a wall of help;

@@ -1,7 +1,7 @@
 /* Guided first-run tour: the steps must advance when the user DOES the thing,
    the skip link must work, and a completed/skipped tour must never come back. */
 const path = require('path');
-const { APP, FIXTURES, launch } = require('./common');
+const { APP, FIXTURES, launch, wipeWork} = require('./common');
 
 const VIDEO = path.join(FIXTURES, 'game.webm');
 
@@ -13,7 +13,7 @@ const bubbleVisible = page => page.evaluate(() =>
   const { browser, page, errors, check } = await launch();
 
   await page.goto(APP);
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
 
   // ---- step 1: open a video ----
@@ -127,7 +127,7 @@ const bubbleVisible = page => page.evaluate(() =>
   const tctx = await browser.newContext({ hasTouch: true, viewport: { width: 900, height: 800 } });
   const tp = await tctx.newPage();
   await tp.goto(APP);
-  await tp.evaluate(() => localStorage.clear());
+  await wipeWork(tp);
   await tp.reload();
   await tp.waitForSelector('#tourBubble', { state: 'visible', timeout: 3000 });
   await tp.setInputFiles('#fileVideo', VIDEO);

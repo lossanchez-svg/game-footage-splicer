@@ -21,6 +21,26 @@ function chromePath() {
   return undefined; // let playwright-core try its default resolution
 }
 
+/* v8: work now lives in localStorage AND a durable IndexedDB vault, so
+   "reset to a clean device" means emptying both. Clearing the store's contents
+   rather than deleting the database avoids blocking on the app's open handle. */
+async function wipeWork(page) {
+  await page.evaluate(async () => {
+    localStorage.clear();
+    await new Promise(res => {
+      const r = indexedDB.open('filmroom-fs', 1);
+      r.onupgradeneeded = () => { try { r.result.createObjectStore('kv'); } catch(e){} };
+      r.onsuccess = () => {
+        try {
+          const t = r.result.transaction('kv', 'readwrite').objectStore('kv').clear();
+          t.onsuccess = () => res(); t.onerror = () => res();
+        } catch(e){ res(); }
+      };
+      r.onerror = () => res();
+    });
+  });
+}
+
 async function launch(contextOpts = {}) {
   const browser = await chromium.launch({
     executablePath: chromePath(),
@@ -52,4 +72,4 @@ async function openDisclosures(page) {
   });
 }
 
-module.exports = { APP, FIXTURES, OUT, launch, openDisclosures };
+module.exports = { APP, FIXTURES, OUT, launch, openDisclosures, wipeWork };
