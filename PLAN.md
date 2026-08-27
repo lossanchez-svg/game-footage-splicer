@@ -1839,11 +1839,36 @@ localStorage first and treats the Games folder as an extra, so the season featur
       `pagehide` and `visibilitychange→hidden`, asserted inside the debounce window); and
       `vaultAll()` did one IDB round-trip per game (one ranged `getAll` now).
       `tests/phonefirst.js` grew from 13 to 26 checks.
-- [ ] Sprint 2 — portrait-first layout: the editing surface on a phone-sized screen
-      (video, transport and marking within thumb reach; the sidebar as a sheet)
-- [ ] Sprint 3 — verify on a real iPhone: installed-app behaviour, whether Photos really
-      does rename picks, export of one clip on-device, and how a full-length game file
-      behaves for memory and heat
+- [x] **Sprint 2 — portrait-first layout (shipped).** At iPhone width the top bar had
+      wrapped to five rows and ate half the screen: it is now one thumb-scrollable row
+      (the same pattern the board and compare bars already use), every button still
+      present in order with its full plain words, and the 📦 Project menu opens as a
+      fixed sheet so the scrolling bar cannot clip it. On any stacked layout (<980px)
+      the side panel gains a ⌄ handle in its tab row that tucks it down to just the
+      tabs — the video area roughly doubles (219→471px at 390×844) and the marking
+      controls land in thumb reach — and tapping any tab, or the handle again, brings
+      it back; `layout()` refits the video and overlay on every toggle. Desktop is
+      untouched (asserted). Tab wiring and the ⌘K registry were scoped to
+      `#tabs button[data-tab]` so the handle joins neither. Tests: `tests/portrait.js`
+      (13 checks) at a real iPhone viewport, including un-clipped Project menu,
+      overlay refit, and the wide-screen no-op.
+- [ ] Sprint 3 — verify on a real iPhone. **Already confirmed by the user (2026-08-27):**
+      the hosted page loads in Safari and Chrome, Add to Home Screen works, and the
+      Photos picker opens and selects. **Still to run — the ten-minute phone test,
+      in order, with a real full-length game from Photos:**
+      1. Open the game from Photos. Does it load and scrub smoothly? Does the phone
+         get hot? (This is the memory/heat question — a 60-90min iPhone file is the
+         real test, not a clip.)
+      2. Mark and save two clips, then flip to another app for a minute and come
+         back. Still there?
+      3. Close the app fully, reopen from the home screen, tap 📁 My games, pick the
+         same video from Photos again. Do the clips come back — and did the toast
+         mention a different file name? (That answers whether Photos renames picks,
+         the assumption the re-linking is built on.)
+      4. On one saved clip, press 🎬 Save video. Does the file arrive and play?
+      5. With the panel tucked (⌄ on the tab row), spotlight him and run
+         🎯 Auto-track for a few seconds. Usable speed on the phone?
+      Report what misbehaves — each numbered item maps to a specific subsystem.
 
 **Hosting is live (checked 2026-08-27):** GitHub Pages has been deploying every merge to
 `main` since 2026-08-18 — 31 successful `pages build and deployment` runs, the latest
@@ -2215,6 +2240,8 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-26 | On a phone the vault (IndexedDB) is the real store and localStorage is a cache | iOS clears script-writable storage for idle sites and caps localStorage at ~5MB. Mirroring every save keeps the sync read paths (and every existing test) working while making the work actually durable — a rewrite to async storage would have touched every render path for no user-visible gain |
 | 2026-08-26 | A game is identified by size and length, not by its file name | The Photos picker can rename or re-encode the same video, and the old name:size key read that as a new game — silently orphaning every clip. Size match is conclusive; length within 0.35s is close enough to offer. A different video is never adopted, which the suite asserts |
 | 2026-08-27 | Pages was live the whole time; the plan said otherwise for nine days | Four spots (three in this file, one in the README) recorded "Pages still needs enabling — nobody has confirmed it deploys" while 31 successful deployments had already run. A stale doc is worse than no doc: it was quoted back as fact and sent the user to flip a switch that was already on. Deployment state is now verified from the Actions API when it matters, not read from this file |
+| 2026-08-27 | Phone top bar scrolls sideways in one row; nothing collapses into icons | Wrapping ate half an iPhone screen, but the Grandma-Test rule (plain words over icons) forbids the usual icon-only compaction. The board and compare bars already scroll horizontally, so the pattern was in the house style. Below 640px the 📦 Project popover becomes a fixed sheet measured off the live bar height — bigText and a notch outgrow any hardcoded offset |
+| 2026-08-27 | The panel-sheet tuck is raised by a USER tap on a tab, never by programmatic tab switches, and is not persisted | Saving a clip switches to the Clips tab in code; if that raised the sheet, every save would undo the tuck the parent chose seconds earlier. And a remembered tuck across visits would greet them with a missing panel and no memory of hiding it — the tuck is a this-viewing choice |
 
 ## Working agreements for future sessions
 

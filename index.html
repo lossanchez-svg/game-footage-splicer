@@ -599,12 +599,35 @@
     #tabs button{padding:13px 4px;}
     input,select,textarea{padding:8px 10px; font-size:16px;} /* 16px stops iOS zoom-on-focus */
   }
+  /* the sheet toggle only exists where the layout stacks — on a wide screen
+     the sidebar is beside the video and there is nothing to tuck away */
+  #sheetToggle{display:none;}
   @media (max-width: 980px){
     #main{flex-direction:column;}
     #sidebar{width:100%; border-left:none; border-top:1px solid var(--line);
       max-height:44%; flex:none; box-shadow:0 -6px 16px rgba(0,0,0,.25);}
     #topbar{padding:6px 8px;}
     #videoName{display:none;}
+    /* `#tabs #sheetToggle` so this out-specifies the `#tabs button` tab styling —
+       the handle must stay a compact end-of-row control, never a fourth tab */
+    #tabs #sheetToggle{display:block; flex:none; padding:10px 14px; font-size:15px;
+      color:var(--dim); border-radius:0; border-bottom:2px solid transparent;}
+    body.sheetDown .tabPanel{display:none;}
+    body.sheetDown #sidebar{max-height:none;}
+  }
+  /* phone-width portrait (v8 Sprint 2): the top bar wrapped to five rows at
+     iPhone width and ate half the screen. One thumb-scrollable row instead —
+     the same pattern the board and compare bars already use. Every button is
+     still there, in the same order, with its full plain words. */
+  @media (max-width: 640px){
+    #topbar{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;}
+    #topbar::-webkit-scrollbar{display:none;}
+    #topbar > *{flex:none;}
+    #topbar .spacer{min-width:8px;}
+    /* the popover menu must not be clipped by the scrolling bar — open it as a
+       fixed sheet under the bar instead */
+    .topMenu .menuPop{position:fixed; left:8px; right:8px; top:56px; min-width:0;}
   }
   @supports (padding: env(safe-area-inset-bottom)){
     #transport{padding-bottom:calc(8px + env(safe-area-inset-bottom));}
@@ -800,6 +823,7 @@
       <button data-tab="draw" class="active" data-tip="The drawing tools — spotlights, arrows, zones — for marking up what is on screen.">✏️ Draw</button>
       <button data-tab="clips" data-tip="Every moment you have saved, plus this week's reel and the session log. This is his library.">🎬 Clips</button>
       <button data-tab="coach" data-tip="Coaching notes to lean on: what to look for by position, and questions to ask instead of telling him.">🧠 Coach</button>
+      <button id="sheetToggle" data-tip="Tuck this panel down so the video fills the screen. Tap again — or any tab — to bring it back.">⌄</button>
     </div>
 
     <!-- ---- DRAW TAB ---- -->
@@ -5342,6 +5366,14 @@ document.addEventListener('pointerdown', e => {
   if (m && m.open && !m.contains(e.target)) m.open = false;
 });
 $('#projectMenu .menuPop').addEventListener('click', () => { $('#projectMenu').open = false; });
+/* on the phone the menu opens as a fixed sheet — measure the bar instead of
+   trusting the stylesheet's fallback, which bigText or a notch can outgrow */
+$('#projectMenu').addEventListener('toggle', () => {
+  const pop = $('#projectMenu .menuPop');
+  if ($('#projectMenu').open && window.matchMedia('(max-width: 640px)').matches)
+    pop.style.top = ($('#topbar').getBoundingClientRect().bottom + 6) + 'px';
+  else pop.style.top = '';
+});
 
 /* drag a clip card by its ⠿ dot onto the Highlight reel section — the same
    toggleReel() the button calls. Mouse only; ➕ Reel stays the touch path. */
@@ -6218,14 +6250,30 @@ function cmpTick(){
 }
 
 /* ---------------- tabs ---------------- */
-$$('#tabs button').forEach(b => b.onclick = () => {
+$$('#tabs button[data-tab]').forEach(b => b.onclick = () => {
+  /* TAPPING a tab is asking to see it — a tucked-away sheet comes back up.
+     Programmatic switches (after a clip save, after a session) go through
+     switchTab() directly and leave a deliberate tuck alone. */
+  setSheetDown(false);
   switchTab(b.dataset.tab);
   if (b.dataset.tab === 'clips') tourEvent('clips');
 });
 function switchTab(name){
-  $$('#tabs button').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
+  $$('#tabs button[data-tab]').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
   $$('.tabPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
 }
+/* the panel as a sheet (v8 Sprint 2): on a stacked (phone/portrait) layout the
+   sidebar takes near half the screen — this tucks it down to just its tab row
+   so the video and the marking controls get the room. Nothing is removed:
+   every panel is one tap away, and the toggle only exists where layouts stack. */
+function setSheetDown(down){
+  if (down === document.body.classList.contains('sheetDown')) return;
+  document.body.classList.toggle('sheetDown', down);
+  $('#sheetToggle').textContent = down ? '⌃' : '⌄';
+  layout();          // the stage just changed size — refit the video and overlay
+}
+$('#sheetToggle').onclick = () =>
+  setSheetDown(!document.body.classList.contains('sheetDown'));
 
 /* ---------------- project save / load ---------------- */
 $('#btnSaveProj').onclick = () => {
@@ -7619,7 +7667,7 @@ function cmdEntries(){
     if (!label) continue;
     out.push({ label, tip: el.dataset.tip || '', run: () => el.click() });
   }
-  for (const b of $$('#tabs button'))
+  for (const b of $$('#tabs button[data-tab]'))
     out.push({ label: 'Go to ' + b.textContent.trim(), tip: b.dataset.tip || '',
       run: () => b.click() });
   for (const c of project.clips)

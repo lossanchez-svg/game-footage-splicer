@@ -27,7 +27,9 @@ Bookmark the page and it's a daily tool.
 ## Using it on an iPad (or phone)
 
 The whole editor works by touch — tap tools, tap to spotlight, drag arrows and zones,
-tap the timeline to scrub. On narrow screens the panel moves below the video.
+tap the timeline to scrub. On narrow screens the panel moves below the video, the top
+bar becomes one row you swipe sideways, and the ⌄ at the end of the panel's tab row
+tucks it down so the video fills the screen — tap any tab to bring it back.
 
 To make it a real home-screen app on the iPhone or iPad — **the app is already hosted**,
 so this is two taps:
