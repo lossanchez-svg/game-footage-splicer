@@ -1821,6 +1821,24 @@ localStorage first and treats the Games folder as an extra, so the season featur
         `showDirectoryPicker` removed — vault mirroring, clear-out recovery, the games
         list, a renamed re-link, and the negative case. `tests/library.js` updated for the
         button's new job.
+- [x] **Sprint 1 hardening (shipped).** A post-merge review of the Sprint 1 diff found
+      nine real defects, all fixed with regression tests: the startup "My games" probe ran
+      before the vault's store was declared (a swallowed TDZ error left the list empty in
+      exactly the iOS-eviction case the vault exists for — the probe now runs after the
+      vault, and the eviction case is asserted); a stale localStorage copy could shadow a
+      newer vault copy after a quota failure and then overwrite it (newest-wins by
+      `savedAt` now); re-keying an adopted game left the old key's entries behind (one
+      game listed twice, and reopening the old name forked the project — `retireKeys()`
+      moves them, asserted both for the sure match and the confirmed offer); the
+      now-async `onloadedmetadata` had no currency guard (opening a second video while
+      the first was still looking itself up could put game A's work under game B's
+      footage); the length-match adoption skipped `renderClipList`/inputs and could fire
+      against a video opened after the offer (full loadVideo-style swap now, with a
+      same-video guard and the fingerprint updated to the newly opened file); the
+      debounced save flushed only on `beforeunload`, which iOS often skips (now also
+      `pagehide` and `visibilitychange→hidden`, asserted inside the debounce window); and
+      `vaultAll()` did one IDB round-trip per game (one ranged `getAll` now).
+      `tests/phonefirst.js` grew from 13 to 26 checks.
 - [ ] Sprint 2 — portrait-first layout: the editing surface on a phone-sized screen
       (video, transport and marking within thumb reach; the sidebar as a sheet)
 - [ ] Sprint 3 — verify on a real iPhone: installed-app behaviour, whether Photos really
@@ -2196,7 +2214,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-25 | v7 "Onyx" recolors chrome only — PALETTE, drawScene() and the export/title-card renderers are frozen | Overlay and export share one renderer, and title cards are burned into saved files: restyling them would make every previously exported video mismatch the editor. On the new neutral-gray workspace the untouched vibrant annotations become the loudest thing on screen — which is the product's point. Chroma in the UI is budgeted to selection, live state, in/out + playhead, clip-rating data, and the one primary action per screen |
 | 2026-08-26 | On a phone the vault (IndexedDB) is the real store and localStorage is a cache | iOS clears script-writable storage for idle sites and caps localStorage at ~5MB. Mirroring every save keeps the sync read paths (and every existing test) working while making the work actually durable — a rewrite to async storage would have touched every render path for no user-visible gain |
 | 2026-08-26 | A game is identified by size and length, not by its file name | The Photos picker can rename or re-encode the same video, and the old name:size key read that as a new game — silently orphaning every clip. Size match is conclusive; length within 0.35s is close enough to offer. A different video is never adopted, which the suite asserts |
-| 2026-08-27 | Pages was live the whole time; the plan said otherwise for nine days | Three places recorded "Pages still needs enabling — nobody has confirmed it deploys" while 31 successful deployments had already run. A stale doc is worse than no doc: it was quoted back as fact and sent the user to flip a switch that was already on. Deployment state is now verified from the Actions API when it matters, not read from this file |
+| 2026-08-27 | Pages was live the whole time; the plan said otherwise for nine days | Four spots (three in this file, one in the README) recorded "Pages still needs enabling — nobody has confirmed it deploys" while 31 successful deployments had already run. A stale doc is worse than no doc: it was quoted back as fact and sent the user to flip a switch that was already on. Deployment state is now verified from the Actions API when it matters, not read from this file |
 
 ## Working agreements for future sessions
 

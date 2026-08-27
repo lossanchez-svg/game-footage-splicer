@@ -39,9 +39,11 @@ so this is two taps:
 3. It now launches full-screen like an app and works offline. Open a game video straight
    from Photos or Files with the **Open video…** button.
 
-Every merge to `main` redeploys that URL automatically, and the app asks the network for
-a fresh copy before falling back to its offline cache — so the installed app updates
-itself rather than pinning you to an old build.
+Every merge to `main` redeploys that URL automatically, and the app itself asks the
+network for a fresh copy before falling back to its offline cache — so the installed app
+picks up new builds on the next open with a connection. (The optional player-detector
+file is cached for offline tracking and only refreshes when the app's cache version is
+bumped — so a detector update needs that bump to reach installed phones.)
 
 ### Working on the iPhone as your main device
 
