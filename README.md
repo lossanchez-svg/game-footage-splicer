@@ -31,6 +31,12 @@ tap the timeline to scrub. On narrow screens the panel moves below the video, th
 bar becomes one row you swipe sideways, and the ⌄ at the end of the panel's tab row
 tucks it down so the video fills the screen — tap any tab to bring it back.
 
+**Turn the phone sideways to watch and mark:** the film gets the height, the timeline
+stays full-width under it, and the panel tucks itself (tap a tab for the tools). **Pinch
+with two fingers to zoom into the players** — one finger still draws, exactly where you
+point, at any zoom — and tap **1×** to see the whole picture again. Turn the phone
+upright for the buttons along the top.
+
 To make it a real home-screen app on the iPhone or iPad — **the app is already hosted**,
 so this is two taps:
 

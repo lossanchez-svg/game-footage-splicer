@@ -71,7 +71,10 @@
 
   /* ---------- Main layout ---------- */
   #main{flex:1; display:flex; min-height:0;}
-  #left{flex:1; display:flex; flex-direction:column; min-width:0;}
+  /* min-height:0 as well: in the stacked (column) layout the fixed-pixel video
+     wrap otherwise sets this column's minimum and pushes the transport and tabs
+     clean off a landscape screen */
+  #left{flex:1; display:flex; flex-direction:column; min-width:0; min-height:0;}
   #stage{flex:1; position:relative; display:flex; align-items:center; justify-content:center;
     background:#000; min-height:0; overflow:hidden;}
   #videoWrap{position:relative;}
@@ -141,6 +144,11 @@
     font-size:17px; padding:12px 14px;}
   .sessRecapLabel{text-align:left; color:var(--dim); font-size:14px; margin-top:16px;}
   #sessionBar{font-size:15px;}
+
+  /* pinch-zoom reset — only shown while zoomed in */
+  #zoomReset{position:absolute; top:10px; right:10px; z-index:28; display:none;
+    background:rgba(20,20,20,.92); border:1px solid var(--accent2); color:var(--accent2);
+    border-radius:20px; padding:7px 14px; font-weight:600;}
 
   /* tracking progress pill */
   #trackPill{position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
@@ -625,10 +633,36 @@
     #topbar::-webkit-scrollbar{display:none;}
     #topbar > *{flex:none;}
     #topbar .spacer{min-width:8px;}
+
     /* the popover menu must not be clipped by the scrolling bar — open it as a
        fixed sheet under the bar instead */
     .topMenu .menuPop{position:fixed; left:8px; right:8px; top:56px; min-width:0;}
   }
+  /* phone turned sideways (v8 Sprint 4): rotating is a deliberate "watch and
+     mark" move, so the top bar steps aside and the film gets the height. Every
+     marking control stays: timeline, transport, clip buttons, and the tabs
+     (tuck the sheet with ⌄ for the biggest picture). Turning the phone back
+     upright brings the top bar straight back. */
+  @media (orientation: landscape) and (max-height: 520px) and (pointer: coarse){
+    #topbar{display:none;}
+    #watchBanner{display:none !important;}
+    #sidebar{max-height:40%;}
+    #transport{padding:5px 10px; gap:4px;}
+    #tabs button{padding:8px 4px;}
+  }
+  /* the transport controls wrapped to FOUR rows at phone width and quietly
+     starved the video of height — one sideways-scrollable row, the same cure as
+     the top bar. One copy, shared by upright and sideways phones; the timeline
+     keeps its finger-sized height because scrubbing precision is the point. */
+  @media (max-width: 640px),
+         ((orientation: landscape) and (max-height: 520px) and (pointer: coarse)){
+    #controls{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;}
+    #controls::-webkit-scrollbar{display:none;}
+    #controls > *{flex:none;}
+    #controls .spacer{min-width:8px;}
+  }
+
   @supports (padding: env(safe-area-inset-bottom)){
     #transport{padding-bottom:calc(8px + env(safe-area-inset-bottom));}
   }
@@ -753,6 +787,7 @@
         <div class="dz dzOpen" data-zone="open">🎞 Open as this game</div>
         <div class="dz dzCompare" data-zone="compare">⚖ Use as the example side<br><small>plays next to one of his clips</small></div>
       </div>
+      <button id="zoomReset" data-tip="Go back to seeing the whole picture. Pinch with two fingers any time to zoom into the players; drag with two fingers to move around while zoomed.">1×</button>
       <div id="trackPill">🎯 Tracking… <span id="trackPct">0%</span>
         <button class="miniBtn" id="trackCancelBtn">✕ Cancel (Esc)</button>
       </div>
@@ -1661,6 +1696,7 @@ function loadVideo(file, cont){
        being looked up, this continuation is stale — touching project or the
        panels now would put the first game's work under the second's footage. */
     if (currentFile !== file) return;
+    resetView();                 // a newly opened game starts at the whole picture
     /* Everything above only READS. The video is revealed below, once the work
        to put on it is in hand — showing it first would let a fast first tap
        draw into a project this function is about to replace. */
@@ -2395,9 +2431,24 @@ function layout(){
   dpr = window.devicePixelRatio || 1;
   overlay.width = Math.round(w * dpr); overlay.height = Math.round(h * dpr);
   overlay.style.width = w + 'px'; overlay.style.height = h + 'px';
+  clampView(); applyView();     // the frame changed size — keep the zoom in bounds
 }
 new ResizeObserver(layout).observe(stage);
 window.addEventListener('resize', layout);
+/* turning the phone sideways IS the watch gesture: the panel tucks itself so
+   the film gets the height (any tab tap brings it back), and turning upright
+   restores it. The first turn explains where the top bar went. */
+if (window.matchMedia){
+  const land = window.matchMedia('(orientation: landscape) and (max-height: 520px) and (pointer: coarse)');
+  const landMode = () => {
+    setSheetDown(land.matches);
+    if (land.matches && video.src)
+      hintOnce('landscape', 'Sideways is for watching and marking — the film gets the room, and the panel tucked itself (tap a tab to bring it back). Pinch with two fingers to zoom into the players. Turn the phone upright for the buttons along the top.', 8000);
+  };
+  if (land.addEventListener) land.addEventListener('change', landMode);
+  else if (land.addListener) land.addListener(landMode);   // older iPad Safari
+  landMode();
+}
 
 /* ---------------- transport ---------------- */
 const fps = () => Number($('#fpsInput').value) || 30;
@@ -2421,7 +2472,7 @@ function togglePlay(){
   if (ui.boardMode) return;
   if (!needVideo()) return;
   hideDecision();
-  if (video.paused) video.play(); else video.pause();
+  if (video.paused) video.play().catch(() => {}); else video.pause();
 }
 $('#btnPlay').onclick = togglePlay;
 video.addEventListener('play',  () => { $('#btnPlay').textContent = '❚❚'; tourEvent('play'); });
@@ -2664,7 +2715,7 @@ function checkPauses(t){
   lastT = t;
 }
 function hideDecision(){ $('#decisionOverlay').style.display = 'none'; decisionShowing = null; }
-$('#btnResume').onclick = () => { hideDecision(); video.play(); };
+$('#btnResume').onclick = () => { hideDecision(); video.play().catch(() => {}); };
 
 $('#btnAddPause').onclick = () => {
   if (!needVideo()) return;
@@ -2918,13 +2969,74 @@ function hitTest(nx, ny, t){
 
 /* ---------------- canvas interaction ---------------- */
 function evNorm(e){
+  /* getBoundingClientRect reflects the pinch-zoom transform below, so drawing
+     coordinates stay correct at any zoom with no extra math here */
   const r = overlay.getBoundingClientRect();
   return { x: clamp((e.clientX-r.left)/r.width, 0, 1), y: clamp((e.clientY-r.top)/r.height, 0, 1) };
+}
+
+/* ---------------- pinch zoom (v8 Sprint 4) ----------------
+  Far-sideline film makes the players small; two fingers zoom the picture the
+  way every photo app does. This is a VIEW transform on the wrap only: nothing
+  about the project, the normalized coordinates, or any export changes. One
+  finger keeps doing exactly what it always did — draw. */
+const view = { s: 1, x: 0, y: 0 };
+function applyView(){
+  wrap.style.transformOrigin = '0 0';
+  wrap.style.transform = view.s === 1 ? '' :
+    `translate(${view.x}px, ${view.y}px) scale(${view.s})`;
+  /* the stylesheet hides the chip, so '' would fall back to hidden — explicit */
+  $('#zoomReset').style.display = view.s === 1 ? 'none' : 'block';
+}
+function clampView(){
+  view.s = clamp(view.s, 1, 5);
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  /* the picture must keep covering its own frame — no dragging it off screen */
+  view.x = clamp(view.x, w - w * view.s, 0);
+  view.y = clamp(view.y, h - h * view.s, 0);
+  if (view.s === 1){ view.x = 0; view.y = 0; }
+}
+function resetView(){ view.s = 1; view.x = 0; view.y = 0; applyView(); }
+$('#zoomReset').onclick = resetView;
+
+const activePts = new Map();     // pointerId -> {x, y} in client space
+let pinch = null;                // {s0, d0, W0x, W0y, c0x, c0y}: start scale and
+                                 // spread, the wrap's untransformed origin, and the
+                                 // content-space point the fingers are anchored on
+function pinchDist(){
+  const [a, b] = [...activePts.values()];
+  return Math.hypot(a.x - b.x, a.y - b.y) || 1;
+}
+function pinchMid(){
+  const [a, b] = [...activePts.values()];
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+function startPinch(){
+  const r = wrap.getBoundingClientRect();
+  const m = pinchMid();
+  pinch = { s0: view.s, d0: pinchDist(),
+    W0x: r.left - view.x, W0y: r.top - view.y,
+    c0x: (m.x - r.left) / view.s, c0y: (m.y - r.top) / view.s };
+}
+/* whatever a finger just started is unwound, not left half-made: keyed moves
+   pushed undo at their start, previews are only in ui.drag */
+function unwindDrag(){
+  if (!ui.drag) return;
+  if (ui.drag.mode === 'spotkey' || ui.drag.mode === 'move') undo();
+  ui.drag = null;
 }
 
 overlay.addEventListener('pointerdown', e => {
   if (!video.src || ui.exporting || ui.tracking) return;
   overlay.setPointerCapture(e.pointerId);
+  activePts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (activePts.size === 2){
+    /* a second finger means ZOOM, not draw */
+    unwindDrag();
+    startPinch();
+    return;
+  }
+  if (pinch) return;               // a third finger changes nothing
   const p = evNorm(e);
   const t = video.currentTime;
   const tool = ui.tool;
@@ -3019,6 +3131,16 @@ overlay.addEventListener('pointerdown', e => {
 });
 
 overlay.addEventListener('pointermove', e => {
+  if (activePts.has(e.pointerId)) activePts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && activePts.size >= 2){
+    view.s = clamp(pinch.s0 * pinchDist() / pinch.d0, 1, 5);
+    const m = pinchMid();
+    /* keep the spot he pinched on under his fingers while it grows */
+    view.x = m.x - pinch.W0x - view.s * pinch.c0x;
+    view.y = m.y - pinch.W0y - view.s * pinch.c0y;
+    clampView(); applyView();
+    return;
+  }
   if (!ui.drag) return;
   const p = evNorm(e);
   const d = ui.drag;
@@ -3043,6 +3165,12 @@ overlay.addEventListener('pointermove', e => {
 });
 
 overlay.addEventListener('pointerup', e => {
+  activePts.delete(e.pointerId);
+  if (pinch){
+    if (activePts.size < 2) pinch = null;   // the zoom itself stays
+    else startPinch();   // a different finger pair now — re-base, don't lurch
+    return;
+  }
   const d = ui.drag; ui.drag = null;
   if (!d) return;
   const t = video.currentTime;
@@ -3070,6 +3198,23 @@ overlay.addEventListener('pointerup', e => {
   }
 });
 function afterMutate(){ persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel(); updateTrackAll(); }
+
+/* an interrupted touch (system gesture, palm) must not leave a phantom finger
+   in the pinch bookkeeping or a half-made drawing on the video */
+function overlayCancel(e){
+  activePts.delete(e.pointerId);
+  if (pinch){
+    if (activePts.size < 2) pinch = null;
+    else startPinch();
+  }
+  unwindDrag();
+}
+overlay.addEventListener('pointercancel', overlayCancel);
+overlay.addEventListener('lostpointercapture', e => {
+  /* lostpointercapture also follows a normal pointerup, which already cleaned
+     up — only treat it as a cancel if the finger is still being tracked */
+  if (activePts.has(e.pointerId)) overlayCancel(e);
+});
 
 /* ---------------- tools UI ---------------- */
 $$('#toolGrid button').forEach(b => b.onclick = () => setTool(b.dataset.tool));
@@ -4177,7 +4322,7 @@ function renderMoments(){
     row.appendChild(mk('▶', 'Play a three-second look at this moment, right here under the list.', () => {
       clearTimeout(ui.momentPrevT);
       video.currentTime = c.start;
-      video.play();
+      video.play().catch(() => {});
       const ms = (Math.min(c.end, c.start + 3) - c.start) * 1000;
       ui.momentPrevT = setTimeout(() => video.pause(), Math.max(400, ms));
     }));
@@ -5302,7 +5447,7 @@ function playClip(c){
   ui.loopClip = c;
   $('#btnStopLoop').style.display = '';
   video.currentTime = c.tIn;
-  video.play();
+  video.play().catch(() => {});
 }
 $('#btnStopLoop').onclick = () => { ui.loopClip = null; $('#btnStopLoop').style.display = 'none'; };
 
@@ -5644,7 +5789,7 @@ function sessionAction(act){
       renderSession();
       const c = s.clips[s.idx];
       video.currentTime = c.tIn;
-      video.play();
+      video.play().catch(() => {});
       return;
     }
     case 'next':
@@ -6166,7 +6311,7 @@ function cmpToggle(){
   if (videoA.paused){
     const r = cmpRanges();
     if (videoA.currentTime >= r.aOut - 0.05) cmpRestart();
-    videoA.play(); videoB.play();
+    videoA.play().catch(() => {}); videoB.play().catch(() => {});
     $('#cmpPlay').textContent = '❚❚';
   } else {
     videoA.pause(); videoB.pause();
@@ -6236,7 +6381,7 @@ function cmpTick(){
       const expected = r.bIn + (videoA.currentTime - r.aIn);
       if (expected < (videoB.duration || 1e9)){
         if (Math.abs(videoB.currentTime - expected) > 0.08) videoB.currentTime = expected;
-        if (videoB.paused) videoB.play();
+        if (videoB.paused) videoB.play().catch(() => {});
       } else if (!videoB.paused) videoB.pause();  // model side ran out — hold last frame
     }
   }
@@ -6451,7 +6596,7 @@ async function exportRange(tIn, tOut, label, clip){
   let modeEnd = performance.now() + CARD_MS;
 
   rec.start(200);
-  if (mode === 'play') await video.play();
+  if (mode === 'play') await video.play().catch(() => {});
 
   await new Promise(res => {
     function frame(){
@@ -6459,13 +6604,13 @@ async function exportRange(tIn, tOut, label, clip){
       const now = performance.now();
       if (mode === 'card'){
         drawTitleCard(ctx, W, H, clip);
-        if (now >= modeEnd){ mode = 'play'; video.play(); }
+        if (now >= modeEnd){ mode = 'play'; video.play().catch(() => {}); }
       } else {
         ctx.drawImage(video, 0, 0, W, H);
         drawScene(ctx, W, H, video.currentTime, {editing:false});
         if (mode === 'freeze'){
           drawQuestionBanner(ctx, W, H, pausePts[pi-1].question);
-          if (now >= modeEnd){ mode = 'play'; video.play(); }
+          if (now >= modeEnd){ mode = 'play'; video.play().catch(() => {}); }
         } else {
           if (pi < pausePts.length && video.currentTime >= pausePts[pi].t){
             pi++; video.pause(); mode = 'freeze'; modeEnd = now + FREEZE_MS;
