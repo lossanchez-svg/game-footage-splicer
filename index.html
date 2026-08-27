@@ -1608,9 +1608,6 @@ function loadVideo(file, cont){
   video.src = url;
   video.load();
   video.onloadedmetadata = async () => {
-    $('#dropHint').style.display = 'none';
-    wrap.style.display = '';
-    $('#videoName').textContent = file.name;
     // restore or start fresh — from this browser, or from the Games folder if
     // another device saved something newer there
     let restored = null;
@@ -1622,11 +1619,18 @@ function loadVideo(file, cont){
     /* and the Photos picker can hand back the SAME game under a different name,
        which would look like a brand new video. Recognise it by how long it is
        and how big it is instead of by what it is called. */
-    let sameGame = null;
+    let sameGame = null, maybeGame = null;
     if (!hasWork(restored)){
-      sameGame = await findSameGame(file, video.duration);
-      if (sameGame) restored = sameGame;
+      const found = await findSameGame(file, video.duration);
+      if (found && found.sure){ sameGame = found.game; restored = sameGame; }
+      else if (found) maybeGame = found.game;      // offered below, never assumed
     }
+    /* Everything above only READS. The video is revealed below, once the work
+       to put on it is in hand — showing it first would let a fast first tap
+       draw into a project this function is about to replace. */
+    $('#dropHint').style.display = 'none';
+    wrap.style.display = '';
+    $('#videoName').textContent = file.name;
     const folder = cont && hasWork(cont.saved) ? cont.saved : null;
     const local  = hasWork(restored) ? restored : null;
     const fromFolder = folder && (!local || savedAtOf(folder) > savedAtOf(local));
@@ -1644,6 +1648,10 @@ function loadVideo(file, cont){
           : `Picked up where you left off: ${counts} for this game.`), 6000);
     } else {
       project = { version:1, videoName:file.name, videoKey:key, fps: project.fps||30, annotations:[], clips:[] };
+      /* A game of the same length is worth mentioning — Photos re-encodes and
+         renames, so this may be the same match under a new name. It is a
+         question, never an action: nothing changes unless he says yes. */
+      if (maybeGame) offerSameGame(maybeGame, key, file.name);
     }
     /* the file's own date is the game's date — what the season should be read in */
     if (!project.videoDate && file.lastModified) project.videoDate = file.lastModified;
@@ -1800,6 +1808,24 @@ async function knownGames(){
   return [...byKey.values()].sort((a, b) => savedAtOf(b) - savedAtOf(a));
 }
 
+/* The offer for a length-only match: one question, one tap, and Undo puts it
+   back. Adopting re-keys that game's work onto the file just opened. */
+function offerSameGame(candidate, key, newName){
+  const counts = `${candidate.clips.length} clip${candidate.clips.length === 1 ? '' : 's'}`;
+  toast(`This is the same length as “${candidate.videoName}”, which has ${counts} saved. Is it the same game?`,
+    12000, { label: 'Yes — bring it back', fn(){
+      const fresh = project;
+      project = candidate;
+      project.videoKey = key; project.videoName = newName;
+      afterMutate();
+      toast(`Brought back ${counts} from “${candidate.videoName}”.`, 7000,
+        { label: '↩ No, undo', fn(){
+          project = fresh; afterMutate();
+          toast('Left this game empty, the way it was.');
+        } });
+    } });
+}
+
 /* Is this file a game we already have work for, under another name? Photos can
    hand the same video back renamed (or re-encoded), so trust the fingerprint:
    an identical byte size is conclusive; otherwise the same running length to a
@@ -1808,12 +1834,16 @@ const SAME_LEN_TOL = 0.35;
 async function findSameGame(file, duration){
   const key = 'filmroom:' + file.name + ':' + file.size;
   const games = (await knownGames()).filter(p => p.videoKey !== key);
+  /* Same byte size = the same file under another name. Conclusive: take it. */
   const bySize = games.filter(p => p.videoSize === file.size);
-  if (bySize.length) return bySize[0];
+  if (bySize.length) return { game: bySize[0], sure: true };
+  /* Same running length is a HINT, not proof — two different games can easily
+     last the same. Photos re-encoding changes the size but not the length, so
+     this case is worth raising; it is offered, never assumed. */
   if (!duration || !isFinite(duration)) return null;
   const byLen = games.filter(p => p.videoDuration &&
     Math.abs(p.videoDuration - duration) <= SAME_LEN_TOL);
-  return byLen.length ? byLen[0] : null;
+  return byLen.length ? { game: byLen[0], sure: false } : null;
 }
 let gameDir = null;
 

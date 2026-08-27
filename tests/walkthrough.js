@@ -3,7 +3,7 @@
    suite — it's the evidence for "could Grandma figure this out with nobody in
    the room?", and it fails loudly if any step can't be reached. */
 const path = require('path');
-const { APP, FIXTURES, OUT, launch, openDisclosures } = require('./common');
+const { APP, FIXTURES, OUT, launch, openDisclosures, wipeWork} = require('./common');
 
 const VIDEO = path.join(FIXTURES, 'game.webm');
 let n = 0;
@@ -15,7 +15,7 @@ const shot = async (page, name) =>
   await page.setViewportSize({ width: 1280, height: 860 });
 
   await page.goto(APP);
-  await page.evaluate(() => localStorage.clear());
+  await wipeWork(page);
   await page.reload();
 
   // 1. cold open — the walkthrough points at the one button that matters
