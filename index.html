@@ -2472,7 +2472,7 @@ function togglePlay(){
   if (ui.boardMode) return;
   if (!needVideo()) return;
   hideDecision();
-  if (video.paused) video.play(); else video.pause();
+  if (video.paused) video.play().catch(() => {}); else video.pause();
 }
 $('#btnPlay').onclick = togglePlay;
 video.addEventListener('play',  () => { $('#btnPlay').textContent = '❚❚'; tourEvent('play'); });
@@ -2715,7 +2715,7 @@ function checkPauses(t){
   lastT = t;
 }
 function hideDecision(){ $('#decisionOverlay').style.display = 'none'; decisionShowing = null; }
-$('#btnResume').onclick = () => { hideDecision(); video.play(); };
+$('#btnResume').onclick = () => { hideDecision(); video.play().catch(() => {}); };
 
 $('#btnAddPause').onclick = () => {
   if (!needVideo()) return;
@@ -4322,7 +4322,7 @@ function renderMoments(){
     row.appendChild(mk('▶', 'Play a three-second look at this moment, right here under the list.', () => {
       clearTimeout(ui.momentPrevT);
       video.currentTime = c.start;
-      video.play();
+      video.play().catch(() => {});
       const ms = (Math.min(c.end, c.start + 3) - c.start) * 1000;
       ui.momentPrevT = setTimeout(() => video.pause(), Math.max(400, ms));
     }));
@@ -5447,7 +5447,7 @@ function playClip(c){
   ui.loopClip = c;
   $('#btnStopLoop').style.display = '';
   video.currentTime = c.tIn;
-  video.play();
+  video.play().catch(() => {});
 }
 $('#btnStopLoop').onclick = () => { ui.loopClip = null; $('#btnStopLoop').style.display = 'none'; };
 
@@ -5789,7 +5789,7 @@ function sessionAction(act){
       renderSession();
       const c = s.clips[s.idx];
       video.currentTime = c.tIn;
-      video.play();
+      video.play().catch(() => {});
       return;
     }
     case 'next':
@@ -6311,7 +6311,7 @@ function cmpToggle(){
   if (videoA.paused){
     const r = cmpRanges();
     if (videoA.currentTime >= r.aOut - 0.05) cmpRestart();
-    videoA.play(); videoB.play();
+    videoA.play().catch(() => {}); videoB.play().catch(() => {});
     $('#cmpPlay').textContent = '❚❚';
   } else {
     videoA.pause(); videoB.pause();
@@ -6381,7 +6381,7 @@ function cmpTick(){
       const expected = r.bIn + (videoA.currentTime - r.aIn);
       if (expected < (videoB.duration || 1e9)){
         if (Math.abs(videoB.currentTime - expected) > 0.08) videoB.currentTime = expected;
-        if (videoB.paused) videoB.play();
+        if (videoB.paused) videoB.play().catch(() => {});
       } else if (!videoB.paused) videoB.pause();  // model side ran out — hold last frame
     }
   }
@@ -6596,7 +6596,7 @@ async function exportRange(tIn, tOut, label, clip){
   let modeEnd = performance.now() + CARD_MS;
 
   rec.start(200);
-  if (mode === 'play') await video.play();
+  if (mode === 'play') await video.play().catch(() => {});
 
   await new Promise(res => {
     function frame(){
@@ -6604,13 +6604,13 @@ async function exportRange(tIn, tOut, label, clip){
       const now = performance.now();
       if (mode === 'card'){
         drawTitleCard(ctx, W, H, clip);
-        if (now >= modeEnd){ mode = 'play'; video.play(); }
+        if (now >= modeEnd){ mode = 'play'; video.play().catch(() => {}); }
       } else {
         ctx.drawImage(video, 0, 0, W, H);
         drawScene(ctx, W, H, video.currentTime, {editing:false});
         if (mode === 'freeze'){
           drawQuestionBanner(ctx, W, H, pausePts[pi-1].question);
-          if (now >= modeEnd){ mode = 'play'; video.play(); }
+          if (now >= modeEnd){ mode = 'play'; video.play().catch(() => {}); }
         } else {
           if (pi < pausePts.length && video.currentTime >= pausePts[pi].t){
             pi++; video.pause(); mode = 'freeze'; modeEnd = now + FREEZE_MS;
