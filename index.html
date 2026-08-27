@@ -1467,20 +1467,24 @@ function persist(){
     scheduleSidecar();          // and, when the Games folder allows it, next to the video
   }, 600);
 }
-/* the debounce above means a tab closed immediately after a change could lose
-   the last write (e.g. a just-finished session) — flush on the way out */
-window.addEventListener('beforeunload', () => {
+/* the debounce above means a page dismissed right after a change could lose the
+   last write (e.g. a just-finished session). beforeunload alone is not enough:
+   iOS Safari — the primary phone target — often skips it when the app is swiped
+   away or backgrounded, so the flush runs on every leaving signal it does fire:
+   beforeunload, pagehide, and the page being hidden. Idempotent, so overlap is fine. */
+function flushSaves(){
   clearTimeout(persistTimer);
-  if (project.videoKey){
-    project.savedAt = new Date().toISOString();
-    try { localStorage.setItem(project.videoKey, JSON.stringify(project)); } catch(e){}
-    vaultPut(project.videoKey, project);
-  }
-});
+  if (!project.videoKey) return;
+  project.savedAt = new Date().toISOString();
+  try { localStorage.setItem(project.videoKey, JSON.stringify(project)); } catch(e){}
+  vaultPut(project.videoKey, project);
+}
+window.addEventListener('beforeunload', flushSaves);
+window.addEventListener('pagehide', flushSaves);
 /* a folder write can't finish during beforeunload, but it can here — this fires
    when a tab is hidden, an app is backgrounded, or a phone is locked */
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') writeSidecar();
+  if (document.visibilityState === 'hidden'){ flushSaves(); writeSidecar(); }
 });
 
 function pushUndo(){
@@ -1614,8 +1618,12 @@ function loadVideo(file, cont){
     try { restored = JSON.parse(localStorage.getItem(key) || 'null'); } catch(e){}
     const hasWork = p => !!(p && (p.annotations?.length || p.clips?.length));
     /* the browser's quick drawer can be cleared out from under us (iOS does it
-       to sites you have not opened in a while) — the vault still has it */
-    if (!hasWork(restored)) restored = await vaultGet(key) || restored;
+       to sites you have not opened in a while) — and after a quota failure it
+       can also hold a STALE copy while the vault kept receiving the real saves.
+       Newest wins, wherever it lives. */
+    const vaulted = await vaultGet(key);
+    if (vaulted && (!hasWork(restored) || savedAtOf(vaulted) > savedAtOf(restored)))
+      restored = vaulted;
     /* and the Photos picker can hand back the SAME game under a different name,
        which would look like a brand new video. Recognise it by how long it is
        and how big it is instead of by what it is called. */
@@ -1625,6 +1633,10 @@ function loadVideo(file, cont){
       if (found && found.sure){ sameGame = found.game; restored = sameGame; }
       else if (found) maybeGame = found.game;      // offered below, never assumed
     }
+    /* The awaits above yield: if another video was opened while this one was
+       being looked up, this continuation is stale — touching project or the
+       panels now would put the first game's work under the second's footage. */
+    if (currentFile !== file) return;
     /* Everything above only READS. The video is revealed below, once the work
        to put on it is in hand — showing it first would let a fast first tap
        draw into a project this function is about to replace. */
@@ -1638,8 +1650,9 @@ function loadVideo(file, cont){
 
     if (pick) {
       project = pick;
-      const wasCalled = project.videoName;
+      const wasCalled = project.videoName, wasKey = project.videoKey;
       project.videoKey = key; project.videoName = file.name;
+      if (sameGame && wasKey && wasKey !== key) retireKeys(wasKey);
       const counts = `${project.clips.length} clip${project.clips.length === 1 ? '' : 's'} and ${project.annotations.length} drawing${project.annotations.length === 1 ? '' : 's'}`;
       toast(fromFolder
         ? `Picked up newer work from your Games folder: ${counts} for this game.`
@@ -1651,7 +1664,8 @@ function loadVideo(file, cont){
       /* A game of the same length is worth mentioning — Photos re-encodes and
          renames, so this may be the same match under a new name. It is a
          question, never an action: nothing changes unless he says yes. */
-      if (maybeGame) offerSameGame(maybeGame, key, file.name);
+      if (maybeGame) offerSameGame(maybeGame, key, file.name,
+        { size: file.size, duration: (video.duration && isFinite(video.duration)) ? video.duration : 0 });
     }
     /* the file's own date is the game's date — what the season should be read in */
     if (!project.videoDate && file.lastModified) project.videoDate = file.lastModified;
@@ -1699,11 +1713,10 @@ if (!FS_LIB_OK){
   $('#btnLibrary').textContent = '📁 My games';
   $('#btnLibrary').dataset.tip = 'The games you have already broken down on this device. Tap one and pick its video again from Photos — your clips and drawings come back with it.';
   $('#bigLibrary').dataset.tip = 'The games you have already broken down on this device. Tap one and pick its video again from Photos.';
-  knownGames().then(gs => {
-    if (!gs.length) return;
-    $('#btnLibrary').style.display = '';
-    $('#bigLibrary').style.display = '';
-  }).catch(() => {});
+  /* the visibility probe itself runs further down, AFTER the vault exists —
+     probing from here reaches the vault before its store is even declared,
+     and the swallowed error would leave the list empty in exactly the
+     cleared-out-localStorage case the vault is for */
 } else $('#bigLibrary').style.display = '';
 
 const libIdb = {
@@ -1740,10 +1753,11 @@ const libIdb = {
       t.onerror = () => rej(t.error);
     });
   },
-  async keys(){
+  async getAll(prefix){
     this.db = this.db || await this.open();
     return new Promise((res, rej) => {
-      const t = this.db.transaction('kv').objectStore('kv').getAllKeys();
+      const t = this.db.transaction('kv').objectStore('kv')
+        .getAll(IDBKeyRange.bound(prefix, prefix + '\uffff'));
       t.onsuccess = () => res(t.result || []);
       t.onerror = () => rej(t.error);
     });
@@ -1768,18 +1782,26 @@ async function vaultGet(key){
   } catch(e){ return null; }
 }
 async function vaultAll(){
+  /* one ranged getAll — a season of games must not cost a round-trip apiece
+     on the slow devices this path exists for */
   const out = [];
   try {
-    for (const k of await libIdb.keys()){
-      if (typeof k !== 'string' || !k.startsWith(VAULT_PREFIX)) continue;
+    for (const raw of await libIdb.getAll(VAULT_PREFIX)){
+      if (typeof raw !== 'string') continue;
       try {
-        const raw = await libIdb.get(k);
-        const p = raw ? JSON.parse(raw) : null;
+        const p = JSON.parse(raw);
         if (p && p.videoKey) out.push(p);
       } catch(e){}
     }
   } catch(e){}
   return out;
+}
+/* when a game's work moves to a new key (Photos renamed the file), the old
+   entries must go with it — left behind, they list one game twice and let the
+   old name resurrect a stale fork of the project */
+function retireKeys(oldKey){
+  try { localStorage.removeItem(oldKey); } catch(e){}
+  libIdb.del(VAULT_PREFIX + oldKey).catch(() => {});
 }
 /* ask the browser to keep this data even when space runs short — Safari and
    Chrome decide on their own, so this is a request, never a guarantee */
@@ -1810,17 +1832,42 @@ async function knownGames(){
 
 /* The offer for a length-only match: one question, one tap, and Undo puts it
    back. Adopting re-keys that game's work onto the file just opened. */
-function offerSameGame(candidate, key, newName){
+function offerSameGame(candidate, key, newName, fp){
   const counts = `${candidate.clips.length} clip${candidate.clips.length === 1 ? '' : 's'}`;
-  toast(`This is the same length as “${candidate.videoName}”, which has ${counts} saved. Is it the same game?`,
+  const oldKey = candidate.videoKey, oldName = candidate.videoName;
+  const oldSize = candidate.videoSize, oldDur = candidate.videoDuration;
+  /* swapping the whole project is loadVideo-scale, not a small mutation: the
+     undo ladder resets and every panel re-reads, same as opening a game */
+  const swapTo = p => {
+    project = p;
+    undoStack = [];
+    $('#reelTitle').value = project.reelTitle || '';
+    $('#fpsInput').value = project.fps || 30;
+    persist();
+    renderAnnList(); renderClipList(); renderTimelineMarks(); updateSelPanel();
+    updateWatchBanner(); refreshVoiceIds();
+  };
+  toast(`This is the same length as “${oldName}”, which has ${counts} saved. Is it the same game?`,
     12000, { label: 'Yes — bring it back', fn(){
+      /* the toast can outlive the video it was offered for — never adopt onto
+         a different game than the one the question was about */
+      if (project.videoKey !== key)
+        return toast('That offer was for the video you had open before — open it again and answer there.', 6000);
       const fresh = project;
-      project = candidate;
-      project.videoKey = key; project.videoName = newName;
-      afterMutate();
-      toast(`Brought back ${counts} from “${candidate.videoName}”.`, 7000,
+      candidate.videoKey = key; candidate.videoName = newName;
+      /* the fingerprint follows the file just opened, so a rename of THIS file
+         is recognised by its own size and length next time */
+      candidate.videoSize = fp.size;
+      if (fp.duration) candidate.videoDuration = fp.duration;
+      retireKeys(oldKey);
+      swapTo(candidate);
+      toast(`Brought back ${counts} from “${oldName}”.`, 7000,
         { label: '↩ No, undo', fn(){
-          project = fresh; afterMutate();
+          candidate.videoKey = oldKey; candidate.videoName = oldName;
+          candidate.videoSize = oldSize; candidate.videoDuration = oldDur;
+          try { localStorage.setItem(oldKey, JSON.stringify(candidate)); } catch(e){}
+          vaultPut(oldKey, candidate);
+          swapTo(fresh);
           toast('Left this game empty, the way it was.');
         } });
     } });
@@ -1845,6 +1892,16 @@ async function findSameGame(file, duration){
     Math.abs(p.videoDuration - duration) <= SAME_LEN_TOL);
   return byLen.length ? { game: byLen[0], sure: false } : null;
 }
+
+/* show 📁 My games once there is anything to list. This probe must run only
+   now — with the vault declared above it — because at startup localStorage may
+   be the half iOS has cleared, and the vault is then the only source left. */
+if (!FS_LIB_OK)
+  knownGames().then(gs => {
+    if (!gs.length) return;
+    $('#btnLibrary').style.display = '';
+    $('#bigLibrary').style.display = '';
+  }).catch(() => {});
 let gameDir = null;
 
 /* ---------------- cross-device continuity ----------------
