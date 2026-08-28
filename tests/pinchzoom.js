@@ -102,35 +102,63 @@ const check = (name, ok) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + name); if
       const r = document.querySelector(sel).getBoundingClientRect();
       return r.height > 0 && r.top >= 0 && r.bottom <= innerHeight + 1;
     };
+    const v = document.querySelector('#video').getBoundingClientRect();
     return {
       bar: !!document.querySelector('#topbar').offsetParent,
-      videoW: document.querySelector('#video').getBoundingClientRect().width,
-      sheet: onScreen('#sheetToggle'),
+      videoW: v.width, videoH: v.height,
       timeline: onScreen('#timeline'),
       save: onScreen('#btnSaveClip'),
-      tabsOn: onScreen('#tabs'),
+      rail: onScreen('#landRail'),
+      railTools: document.querySelectorAll('#landRail [data-ltool]').length,
+      transportOverFilm: document.querySelector('#transport').getBoundingClientRect().top > v.top,
+      sidebarGone: !document.querySelector('#sidebar').offsetParent,
     };
   });
   check('sideways hides the top bar', !land.bar);
-  check('rotating tucks the panel by itself', await page.evaluate(() =>
-    document.body.classList.contains('sheetDown')));
-  check('the film is wider than upright (' + Math.round(land.videoW) + ' vs '
-    + Math.round(portraitVideoW) + 'px)', land.videoW > portraitVideoW);
+  check('rotating tucks the panel by itself (fully, sideways)', land.sidebarGone &&
+    await page.evaluate(() => document.body.classList.contains('sheetDown')));
+  check('the film takes the WHOLE screen height (' + Math.round(land.videoH) + ' of 390)',
+    land.videoH >= 385);
+  check('and is far wider than upright (' + Math.round(land.videoW) + ' vs '
+    + Math.round(portraitVideoW) + 'px)', land.videoW > portraitVideoW * 1.5);
+  check('the transport floats OVER the film, not below it', land.transportOverFilm);
   check('the timeline and Save clip are actually ON SCREEN sideways', land.timeline && land.save);
-  check('the tab row is on screen too — nothing pushed off the bottom', land.tabsOn);
-  check('the sheet handle is offered sideways', land.sheet);
-  // the panel is one tap away even sideways
-  await page.click('#tabs button[data-tab=draw]');
+  check('the tool rail rides the film with all six tools', land.rail && land.railTools === 6);
+
+  // rail tools drive the real thing: ring a player from the rail
+  await page.click('#landRail [data-ltool=spot]');
+  check('the rail shows which tool is live', await page.evaluate(() =>
+    document.querySelector('#landRail [data-ltool=spot]').classList.contains('active') &&
+    document.querySelector('#toolGrid button[data-tool=spot]').classList.contains('active')));
+  await page.touchscreen.tap(300, 180);
+  await page.waitForTimeout(300);
+  check('a tap on the film rings the player', await page.evaluate(() =>
+    window.__filmroom.getProject().annotations.some(a => a.type === 'spot')));
+  check('and 🎯 Follow appears on the rail for the ringed player',
+    await page.evaluate(() => !!document.querySelector('#railFollow').offsetParent));
+
+  // 🧰 opens the full worded panel OVER the film
+  await page.click('#railPanel');
   await page.waitForTimeout(200);
-  check('a tab tap brings the panel back sideways', await page.evaluate(() =>
-    !document.body.classList.contains('sheetDown') &&
-    !!document.querySelector('#panel-draw.active').offsetParent));
+  check('🧰 opens the panel over the film', await page.evaluate(() => {
+    const sb = document.querySelector('#sidebar').getBoundingClientRect();
+    const v = document.querySelector('#video').getBoundingClientRect();
+    return sb.height > 0 && v.height >= 385;   // panel overlays; the film stays full
+  }));
+  await page.click('#sheetToggle');
+  await page.waitForTimeout(200);
+  check('the ⌄ on its tab row tucks it away again', await page.evaluate(() =>
+    !document.querySelector('#sidebar').offsetParent));
+  await page.evaluate(() => window.__filmroom.getProject().annotations.splice(0));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
   check('turning upright brings the top bar back',
     await page.evaluate(() => !!document.querySelector('#topbar').offsetParent));
   check('and the panel comes back up too', await page.evaluate(() =>
-    !document.body.classList.contains('sheetDown')));
+    !document.body.classList.contains('sheetDown') &&
+    !!document.querySelector('#sidebar').offsetParent));
+  check('the tool rail is a sideways thing only',
+    !(await page.evaluate(() => !!document.querySelector('#landRail').offsetParent)));
 
   // ---- a short DESKTOP window is not a phone: the bar stays ----
   const deskCtx = await browser.newContext({ viewport: { width: 1900, height: 470 } });
@@ -140,6 +168,8 @@ const check = (name, ok) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + name); if
   await desk.reload();
   check('a short desktop window keeps its top bar',
     await desk.evaluate(() => !!document.querySelector('#topbar').offsetParent));
+  check('and never grows a tool rail',
+    !(await desk.evaluate(() => !!document.querySelector('#landRail').offsetParent)));
   await deskCtx.close();
 
   await browser.close();

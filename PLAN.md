@@ -1852,9 +1852,12 @@ localStorage first and treats the Games folder as an extra, so the season featur
       `#tabs button[data-tab]` so the handle joins neither. Tests: `tests/portrait.js`
       (13 checks) at a real iPhone viewport, including un-clipped Project menu,
       overlay refit, and the wide-screen no-op.
-- [ ] Sprint 3 — verify on a real iPhone. **Already confirmed by the user (2026-08-27):**
-      the hosted page loads in Safari and Chrome, Add to Home Screen works, and the
-      Photos picker opens and selects. **Still to run — the ten-minute phone test,
+- [ ] Sprint 3 — verify on a real iPhone. **Confirmed by the user so far (2026-08-27):**
+      the hosted page loads in Safari and Chrome, Add to Home Screen works, the Photos
+      picker opens and selects — and after a real session, "the ability to access videos
+      from the apple photos app is fantastic." Still unanswered from the list below:
+      heat/memory on a full game, persistence after backgrounding, whether Photos
+      renames picks (the re-linking assumption), on-device export, tracking speed. **Still to run — the ten-minute phone test,
       in order, with a real full-length game from Photos:**
       1. Open the game from Photos. Does it load and scrub smoothly? Does the phone
          get hot? (This is the memory/heat question — a 60-90min iPhone file is the
@@ -1893,6 +1896,30 @@ localStorage first and treats the Games folder as an extra, so the season featur
         gestures and asserts elements are ON SCREEN (`rect.bottom <= innerHeight`),
         not merely rendered — the weaker check had passed while the tab row sat 128px
         below a landscape screen.
+- [x] **Sprint 5 — the film IS the screen (shipped, from the second field report).**
+      On a real iPhone, Sprint 4's landscape came out SMALLER than upright: Safari's own
+      bars plus the stacked timeline/controls/tab strips ate a 375px-tall screen. The
+      report asked for three things — the picture maximized to the whole screen, the
+      common marking tools at hand, and easier manual ring work — and reported the
+      Photos access as "fantastic" (Sprint 3 item confirmed).
+      - **Overlaid, not stacked:** sideways, the film now fills the full viewport
+        (390/390 at test size, 693px wide vs 390 upright — +78% linear) with pillarbox
+        space at the sides. The transport floats translucent over the film's bottom
+        edge — full-width finger-sized timeline, one-row controls, safe-area padded —
+        and the panel opens OVER the film from 🧰, tucked away entirely by default.
+      - **The thumb rail:** a 2×4 grid floating at the right edge — the six draw tools,
+        🎯 Follow (appears when a ring is selected, driving the real #selTrack), and
+        🧰 (the full worded panel). Every rail tap drives the same handler as the panel
+        button it mirrors; active state is synced both ways. Icon-only is allowed HERE
+        because the rail is an accelerator: the fully-worded toolGrid remains one 🧰
+        tap away, and every rail button carries a full-sentence tip.
+      - Two columns because eight stacked buttons are taller than a sideways phone —
+        the bottom ones sat under the floating transport's taps (caught by the suite:
+        the transport intercepted the 🧰 tap).
+      - Tests: the landscape half of `tests/pinchzoom.js` rewritten for the new truth
+        (24 checks total): full-height film, transport overlay, rail drives the real
+        tools, ring-from-rail, Follow appearance, panel over film, rail absent upright
+        and on desktop.
 **Hosting is live (checked 2026-08-27):** GitHub Pages has been deploying every merge to
 `main` since 2026-08-18 — 31 successful `pages build and deployment` runs, the latest
 being the v8 Sprint 1 merge (`5f63a09`), all three jobs green. The app is on the phone's
@@ -2267,6 +2294,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-27 | The panel-sheet tuck is raised by a USER tap on a tab, never by programmatic tab switches, and is not persisted | Saving a clip switches to the Clips tab in code; if that raised the sheet, every save would undo the tuck the parent chose seconds earlier. And a remembered tuck across visits would greet them with a missing panel and no memory of hiding it — the tuck is a this-viewing choice |
 | 2026-08-27 | Rotating the phone IS the watch gesture: landscape hides the top bar and auto-tucks the panel | The bar's jobs (open, export, help) are portrait jobs; sideways exists to see the film. Everything returns on turning upright or tapping a tab, and a one-time hint says so — hiding chrome is safe only when the way back is the same motion that hid it |
 | 2026-08-27 | Pinch zoom is a view transform on the wrap, never a change to coordinates or exports | evNorm() reads getBoundingClientRect(), which already reflects CSS transforms — so drawing stays exact at any zoom with zero new math, and drawScene/export code paths are untouched. A second finger unwinds what the first started: zooming must never leave an accidental ring behind |
+| 2026-08-27 | Sideways chrome OVERLAYS the film; nothing stacks below it — and icon-only buttons are allowed on the thumb rail | Stacked strips left the landscape picture smaller than portrait on a real iPhone once Safari took its share; every strip now floats translucent over the film. The rail breaks the plain-words rule deliberately: it is an accelerator whose worded twin (the toolGrid) is one 🧰 tap away, and each rail button carries a full-sentence tip — the same bargain ⌘K made |
 
 ## Working agreements for future sessions
 
