@@ -31,8 +31,10 @@ tap the timeline to scrub. On narrow screens the panel moves below the video, th
 bar becomes one row you swipe sideways, and the ⌄ at the end of the panel's tab row
 tucks it down so the video fills the screen — tap any tab to bring it back.
 
-**Turn the phone sideways to watch and mark:** the film gets the height, the timeline
-stays full-width under it, and the panel tucks itself (tap a tab for the tools). **Pinch
+**Turn the phone sideways and the film takes the whole screen.** The timeline and clip
+buttons float over the film's bottom edge, and the drawing tools ride a small rail on the
+right — tap 🔦 there and tap a player to ring him, with 🎯 appearing to follow him
+automatically. 🧰 opens the full panel (colours, labels, clips) over the film. **Pinch
 with two fingers to zoom into the players** — one finger still draws, exactly where you
 point, at any zoom — and tap **1×** to see the whole picture again. Turn the phone
 upright for the buttons along the top.

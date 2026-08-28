@@ -145,6 +145,10 @@
   .sessRecapLabel{text-align:left; color:var(--dim); font-size:14px; margin-top:16px;}
   #sessionBar{font-size:15px;}
 
+  /* landscape tool rail — floats on the film, sideways phones only */
+  #landRail{display:none;}
+  #railFollow{display:none;}   /* until a ring is selected — JS sets it explicitly */
+
   /* pinch-zoom reset — only shown while zoomed in */
   #zoomReset{position:absolute; top:10px; right:10px; z-index:28; display:none;
     background:rgba(20,20,20,.92); border:1px solid var(--accent2); color:var(--accent2);
@@ -643,12 +647,44 @@
      marking control stays: timeline, transport, clip buttons, and the tabs
      (tuck the sheet with ⌄ for the biggest picture). Turning the phone back
      upright brings the top bar straight back. */
+
+  @supports (padding: env(safe-area-inset-bottom)){
+    #transport{padding-bottom:calc(8px + env(safe-area-inset-bottom));}
+  }
+
+  /* Sideways = the film IS the screen (v8 Sprint 5, from the second field
+     report: overlaid chrome, not stacked strips — stacking left the picture
+     SMALLER than upright once Safari's own bars took their share). The
+     transport floats translucent over the film's bottom edge, the tools ride
+     a thumb rail on the right, and the full worded panel opens OVER the film
+     from 🧰. Nothing is removed: every control is the same element, moved. */
   @media (orientation: landscape) and (max-height: 520px) and (pointer: coarse){
     #topbar{display:none;}
     #watchBanner{display:none !important;}
-    #sidebar{max-height:40%;}
-    #transport{padding:5px 10px; gap:4px;}
+    #main{position:relative;}
+    #left{position:relative;}
+    #transport{position:absolute; left:0; right:0; bottom:0; z-index:34;
+      background:rgba(18,18,18,.88); border-top:none; box-shadow:none;
+      /* the notch and rounded corners own the extreme edges sideways — the
+         timeline's 0% and 100% must stay tappable */
+      padding:4px calc(10px + env(safe-area-inset-right, 0px))
+        calc(4px + env(safe-area-inset-bottom, 0px))
+        calc(10px + env(safe-area-inset-left, 0px)); gap:4px;}
+    #sidebar{position:absolute; left:0; right:0; bottom:0; z-index:36;
+      max-height:75%; border-top:1px solid var(--line);
+      box-shadow:0 -10px 30px rgba(0,0,0,.55);}
+    body.sheetDown #sidebar{display:none;}   /* tucked = gone; 🧰 brings it back */
     #tabs button{padding:8px 4px;}
+    #tabs #sheetToggle{display:block; flex:none; padding:8px 12px; font-size:15px;
+      color:var(--dim); border-radius:0;}   /* the way back must exist at ANY width */
+    /* two columns: eight stacked buttons are taller than a phone held sideways
+       and the bottom ones would sit under the floating transport's taps */
+    #landRail{display:grid; grid-template-columns:repeat(2, 42px); gap:6px;
+      position:absolute; right:calc(10px + env(safe-area-inset-right, 0px));
+      top:45%; transform:translateY(-50%); z-index:33;}
+    #landRail button{width:42px; height:42px; padding:0; font-size:19px;
+      border-radius:12px; background:rgba(20,20,20,.85); border-color:rgba(255,255,255,.18);}
+    #landRail button.active{background:var(--accent2); border-color:var(--accent2);}
   }
   /* the transport controls wrapped to FOUR rows at phone width and quietly
      starved the video of height — one sideways-scrollable row, the same cure as
@@ -661,10 +697,6 @@
     #controls::-webkit-scrollbar{display:none;}
     #controls > *{flex:none;}
     #controls .spacer{min-width:8px;}
-  }
-
-  @supports (padding: env(safe-area-inset-bottom)){
-    #transport{padding-bottom:calc(8px + env(safe-area-inset-bottom));}
   }
 </style>
 </head>
@@ -788,6 +820,16 @@
         <div class="dz dzCompare" data-zone="compare">⚖ Use as the example side<br><small>plays next to one of his clips</small></div>
       </div>
       <button id="zoomReset" data-tip="Go back to seeing the whole picture. Pinch with two fingers any time to zoom into the players; drag with two fingers to move around while zoomed.">1×</button>
+      <div id="landRail">
+        <button data-ltool="select" data-tip="Pick up a drawing you already made, to move it, retime it, or delete it.">🖱</button>
+        <button data-ltool="spot" data-tip="Put a ring around a player — tap him on the film and the ring lands there.">🔦</button>
+        <button data-ltool="arrow" data-tip="Draw where the ball or the run should go.">➡️</button>
+        <button data-ltool="zone" data-tip="Shade an area of the pitch — the space that was open, or the space to cover.">▨</button>
+        <button data-ltool="pen" data-tip="Draw freehand, like a pen on a photo.">✍️</button>
+        <button data-ltool="text" data-tip="Type a short note right on the video.">🔤</button>
+        <button id="railFollow" data-tip="Follows the ringed player onwards from this moment, until it loses him. ✕ Cancel on the little tracking sign stops it.">🎯</button>
+        <button id="railPanel" data-tip="Open the full panel over the film — colours, labels, his clips, everything. The ⌄ on its tab row tucks it away again.">🧰</button>
+      </div>
       <div id="trackPill">🎯 Tracking… <span id="trackPct">0%</span>
         <button class="miniBtn" id="trackCancelBtn">✕ Cancel (Esc)</button>
       </div>
@@ -2443,7 +2485,7 @@ if (window.matchMedia){
   const landMode = () => {
     setSheetDown(land.matches);
     if (land.matches && video.src)
-      hintOnce('landscape', 'Sideways is for watching and marking — the film gets the room, and the panel tucked itself (tap a tab to bring it back). Pinch with two fingers to zoom into the players. Turn the phone upright for the buttons along the top.', 8000);
+      hintOnce('landscape', 'Sideways, the film takes the whole screen. Your drawing tools ride the small rail on the right — 🧰 there opens the full panel. Pinch with two fingers to zoom into the players. Turn the phone upright for the buttons along the top.', 8000);
   };
   if (land.addEventListener) land.addEventListener('change', landMode);
   else if (land.addListener) land.addListener(landMode);   // older iPad Safari
@@ -3221,6 +3263,7 @@ $$('#toolGrid button').forEach(b => b.onclick = () => setTool(b.dataset.tool));
 function setTool(tool){
   ui.tool = tool;
   $$('#toolGrid button').forEach(x => x.classList.toggle('active', x.dataset.tool === tool));
+  renderLandRail();
   $('#arrowStyleSection').style.display = tool === 'arrow' ? '' : 'none';
   $('#zoneShapeSection').style.display = tool === 'zone' ? '' : 'none';
   overlay.className = tool === 'select' ? 'tool-select' : 'tool-crosshair';
@@ -3263,7 +3306,21 @@ $$('#zoneShapeRow .chip').forEach(b => b.onclick = () => {
 });
 
 /* ---------------- selection panel ---------------- */
+/* the landscape rail mirrors the real controls; every tap drives the same
+   handlers the panel buttons drive, so behavior cannot drift */
+$$('#landRail [data-ltool]').forEach(b => b.onclick = () => setTool(b.dataset.ltool));
+$('#railPanel').onclick = () => setSheetDown(false);
+$('#railFollow').onclick = () => $('#selTrack').click();
+function renderLandRail(){
+  $$('#landRail [data-ltool]').forEach(b =>
+    b.classList.toggle('active', b.dataset.ltool === ui.tool));
+  const sel = project.annotations.find(a => a.id === ui.selectedId);
+  /* explicit values — the stylesheet's display rules must not win by fallback */
+  $('#railFollow').style.display = (sel && sel.type === 'spot') ? 'block' : 'none';
+}
+renderLandRail();   // the rail must be honest from the first paint
 function updateSelPanel(){
+  renderLandRail();
   const sel = project.annotations.find(a => a.id === ui.selectedId);
   const panel = $('#selSection');
   if (!sel || sel.type === 'pause'){ panel.style.display = 'none'; return; }
