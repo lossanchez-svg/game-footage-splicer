@@ -37,6 +37,8 @@ const STUB = `(spec) => {
     /* stands still for 4s, then runs (v6-C: a clip with quiet air to trim) */
     parkThenRun: t => (t < 4 ? { x: 100, y: 180 } : { x: 100 + 55 * (t - 4), y: 180 }),
     longBall: t => ({ x: 12 + 6.5 * t, y: 90 + 30 * Math.sin(0.4 * t) }),
+    /* a same-kit team-mate who walks into shot while he is out of it (S11) */
+    longTwin: t => ({ x: 280 - 3 * t, y: 60 }),
     smHim: t => ({ x: 74 + 58 * t, y: 160 + 22 * Math.sin(1.5 * t) }),
     smOther: t => ({ x: 524 - 40 * t, y: 129 + 18 * Math.cos(1.2 * t) }),
     smNear: t => ({ x: 524 - 40 * t, y: 160 + 22 * Math.sin(1.5 * t) }),
@@ -217,10 +219,12 @@ const spotAt = (page, i, t) => page.evaluate(([i, t]) => {
     check('the lost toast offers a way to carry on', !!btn);
     await btn.click();
     await page.evaluate(() => { window.__stubSpec[0].drop = []; });   // he is visible again
-    await page.evaluate(() => { document.querySelector('#video').currentTime = 6.5; });
+    /* tapped 2.3s after the loss — past TRACK_GAP_MIN, so the unseen stretch
+       must come back as a recorded gap, not a glide */
+    await page.evaluate(() => { document.querySelector('#video').currentTime = 7.3; });
     await page.waitForTimeout(350);
-    const r65 = ballA(6.5);
-    await page.mouse.move(box.x + box.width * (r65.x / 640), box.y + box.height * (r65.y / 360));
+    const r73 = ballA(7.3);
+    await page.mouse.move(box.x + box.width * (r73.x / 640), box.y + box.height * (r73.y / 360));
     await page.mouse.down(); await page.mouse.up();
     await page.waitForSelector('#trackPill', { state: 'visible', timeout: 10000 });
     await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 600000 });
@@ -231,9 +235,88 @@ const spotAt = (page, i, t) => page.evaluate(([i, t]) => {
     check('resume stitched: the old path is kept and the new one continues it (' +
       keys.length + ' keys, in order: ' + sorted + ')',
       sorted && keys.some(t => t < 5) && keys.some(t => t > 7.5));
-    const got7 = await spotAt(page, 0, 7.5), want7 = ballA(7.5);
+    const got7 = await spotAt(page, 0, 7.8), want7 = ballA(7.8);
     const err7 = Math.hypot(got7.x - want7.x / 640, got7.y - want7.y / 360);
-    check(`and he is tracked again after the resume (t=7.5, err ${err7.toFixed(3)})`, err7 < 0.04);
+    check(`and he is tracked again after the resume (t=7.8, err ${err7.toFixed(3)})`, err7 < 0.04);
+    /* the resumed run CONTINUES the report the finder reads, and the stretch
+       nobody saw him in is a gap on the ring — not a glide across the grass */
+    const st = await page.evaluate(() => {
+      const rep = window.__filmroom.trackReport;
+      const s = window.__filmroom.getProject().annotations.find(a => a.type === 'spot');
+      const ts = rep.result[0].samples.map(x => x.t);
+      return { stitched: rep.stitched, startedAt: rep.startedAt, first: Math.min(...ts), last: Math.max(...ts),
+               repGaps: rep.result[0].gaps, spotGaps: s.gaps,
+               hiddenIn: window.__filmroom.spotHidden(s, 6.5), shownAfter: window.__filmroom.spotHidden(s, 7.6),
+               shownBefore: window.__filmroom.spotHidden(s, 3) };
+    });
+    check(`the resumed run joined the first one's report (stitched ${st.stitched}, from ${st.startedAt}s, samples ${st.first}–${st.last}s)`,
+      st.stitched === 1 && st.startedAt < 0.5 && st.first < 1 && st.last > 7.5);
+    const g = (st.repGaps || [])[0];
+    check(`the report records the unseen stretch as a gap (${JSON.stringify(st.repGaps)})`,
+      !!g && g.from >= 4.5 && g.from <= 6 && Math.abs(g.to - 7.3) < 0.2);
+    check(`the ring carries the same gap (${JSON.stringify(st.spotGaps)})`,
+      Array.isArray(st.spotGaps) && st.spotGaps.length === 1 && Math.abs(st.spotGaps[0].to - 7.3) < 0.2);
+    check('and draws nothing inside it, everything outside it',
+      st.hiddenIn === true && st.shownAfter === false && st.shownBefore === false);
+    errors.push(...e2);
+    await ctx.close();
+  }
+
+  /* ---- S10: gone for 8 seconds, back alone — the run carries on by itself ----
+     The hunt used to give up after 5s and hand the parent a tap. Now it keeps
+     looking (30s), and a re-find past the local window has to be the ONLY
+     wearer of his kit seen anywhere in a full sweep. He is, so the run stitches
+     itself, records the 8s as a gap, and draws no ring across it. */
+  {
+    const { ctx, page, errors: e2, box } = await freshPage(browser, 'long.webm', true);
+    await installStub(page, [{ fn: 'longBall', size: 16, drop: [[5, 13]] }]);
+    const p0 = longBall(0);
+    await placeSpot(page, box, p0.x, p0.y, 320, 180, 'far');
+    await trackSelected(page);
+    const r = await page.evaluate(() => {
+      const rep = window.__filmroom.trackReport;
+      const s = window.__filmroom.getProject().annotations.find(a => a.type === 'spot');
+      return { lost: rep.result[0].lost, lastGoodAt: rep.result[0].lastGoodAt, refinds: rep.result[0].refinds,
+               gaps: s.gaps, hidden9: window.__filmroom.spotHidden(s, 9), shown20: window.__filmroom.spotHidden(s, 20) };
+    });
+    check(`an 8s absence no longer ends the run (lost ${r.lost}, last good at ${r.lastGoodAt}s, re-found ${r.refinds}x)`,
+      r.lost === false && r.lastGoodAt > 39 && r.refinds === 1);
+    const g = (r.gaps || [])[0];
+    check(`the unseen stretch is recorded as a gap (${JSON.stringify(r.gaps)})`,
+      !!g && g.from >= 4.8 && g.from <= 5.3 && g.to >= 13 && g.to <= 14.5 && r.gaps.length === 1);
+    check('no ring is drawn inside the gap; it is back once he is', r.hidden9 === true && r.shown20 === false);
+    for (const t of [20, 38]){
+      const got = await spotAt(page, 0, t), want = longBall(t);
+      const err = Math.hypot(got.x - want.x / 320, got.y - want.y / 180);
+      check(`and he is followed again after it (t=${t}, err ${err.toFixed(3)})`, err < 0.04);
+    }
+    errors.push(...e2);
+    await ctx.close();
+  }
+
+  /* ---- S11: back alongside a same-kit team-mate — the ring picks nobody ----
+     Same absence, but a team-mate in his colours walks into shot at the same
+     time. Two wearers anywhere in the frame means the far re-find is refused
+     every step; the hunt runs its 30s out and the run ends honestly LOST with
+     the ring parked where he was last seen. Never a silent swap. */
+  {
+    const { ctx, page, errors: e2, box } = await freshPage(browser, 'long.webm', true);
+    const kit = [0.5, 0.3, 0.2, 0.4, 0.3, 0.3];
+    await installStub(page, [
+      { fn: 'longBall', size: 16, sig: kit, drop: [[5, 13]] },
+      { fn: 'longTwin', size: 16, sig: kit, drop: [[0, 13]] },
+    ]);
+    const p0 = longBall(0);
+    await placeSpot(page, box, p0.x, p0.y, 320, 180, 'far');
+    await trackSelected(page);
+    const rep = await page.evaluate(() => window.__filmroom.trackReport);
+    check(`two wearers of his kit: the run ends LOST rather than guessing (lost ${rep.result[0].lost}, re-found ${rep.result[0].refinds}x)`,
+      rep.result[0].lost === true && rep.result[0].refinds === 0);
+    check(`the loss is placed where he actually went (last good at ${rep.result[0].lastGoodAt}s, gone at 5s)`,
+      rep.result[0].lastGoodAt >= 4.5 && rep.result[0].lastGoodAt <= 6);
+    const parked = await spotAt(page, 0, 30), lastSeen = longBall(rep.result[0].lastGoodAt);
+    const dPark = Math.hypot(parked.x - lastSeen.x / 320, parked.y - lastSeen.y / 180);
+    check(`the ring stays where he was last seen, not on the team-mate (${dPark.toFixed(3)} from there)`, dPark < 0.05);
     errors.push(...e2);
     await ctx.close();
   }

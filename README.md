@@ -158,6 +158,13 @@ The best path depends on the device — each one leads with its strongest option
   **Auto-track runs until it loses him, whatever you have marked.** Clip start/end marks
   do not cut it short. The only thing that stops it early is an end you set on that
   spotlight with **Disappears here** — and if that happens, it tells you so.
+  **It carries on by itself through short disappearances.** When he drops out of the
+  picture — behind the keeper, off the edge, under a camera whip — it keeps looking for
+  up to 30 seconds. If he comes back as the only player in his colours, the run picks
+  him up again and the stretch nobody saw him in is left as a **gap**: no ring is drawn
+  there, so the ring never glides across ground he was not on. If two players in his
+  kit are in shot when it looks, it refuses to guess and says it lost him instead — one
+  tap on him carries on from there, and the tap-over stretch becomes a gap the same way.
   **It does not rely on one view of him.** Several templates cut differently from your
   son — his measured outline, a tight crop, a wider one taking in his surroundings — track
   him at once, and the ring goes where they agree. Each has to prove it can find him
@@ -237,10 +244,20 @@ to keep it with tags:
   movement work-ons").
 
 ### 🎞 Highlight reels — the weekly TV package
-Tick clips into a reel with **➕ Reel**, order them with ↑↓ (strengths first, end on a
-high note), give it a title, and **🎬 Save as one video** produces **one file**: an opening
-title card, then every clip with its own coaching card, decision-point freezes, and the
-game audio. AirDrop it once, AirPlay to the TV, and the whole week's review runs itself.
+The quick way: put a ring on him and press **✨ Make his reel** (Clips tab, in the
+Highlight reel box). It follows him through the game, picks the moments that stood out
+most — his time on the ball first, then his sprints, then the busy spells around him —
+trims each one to the action, lines them up the way a reel should run (the best play
+first, the second-best last), and titles it from his card and the game. Nothing is
+saved to a file until you look it over and press **🎬 Save as one video**; the toast's
+**↩ Undo** takes the whole draft back. Anything you had already put in the list stays
+at the front. Three taps from raw film to a reel, and the judgment is still yours.
+
+By hand: tick clips into the reel with **➕ Reel**, order them with ↑↓ (strengths first,
+end on a high note), give it a title, and **🎬 Save as one video** produces **one file**:
+an opening title card, then every clip with its own coaching card, decision-point
+freezes, and the game audio. AirDrop it once, AirPlay to the TV, and the whole week's
+review runs itself.
 
 ### 🎬 Reel Studio — the recruiting reel, planned from the whole season
 **🎬 Reel Studio** in the top bar works across every game you have broken down — no

@@ -40,7 +40,11 @@ node lockontrack.js    # tracking-by-detection, end to end with a SCRIPTED
                        # detector (boxes from the fixtures' own motion math):
                        # default-on + the off switch, identity through a crossing, both
                        # players in one pass, occlusion carried + re-found,
-                       # honest loss + one-tap resume stitching, the 40s no-cap
+                       # honest loss + one-tap resume stitching (the resumed run
+                       # joins the report and the tapped-over stretch is a gap
+                       # that draws no ring), an 8s absence carried on by itself
+                       # with the gap recorded, the same absence with a same-kit
+                       # team-mate in shot ending LOST not swapped, the 40s no-cap
                        # clip, same-kit check-this-moment flags, association
                        # unit checks (motion keeps identity, colour splits teams),
                        # and the ball (v6): a scripted ball tracked alongside
@@ -115,6 +119,13 @@ node autocut.js        # Auto-Cut assist (v6): pure tightening proposals with
                        # after the touch, the ramp inside the kept range), the
                        # knows-when-to-stay-quiet nulls, the median-per-end gate
                        # arithmetic, and the one-tap trim + Undo in the app
+node autoreel.js       # Make his reel (one press): the pure picker (best first,
+                       # second-best last, the rest in game order, the four-minute
+                       # budget and count cap), the no-video / no-ring guards, and
+                       # end to end with the scripted detector — clips made from the
+                       # scan, in the reel behind the parent's own pick, each inside
+                       # its moment, titled from the game, and the toast's Undo
+                       # taking the whole draft back
 node socket.js         # the metadata socket (v6): the season exported as words and
                        # numbers with never a pixel (no photo, no data: URIs), the
                        # reel-plan import as a reviewable draft (resolved snapshots,
