@@ -80,6 +80,24 @@ machine. The set should include at least:
 
 ## Running it
 
+The short way, from a Games folder the app has already been used in (the app
+saves each game's project next to its video there, and a ring you tracked by
+hand IS ground truth):
+
+```sh
+cd tests && npm install                                   # once
+node realeval/import.js "/path/to/Game-Film" --dry-run    # says what it found
+node realeval/import.js "/path/to/Game-Film"              # makes clips/<case>/ (video symlinked, project copied)
+CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" node realeval/run.js --path detect --gate
+```
+
+Real Chrome decodes the iPhone footage as it is; without `CHROME_PATH`, run
+`./realeval/prep.sh` first so ffmpeg makes the WebM transcodes the test
+Chromium needs. iCloud placeholders (cloud icons in Finder) are skipped until
+they are downloaded.
+
+By hand:
+
 ```sh
 cd tests && npm install       # once
 ./realeval/prep.sh            # only needed for H.264 clips or bundle zips

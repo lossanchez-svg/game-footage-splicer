@@ -162,8 +162,10 @@ node realeval/selftest.js # proves the real-footage eval harness itself: scoring
 
 The gate for every v4+ tracker change: replays REAL clips (gitignored, never in
 the repo) through the tracker and scores them against hand-dragged ground-truth
-paths. `node realeval/run.js` runs the set; `--save-baseline` freezes the
-numbers a change must beat; `--gate` fails on any regression. See
+paths. `node realeval/import.js <Games folder>` builds the cases from any folder
+the app has saved projects into; `node realeval/run.js` runs the set;
+`--save-baseline` freezes the numbers a change must beat; `--gate` fails on any
+regression. See
 `realeval/README.md` for how to add clips and why synthetic fixtures alone are
 not trusted for real-footage conclusions.
 
