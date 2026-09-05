@@ -1815,12 +1815,23 @@ plus a click per clip.
       path untouched. `tests/lockontrack.js` S3 (resume stitches report + gap, ring
       hidden inside it), S10 (8 s absence carried on alone, gap recorded, followed to
       40 s), S11 (same absence with a same-kit team-mate walking in → LOST, no swap).
-- [ ] **The real-clip gate for the carry-on change (user's machine).** Per the v4
-      rule, this tracker change ships only if `node tests/realeval/run.js --gate`
-      beats or matches `baseline.json` on every clip. Synthetic proof is in; the real
-      numbers are the user's to run before merging. Expected effect: the occlusion
-      clip's back half (an honest loss at 8 s today) may now re-find him if he comes
-      back alone; the same-kit clip must show zero switches still.
+- [x] **The real-clip gate for the carry-on change — PASSED as a TIE (user's Mac,
+      2026-09-05).** Cases built by `realeval/import.js` from the iCloud Game-Film
+      folder (San Clemente, April 25, 2026), transcoded by `prep.sh`, driven in real
+      Chrome, `--path detect` on `main` (`--save-baseline`) then on this branch
+      (`--gate`). Bit-identical on both clips:
+      pan-out **84.4% on-him, err 0.0406, coverage 100%, 0 switches** (TIE);
+      same-kit **11.1% on-him, err 0.3332, coverage 83%, lost at 12.75 s, 0 switches**
+      (TIE). So the 30 s hunt changed nothing on this footage — he never came back as
+      the only wearer of his kit, which is the honest limit the rule was built around —
+      and it cost nothing either. Two things the run surfaced for later, neither this
+      change's: (1) the imported same-kit case (112 hand keys on "81" over 15.4 s) holds
+      him only 11.1% on the CURRENT detection tracker, far below the 53.2% recorded on
+      2026-08-25 — a different, longer ground truth than that day's case, and the clip
+      where tracking most needs work; (2) it carries no ring on the look-alike, so a
+      switch cannot be counted on it until one is added. The occlusion clip was skipped
+      by the importer (its project has no hand-tracked ring). The user's local
+      `baseline.json` now holds these detection numbers for the two imported cases.
 - [x] **✨ Make his reel (one press).** In the Highlight reel box: from the ring,
       `ensureGameScan()` (shared with the finder) runs or reuses the whole-game scan,
       `pickReelMoments()` — PURE — ranks the finder's candidates (score, then length),
@@ -2355,6 +2366,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-09-05 | A re-find after ≥ 2 s records a GAP on the ring and nothing is drawn inside it; the resume records the tapped-over stretch the same way | Linear interpolation across a long absence draws the ring gliding over ground he was never seen on — the same bluff the tracker refuses everywhere else. Under 2 s the glide matches the accepted coasting behaviour and hiding would only flicker; over it, honesty wins. Stored as an optional field so old projects load unchanged and drawScene serves overlay and export alike |
 | 2026-09-05 | A resumed run JOINS the previous report instead of replacing it | The Moment Finder and Auto-Cut read one report; with every resume replacing it they only ever saw the last segment of a game. Joining is what lets one scan plus a few taps cover the whole game — and `stitched` in the report says how many taps it took |
 | 2026-09-05 | "Make his reel" drafts and orders, but never saves | The v6 rule stands — choosing the moment is the coaching — but the cost that rule had was a click per moment and per clip. Ranking by the finder's own score, the studio's order (best first, end on a high) and the auto-cut trim are mechanics, not judgment. The parent's judgment is now one look and one Save, with one Undo |
+| 2026-09-05 | The carry-on hunt shipped on a TIE, not a WIN: identical numbers to `main` on both real clips | The rule is beat OR match, and a change that removes a tap from the parent while measuring identical on real footage is exactly what a tie is for. It also says plainly what the change is not: a fix for same-kit crowds (11.1% on-him on the imported case, on both builds). That clip is the next tracker target, and it needs a look-alike ring before a switch can even be counted |
 
 ## Working agreements for future sessions
 
