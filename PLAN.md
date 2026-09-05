@@ -37,6 +37,11 @@ You are picking up a working, fully-tested product. Before writing any code:
    finder-recall + auto-cut gates need one hand-broken-down game (a project with
    his saved clips) in `tests/realeval/clips/`. Nothing further is specced — the
    next epic is the user's call.
+   **Audited 2026-09-05** (`docs/AUDIT-2026-09-05.md`): every suite green on fresh
+   fixtures, and the default Follow press with the REAL model now has an end-to-end
+   check in `tests/lockon.js` (body-shaped fixture → detection path holds his feet).
+   The editing surface and its honest gaps (no slow-mo/ramps in exports, cuts only,
+   no music) are tabulated there.
 3. The single most important lesson from v2.5–v3.7: **measure before building.** Every
    fixture must be validated against real footage numbers (a tracking report or counted
    pixels from real frames) before any conclusion is drawn from it. Nine builds chased
@@ -2295,6 +2300,7 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-27 | Rotating the phone IS the watch gesture: landscape hides the top bar and auto-tucks the panel | The bar's jobs (open, export, help) are portrait jobs; sideways exists to see the film. Everything returns on turning upright or tapping a tab, and a one-time hint says so — hiding chrome is safe only when the way back is the same motion that hid it |
 | 2026-08-27 | Pinch zoom is a view transform on the wrap, never a change to coordinates or exports | evNorm() reads getBoundingClientRect(), which already reflects CSS transforms — so drawing stays exact at any zoom with zero new math, and drawScene/export code paths are untouched. A second finger unwinds what the first started: zooming must never leave an accidental ring behind |
 | 2026-08-27 | Sideways chrome OVERLAYS the film; nothing stacks below it — and icon-only buttons are allowed on the thumb rail | Stacked strips left the landscape picture smaller than portrait on a real iPhone once Safari took its share; every strip now floats translucent over the film. The rail breaks the plain-words rule deliberately: it is an accelerator whose worded twin (the toolGrid) is one 🧰 tap away, and each rail button carries a full-sentence tip — the same bargain ⌘K made |
+| 2026-09-05 | Audit finding kept as a test: the real model's detection path is proven on `feet.webm` in `tests/lockon.js`, tolerance 0.03 | The suite proved the fallback with the real model and the detection path only with a scripted detector — nothing asserted that the real model ever binds a ring and holds a player. The one body-shaped fixture measures 0.011 worst, so 0.03 catches a real regression without flaking; it is a regression check, never a real-footage conclusion (that gate stays `realeval/`). Also recorded, unchanged: `APP_BUILD` still stamps v6.0, backward detection runs have no 25 s cap, `c.ramp` is stored but never rendered |
 
 ## Working agreements for future sessions
 

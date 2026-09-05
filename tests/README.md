@@ -32,7 +32,9 @@ node lockon.js         # Lock-On model runtime: the vendored detector boots from
                        # file:// with zero network, YOLOX decode/NMS proved on
                        # fabricated tensors, a default Follow press with the real
                        # model and nobody to detect hands itself to the template
-                       # tracker, and index.html ALONE still runs the v3.7
+                       # tracker, the same press on the one body-shaped fixture
+                       # (feet.webm) runs the REAL detection path and holds his
+                       # feet to 0.03, and index.html ALONE still runs the v3.7
                        # tracker (loader reports absent, report says so)
 node lockontrack.js    # tracking-by-detection, end to end with a SCRIPTED
                        # detector (boxes from the fixtures' own motion math):
