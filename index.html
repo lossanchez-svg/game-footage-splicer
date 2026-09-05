@@ -1015,11 +1015,12 @@
         <div class="fieldRow"><input type="text" id="reelTitle" placeholder="Reel title, e.g. Week 3 — playing between the lines" style="flex:1" data-tip="What to call this week's set of clips. It shows on the opening card of the video and at the top of a session."></div>
         <div id="reelList"></div>
         <div class="chipRow" style="margin-top:6px">
+          <button class="primary" id="btnAutoReel" data-tip="Builds this week's reel for you: follows him through the game from his ring, picks the moments that stood out most, trims each one to the action and lines them up below. You look it over, then save. One Undo takes it all back.">✨ Make his reel</button>
           <button class="primary" id="btnExportReel" data-tip="Make one video out of all the clips below, with a title card in front of each. That is the file to send to a phone and play on the TV.">🎬 Save as one video</button>
           <button id="btnRunSession" data-tip="Watch the clips below together, right here. Each one asks its question first, he answers out loud, then you watch what really happened. Anyone can run it — no coaching needed.">🎓 Watch together</button>
           <button id="btnClearReel" data-tip="Empty this week's list. The clips themselves stay in his library.">Clear</button>
         </div>
-        <div class="hint">Any clip with a 🗒 board shows it as a card straight after the clip, so the idea lands while the moment is fresh. This is the set you watch together this week. Add moments with <b>➕ Reel</b> on any clip below, put them in order with ↑↓, then either save them as one video for the TV or press <b>🎓 Watch together</b> to go through them here.</div>
+        <div class="hint">Any clip with a 🗒 board shows it as a card straight after the clip, so the idea lands while the moment is fresh. This is the set you watch together this week. The quick way: put a ring on him and press <b>✨ Make his reel</b> — it lines up the moments that stood out, ready to look over. Or add moments yourself with <b>➕ Reel</b> on any clip below, put them in order with ↑↓, then either save them as one video for the TV or press <b>🎓 Watch together</b> to go through them here.</div>
       </div>
       <div class="section">
         <h4>Clips <span id="clipCount" style="color:var(--dim)"></span></h4>
@@ -2862,7 +2863,16 @@ function drawScene(ctx, W, H, t, opts){
   }
 }
 
+/* a recorded gap — he was not seen between from and to — draws nothing. The
+   ring re-appears where he was actually found; it never glides across ground
+   nobody saw him on. Shared by the live overlay and every export. */
+function spotHidden(a, t){
+  const g = a.gaps;
+  if (!g || !g.length) return false;
+  return g.some(w => t > w.from + 0.05 && t < w.to - 0.05);
+}
 function drawSpot(ctx, a, t, W, H, lw, fontPx){
+  if (spotHidden(a, t)) return;
   const p = spotPos(a, t);
   const x = p.x*W, y = p.y*H;
   const rx = (a.r || 0.035) * W, ry = rx * 0.42;
@@ -3091,6 +3101,18 @@ overlay.addEventListener('pointerdown', e => {
     const spot = project.annotations.find(a => a.id === r.id && a.type === 'spot');
     if (spot){
       pushUndo();
+      /* between where it lost him and where you tapped him, nobody saw him:
+         that stretch is a gap on the ring, and the run that follows joins
+         its report onto the one that ended lost */
+      const lastKey = r.dir > 0 ? spot.keys.filter(k => k.t < t - 0.01).pop()
+                                : spot.keys.find(k => k.t > t + 0.01);
+      if (lastKey && Math.abs(t - lastKey.t) >= TRACK_GAP_MIN){
+        spot.gaps = [...(spot.gaps || []),
+          { from: +Math.min(lastKey.t, t).toFixed(2), to: +Math.max(lastKey.t, t).toFixed(2) }]
+          .sort((a, b) => a.from - b.from);
+      }
+      ui.stitchFrom = (r.dir > 0 && lastTrackReport && lastTrackReport.video &&
+        lastTrackReport.video.name === project.videoName) ? lastTrackReport : null;
       setSpotKey(spot, t, p.x, p.y);
       ui.selectedId = spot.id;
       afterMutate();
@@ -3439,6 +3461,10 @@ let lockonSes = null;                     // cached InferenceSession
 let lockonLoadMs = null;                  // measured first-load cost
 let lockonLoading = null;                 // single-flight: concurrent callers share one load
 let lockonOverride = null;                // tests substitute a scripted detector here
+/* a stretch he was not seen in for this long is recorded on the ring as a GAP
+   (spot.gaps = [{from, to}]) and nothing is drawn across it — shared by the
+   detection pass and the one-tap resume so both tell the same truth */
+const TRACK_GAP_MIN = 2.0;
 function loadLockon(){
   if (lockonOverride){ lockonState = 'ready'; return Promise.resolve({ stub: true }); }
   if (lockonLoading) return lockonLoading;
@@ -3819,7 +3845,17 @@ async function autoTrackDetect(spots, dir){
 
   const dt = 1 / 8;
   const T_LAST = dir > 0 ? Math.max(...st.map(x => x.tEnd)) : Math.min(...st.map(x => x.tEnd));
-  const MAX_OCCLUDE = 20, HUNT_FOR = 40;
+  /* the hunt used to give up after 40 steps (5s) and end the whole run on
+     "lost him", which on a full game meant a tap from the parent every time
+     he dipped out of detection for a few seconds. It now keeps looking for
+     up to 30s. The identity rules do not loosen with time — they TIGHTEN:
+     inside HUNT_LOCAL seconds the old reach-from-where-he-vanished rule
+     stands; beyond it position memory means little, so the reach opens to
+     the whole frame and a far candidate earns ONE full-frame look on the
+     confirming step — he counts only if he is the only unassigned wearer
+     of his kit anywhere in the picture. A gap of TRACK_GAP_MIN or more is
+     recorded on the ring and drawn as nothing. */
+  const MAX_OCCLUDE = 20, HUNT_FOR = 240, HUNT_LOCAL = 5;
 
   for (const x of st){
     const spot = x.spot;
@@ -3831,6 +3867,7 @@ async function autoTrackDetect(spots, dir){
     x.lastGoodT = t0; x.lastGoodIdx = 0; x.lastGoodX = fx; x.lastGoodY = fy;
     x.lost = false; x.done = false; x.hunt = false; x.hunted = 0; x.reFound = null;
     x.occl = 0; x.uncertain = []; x.refinds = 0; x.trace = [];
+    x.gaps = []; x.sweepNext = false;
     /* fit the ring to the detected body — only ever pulling it in (v3.4 rule) */
     const snug = clamp((x.tr.w * 0.75) / W, 0.010, 0.05);
     if (snug < (spot.r || 0.035) * 0.8){ x.ringWas = spot.r || 0.035; spot.r = +snug.toFixed(4); }
@@ -3874,7 +3911,9 @@ async function autoTrackDetect(spots, dir){
        because crops centred on stale predictions are blind to where everyone
        now is. */
     const centers = [];
-    if (sweep){
+    const fullFrame = sweep || st.some(x => x.sweepNext && !x.done);
+    for (const x of st) x.sweepNext = false;
+    if (fullFrame){
       for (const tile of huntTiles) centers.push({ x: tile.x, y: tile.y });
     } else for (const x of st){
       if (x.done) continue;
@@ -4034,18 +4073,25 @@ async function autoTrackDetect(spots, dir){
            start-of-run signature — the adaptive one may have drifted), be
            reachable from where he was last seen, and be found twice in the
            same place before it counts (the v3.7 lesson, kept). */
-        let cand = null, candDd = Infinity, cand2Dd = Infinity;
+        const absent = Math.abs(t - x.lastGoodT);
+        const local = absent <= HUNT_LOCAL;
+        let cand = null, candDd = Infinity, cand2Dd = Infinity, wearers = 0;
         for (const d of dets){
           const owner = tracks.find(o => o.det === d && o !== tr);
           if (owner && owner.hits > 3) continue;   // an established somebody-else
           if (lockonSigDist(d.sig, x.sig0) > SAME_KIT * 1.6) continue;
+          wearers++;
           const dd = Math.hypot(d.x + d.w / 2 - x.lastGoodX, d.y + d.h / 2 - x.lastGoodY);
           /* reach grows slowly and is capped — a hidden player does not
              teleport — and the NEAREST wearer of his kit is the candidate:
              within a team the kit gate cannot separate players, so distance
-             from where he was last seen is the only honest tiebreak. */
-          const reach = Math.min(gate * 2 + gate * 3 * Math.abs(t - x.lastGoodT), gate * 4);
-          if (dd > reach) continue;
+             from where he was last seen is the only honest tiebreak. Past
+             HUNT_LOCAL that memory is stale and the reach opens up; the
+             full-frame look below is what stands guard then. */
+          if (local){
+            const reach = Math.min(gate * 2 + gate * 3 * absent, gate * 4);
+            if (dd > reach) continue;
+          }
           if (dd < candDd){ cand2Dd = candDd; cand = d; candDd = dd; }
           else if (dd < cand2Dd) cand2Dd = dd;
         }
@@ -4060,8 +4106,17 @@ async function autoTrackDetect(spots, dir){
            cannot have gone far), so nearest-in-reach stands on its own —
            demanding uniqueness there killed a clip where he dips out of
            detection for a second inside a crowd of his own team. */
-        if (cand && Math.abs(t - x.lastGoodT) > 2 && cand2Dd < candDd * 1.8) cand = null;
-        const near = cand && x.reFound &&
+        if (cand && absent > 2 && cand2Dd < candDd * 1.8) cand = null;
+        /* a FAR re-find (Phase 3c): the first sighting only books a look —
+           the next step detects the WHOLE frame, and he counts only if he is
+           the one unassigned wearer of his kit anywhere in it. Two wearers
+           and the hunt goes on: the ring never picks between team-mates. */
+        let farLook = false;
+        if (cand && !local){
+          if (!fullFrame){ x.sweepNext = true; farLook = true; }   // book the look; the sighting is remembered below, never accepted yet
+          else if (wearers > 1) cand = null;
+        }
+        const near = cand && !farLook && x.reFound &&
           Math.hypot(cand.x + cand.w / 2 - x.reFound.x, cand.y + cand.h / 2 - x.reFound.y) < gate * 0.8;
         if (cand && near){
           const dup = tracks.find(o => o !== tr && o.det === cand);
@@ -4070,6 +4125,10 @@ async function autoTrackDetect(spots, dir){
           tr.w = cand.w; tr.h = cand.h; tr.vx = 0; tr.vy = 0;
           tr.missed = 0; tr.det = cand; tr.sig = cand.sig.slice();
           x.hunt = false; x.hunted = 0; x.refinds++; x.reFound = null;
+          /* the stretch nobody saw him in is recorded, not interpolated:
+             a ring gliding across ground he was never seen on is a bluff */
+          if (absent >= TRACK_GAP_MIN)
+            x.gaps.push({ from: +Math.min(x.lastGoodT, t).toFixed(2), to: +Math.max(x.lastGoodT, t).toFixed(2) });
           const fx = tr.x, fy = tr.y + tr.h * 0.45;
           x.samples.push({ t, x: fx / W, y: fy / H, conf: 0.34 });
           x.lastGoodT = t; x.lastGoodIdx = x.samples.length - 1;
@@ -4099,6 +4158,11 @@ async function autoTrackDetect(spots, dir){
     x.samples.length = x.lastGoodIdx + 1;
     const path = dir > 0 ? x.samples : [...x.samples].reverse();
     x.spot.keys = [...x.beforeKeys, ...thinSamples(path, 0.004), ...x.afterKeys];
+    /* gaps this run found replace whatever was recorded inside its span;
+       gaps outside the span (earlier runs) are kept as they were */
+    const keptGaps = (x.spot.gaps || []).filter(g => g.to <= x.lo + 0.01 || g.from >= x.hi - 0.01);
+    x.spot.gaps = [...keptGaps, ...x.gaps].sort((a, b) => a.from - b.from);
+    if (!x.spot.gaps.length) delete x.spot.gaps;
     if (dir > 0){
       if (x.lastGoodT > x.spot.tEnd) x.spot.tEnd = Math.min(x.lastGoodT, video.duration || x.lastGoodT);
       followedTo = Math.max(followedTo, x.lastGoodT);
@@ -4112,7 +4176,7 @@ async function autoTrackDetect(spots, dir){
   for (const x of st) if (x.hunt) x.lost = true;    // still hunting at the end IS lost
   lastTrackReport.result = st.map(x => ({
     label: x.spot.label || '', lost: x.lost, lastGoodAt: +x.lastGoodT.toFixed(3),
-    refinds: x.refinds, uncertain: x.uncertain,
+    refinds: x.refinds, uncertain: x.uncertain, gaps: x.gaps,
     keys: x.spot.keys.length, samples: x.trace,
     /* v6-A: where the ball was at his feet and moving with him */
     possession: possessionWindows(x.samples, ballTrack.samples),
@@ -4123,6 +4187,29 @@ async function autoTrackDetect(spots, dir){
       Math.max(1, Math.round(Math.abs(T_LAST - t0) / dt))).toFixed(3),
     samples: ballTrack.samples,
   };
+  /* a one-tap resume CONTINUES the previous run rather than replacing it:
+     the report the Moment Finder and Auto-Cut read then spans everything
+     followed in this game, with the tapped-over stretch recorded as a gap.
+     Forward runs only — that is what the resume offers. */
+  const prev = ui.stitchFrom; ui.stitchFrom = null;
+  if (prev && dir > 0 && prev.direction === 'forward' && prev.result && prev.result[0] &&
+      prev.video && prev.video.name === project.videoName && prev.startedAt < t0){
+    const p = prev.result[0], n = lastTrackReport.result[0];
+    const earlier = (p.samples || []).filter(sm => sm.t < t0 - 1e-3);
+    n.samples = [...earlier, ...n.samples];
+    n.refinds += p.refinds || 0;
+    n.uncertain = [...(p.uncertain || []), ...n.uncertain];
+    n.gaps = [...(p.gaps || []),
+      ...(t0 - p.lastGoodAt >= TRACK_GAP_MIN ? [{ from: +p.lastGoodAt.toFixed(2), to: +t0.toFixed(2) }] : []),
+      ...n.gaps];
+    n.possession = [...(p.possession || []), ...n.possession];
+    const pb = (prev.ball && prev.ball.samples || []).filter(sm => sm.t < t0 - 1e-3);
+    lastTrackReport.ball.samples = [...pb, ...lastTrackReport.ball.samples];
+    lastTrackReport.ball.coverage = +(lastTrackReport.ball.samples.length /
+      Math.max(1, Math.round(Math.abs(T_LAST - prev.startedAt) / dt))).toFixed(3);
+    lastTrackReport.startedAt = prev.startedAt;
+    lastTrackReport.stitched = (prev.stitched || 0) + 1;
+  }
   lastTrackReport.cancelled = !!ui.trackCancel;
   persist(); renderAnnList(); renderTimelineMarks(); updateSelPanel();
 
@@ -4174,7 +4261,7 @@ async function autoTrack(arg, dir = 1){
         toast('No player found where the ring is — using the classic tracker for this go.', 4000);
       }
     }
-  } finally { ui.trackStarting = false; }
+  } finally { ui.trackStarting = false; ui.stitchFrom = null; }
   return autoTrackTemplate(spots, dir);
 }
 
@@ -4316,17 +4403,18 @@ function proposeCut(clip, report, opts = {}){
   };
 }
 
-async function findHisMoments(){
-  if (!project.videoName || !video.videoWidth)
-    return toast('Open a game video first — the finder needs film to scan.', 5000);
+/* the ring the scan follows: the selected one, else the one with the most
+   history — shared by the Moment Finder and Make his reel */
+function scanSpot(){
   const spots = project.annotations.filter(a => a.type === 'spot');
-  if (!spots.length)
-    return toast('Put a ring on him first — pick Spotlight and tap him. The finder needs to know who to watch.', 6500);
-  const spot = spots.find(a => a.id === ui.selectedId) ||
+  if (!spots.length) return null;
+  return spots.find(a => a.id === ui.selectedId) ||
     spots.reduce((p, q) => ((q.keys || []).length > (p.keys || []).length ? q : p));
-
-  /* a fresh scan of most of this game can be reused; otherwise run one from
-     the ring — the tracker's own progress + cancel carry the long wait */
+}
+/* a fresh scan of most of this game can be reused; otherwise run one from
+   the ring — the tracker's own progress + cancel carry the long wait.
+   Returns the report, or null if the parent pressed Escape. */
+async function ensureGameScan(spot){
   const rep = lastTrackReport;
   const span = rep && rep.result && rep.result[0] && rep.video &&
     rep.video.name === project.videoName
@@ -4335,11 +4423,93 @@ async function findHisMoments(){
     const from = (spot.keys && spot.keys.length ? spot.keys[0].t : spot.tStart) || 0;
     await seekTo(Math.min(from, Math.max(0, (video.duration || 1) - 1)));
     await autoTrack(spot);
-    if (ui.trackCancel) return;
+    if (ui.trackCancel) return null;
   }
+  return lastTrackReport;
+}
+async function findHisMoments(){
+  if (!project.videoName || !video.videoWidth)
+    return toast('Open a game video first — the finder needs film to scan.', 5000);
+  const spot = scanSpot();
+  if (!spot)
+    return toast('Put a ring on him first — pick Spotlight and tap him. The finder needs to know who to watch.', 6500);
+  if (!(await ensureGameScan(spot))) return;
   ui.momentCands = momentCandidates(lastTrackReport).map(c => ({ ...c, state: null }));
   renderMoments();
   $('#momentsModal').classList.add('open');
+}
+
+/* ---------------- Make his reel (one press) ----------------
+   The finder recalls and the parent judges — that rule stands. What this
+   removes is the CLICKING: a yes per moment, a ➕ Reel per clip, the
+   ordering, the title. One press turns the scan into a drafted reel that is
+   already in the right order and trimmed to the action, so the judgment
+   left to do is one look before pressing Save — and one Undo if it is
+   wrong. Picking is PURE over the candidates so the tests can prove the
+   arithmetic on constructed lists. */
+function pickReelMoments(cands, opts = {}){
+  const maxTotal = opts.maxTotal != null ? opts.maxTotal : 240;   // ~4 minutes of film
+  const maxCount = opts.maxCount != null ? opts.maxCount : 8;
+  const ranked = [...(cands || [])].sort((a, b) =>
+    (b.score - a.score) || ((b.end - b.start) - (a.end - a.start)) || (a.start - b.start));
+  const picks = []; let total = 0;
+  for (const c of ranked){
+    if (picks.length >= maxCount) break;
+    const len = c.end - c.start;
+    if (total + len > maxTotal) continue;
+    picks.push(c); total += len;
+  }
+  if (picks.length < 3) return picks;
+  /* the studio's order: the single best play first, the rest as they
+     happened, and the second-best last so it ends on a high */
+  const [best, second, ...rest] = picks;
+  return [best, ...rest.sort((a, b) => a.start - b.start), second];
+}
+function defaultReelTitle(){
+  const game = (project.videoName || 'this game').replace(/\.[^.]+$/, '');
+  return (playerCard && playerCard.name ? playerCard.name + ' — ' : 'Highlights — ') + game;
+}
+async function makeHisReel(){
+  if (!project.videoName || !video.videoWidth)
+    return toast('Open a game video first — the reel is built from his film.', 5000);
+  const spot = scanSpot();
+  if (!spot)
+    return toast('Put a ring on him first — pick Spotlight and tap him. The reel is built from what he did.', 6500);
+  if (ui.tracking || ui.exporting || ui.trackStarting) return;
+  const rep = await ensureGameScan(spot);
+  if (!rep) return;
+  const picks = pickReelMoments(momentCandidates(rep));
+  if (!picks.length)
+    return toast('Nothing stood out in that scan — no sprints, no time on the ball. Try from a busier stretch, or add moments yourself with ➕ Reel.', 7000);
+
+  const ids = [];
+  let total = 0;
+  mutate(() => {
+    for (const c of picks){
+      const clip = { id: uid(), tIn: +c.start.toFixed(2), tOut: +c.end.toFixed(2),
+        title: c.reasons[0].charAt(0).toUpperCase() + c.reasons[0].slice(1) + ' at ' + fmtT(c.start),
+        rating: 'neutral', tags: [], notes: 'Picked by Make his reel — ' + c.why + '.',
+        ask: '', position: $('#clipPosition').value, format: $('#clipFormat').value };
+      /* the same cut assist a parent would press, pressed for them */
+      const prop = proposeCut(clip, rep);
+      if (prop){ clip.tIn = prop.tIn; clip.tOut = prop.tOut; if (prop.ramp) clip.ramp = prop.ramp; }
+      project.clips.push(clip);
+      ids.push(clip.id);
+      total += clip.tOut - clip.tIn;
+    }
+    project.clips.sort((a, b) => a.tIn - b.tIn);
+    /* anything the parent already put in this week's list leads; the draft
+       fills in behind it */
+    project.reel = [...(project.reel || []).filter(id => project.clips.some(c => c.id === id)), ...ids];
+    if (!project.reelTitle) project.reelTitle = defaultReelTitle();
+  });
+  const snap = undoStack[undoStack.length - 1];
+  $('#reelTitle').value = project.reelTitle || '';
+  switchTab('clips');
+  try { $('#reelSection').scrollIntoView({ block: 'start' }); } catch (e) {}
+  toast('Drafted a reel of ' + ids.length + ' moment' + (ids.length === 1 ? '' : 's') +
+    ' — about ' + Math.round(total) + ' seconds. Look it over below, then press 🎬 Save as one video.', 9000,
+    { label: '↩ Undo', fn(){ pushUndo(); restoreState(JSON.parse(snap)); toast('Put back — nothing was added.'); } });
 }
 
 function renderMoments(){
@@ -4409,6 +4579,7 @@ function renderMoments(){
   });
 }
 $('#btnFindMoments').onclick = findHisMoments;
+$('#btnAutoReel').onclick = makeHisReel;
 $('#momentsClose').onclick = () => {
   clearTimeout(ui.momentPrevT);
   video.pause();
@@ -7982,7 +8153,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* voiceIds is declared further down, so it is reached through a getter rather
    than captured here — reading it eagerly would abort this whole script */
 const APP_BUILD = 'v6.0';
-window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP_BUILD,
+window.__filmroom = { getProject: () => project, spotPos, spotHidden, version: 1, build: APP_BUILD,
   setGameDir: d => { gameDir = d; },
   playerCard: { get: () => playerCard, lines: reelCardLines, fileBase: profileFileBase,
     photo: () => libIdb.get('playerPhoto'), sync: syncPlayerCardWithFolder },
@@ -7994,6 +8165,7 @@ window.__filmroom = { getProject: () => project, spotPos, version: 1, build: APP
       if (!studioPool.length) studioPool = await studioCollect();
       return importReelPlan(p);
     } },
+  reel: { pick: pickReelMoments, make: makeHisReel, title: defaultReelTitle },
   moments: { candidates: momentCandidates,
     open(cands){
       ui.momentCands = cands.map(c => ({ ...c, state: null }));

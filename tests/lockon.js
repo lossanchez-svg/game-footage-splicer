@@ -140,6 +140,48 @@ const { APP, FIXTURES, launch } = require('./common');
     fell.path === 'template');
   check(`and the run still tracked (${fell.keys} keys written)`, fell.keys >= 4);
 
+  /* -------- the DEFAULT path, real model, a player it CAN see --------
+     The mirror of the check above, and the one the suite lacked: the
+     detection path binding the ring to a real detection and holding him.
+     feet.webm is the one fixture whose player is shaped like a person (head,
+     torso, scissoring legs — the README's difficulty notes measured the COCO
+     model seeing him there and nothing in the rectangles), so the real model
+     has someone to find. The ring goes on his FEET, as a parent puts it:
+     body x = 120+38t, feet y ≈ 171+5sin(1.4t)+11. Tolerance 0.03 — measured
+     0.011 worst on 2026-09-05, so a real regression cannot hide and seek
+     jitter cannot flip it. */
+  const feetAt = t => ({ x: (120 + 38 * t + 5.5) / 640, y: (171 + 5 * Math.sin(1.4 * t) + 11) / 360 });
+  await page.setInputFiles('#fileVideo', path.join(FIXTURES, 'feet.webm'));
+  await page.waitForSelector('#videoWrap', { state: 'visible' });
+  await page.waitForFunction(() => document.querySelector('#video').duration > 7);
+  const box2 = await (await page.$('#overlay')).boundingBox();
+  await page.evaluate(() => { document.querySelector('#video').currentTime = 0; });
+  await page.waitForTimeout(300);
+  await page.click('#toolGrid button[data-tool=spot]');
+  await page.mouse.move(box2.x + box2.width * feetAt(0).x, box2.y + box2.height * feetAt(0).y);
+  await page.mouse.down(); await page.mouse.up();
+  await page.waitForTimeout(250);
+  await page.click('#toolGrid button[data-tool=select]');
+  await page.click('#annList .annItem .kind >> nth=0');
+  await page.click('#selTrack');
+  await page.waitForSelector('#trackPill', { state: 'hidden', timeout: 300000 });
+  const held = await page.evaluate(() => {
+    const s = window.__filmroom.getProject().annotations.find(a => a.type === 'spot');
+    const rep = window.__filmroom.trackReport;
+    return { path: rep.path, lost: rep.result[0].lost, ringWas: rep.spots[0].ringWas, r: s.r,
+             box: rep.spots[0].boundBox, keys: s.keys.length,
+             pos: [1, 3, 5, 7].map(t => ({ t, ...window.__filmroom.spotPos(s, t) })) };
+  });
+  check(`default press, real model, a body-shaped player: the detection path ran (${held.path})`,
+    held.path === 'detection');
+  check(`it bound the ring to a detected body (${held.box.w}x${held.box.h}px) and pulled the ring in (${held.ringWas} → ${held.r})`,
+    held.box.h > 20 && held.ringWas && held.r < held.ringWas);
+  for (const p of held.pos){
+    const g = feetAt(p.t), err = Math.hypot(p.x - g.x, p.y - g.y);
+    check(`  on his feet at t=${p.t} (err ${err.toFixed(3)})`, err < 0.03);
+  }
+  check(`and finished the clip without reporting him lost (${held.keys} keys)`, !held.lost && held.keys >= 4);
+
   /* -------- index.html ALONE, without lockon.js -------- */
   const solo = fs.mkdtempSync(path.join(os.tmpdir(), 'filmroom-solo-'));
   fs.copyFileSync(path.resolve(__dirname, '..', 'index.html'), path.join(solo, 'index.html'));

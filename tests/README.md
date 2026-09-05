@@ -32,13 +32,19 @@ node lockon.js         # Lock-On model runtime: the vendored detector boots from
                        # file:// with zero network, YOLOX decode/NMS proved on
                        # fabricated tensors, a default Follow press with the real
                        # model and nobody to detect hands itself to the template
-                       # tracker, and index.html ALONE still runs the v3.7
+                       # tracker, the same press on the one body-shaped fixture
+                       # (feet.webm) runs the REAL detection path and holds his
+                       # feet to 0.03, and index.html ALONE still runs the v3.7
                        # tracker (loader reports absent, report says so)
 node lockontrack.js    # tracking-by-detection, end to end with a SCRIPTED
                        # detector (boxes from the fixtures' own motion math):
                        # default-on + the off switch, identity through a crossing, both
                        # players in one pass, occlusion carried + re-found,
-                       # honest loss + one-tap resume stitching, the 40s no-cap
+                       # honest loss + one-tap resume stitching (the resumed run
+                       # joins the report and the tapped-over stretch is a gap
+                       # that draws no ring), an 8s absence carried on by itself
+                       # with the gap recorded, the same absence with a same-kit
+                       # team-mate in shot ending LOST not swapped, the 40s no-cap
                        # clip, same-kit check-this-moment flags, association
                        # unit checks (motion keeps identity, colour splits teams),
                        # and the ball (v6): a scripted ball tracked alongside
@@ -113,6 +119,13 @@ node autocut.js        # Auto-Cut assist (v6): pure tightening proposals with
                        # after the touch, the ramp inside the kept range), the
                        # knows-when-to-stay-quiet nulls, the median-per-end gate
                        # arithmetic, and the one-tap trim + Undo in the app
+node autoreel.js       # Make his reel (one press): the pure picker (best first,
+                       # second-best last, the rest in game order, the four-minute
+                       # budget and count cap), the no-video / no-ring guards, and
+                       # end to end with the scripted detector — clips made from the
+                       # scan, in the reel behind the parent's own pick, each inside
+                       # its moment, titled from the game, and the toast's Undo
+                       # taking the whole draft back
 node socket.js         # the metadata socket (v6): the season exported as words and
                        # numbers with never a pixel (no photo, no data: URIs), the
                        # reel-plan import as a reviewable draft (resolved snapshots,
@@ -149,8 +162,10 @@ node realeval/selftest.js # proves the real-footage eval harness itself: scoring
 
 The gate for every v4+ tracker change: replays REAL clips (gitignored, never in
 the repo) through the tracker and scores them against hand-dragged ground-truth
-paths. `node realeval/run.js` runs the set; `--save-baseline` freezes the
-numbers a change must beat; `--gate` fails on any regression. See
+paths. `node realeval/import.js <Games folder>` builds the cases from any folder
+the app has saved projects into; `node realeval/run.js` runs the set;
+`--save-baseline` freezes the numbers a change must beat; `--gate` fails on any
+regression. See
 `realeval/README.md` for how to add clips and why synthetic fixtures alone are
 not trusted for real-footage conclusions.
 

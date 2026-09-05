@@ -37,6 +37,16 @@ You are picking up a working, fully-tested product. Before writing any code:
    finder-recall + auto-cut gates need one hand-broken-down game (a project with
    his saved clips) in `tests/realeval/clips/`. Nothing further is specced — the
    next epic is the user's call.
+   **Audited 2026-09-05** (`docs/AUDIT-2026-09-05.md`): every suite green on fresh
+   fixtures, and the default Follow press with the REAL model now has an end-to-end
+   check in `tests/lockon.js` (body-shaped fixture → detection path holds his feet).
+   The editing surface and its honest gaps (no slow-mo/ramps in exports, cuts only,
+   no music) are tabulated there. **v9 "Less hand-holding" followed the same day**
+   (see its section): the detection hunt carries on for 30 s with frame-wide
+   same-kit uniqueness and records gaps, resumed runs join their reports, and
+   "✨ Make his reel" drafts a reel in one press. **One open gate:** the carry-on
+   tracker change needs `node tests/realeval/run.js --gate` on the user's real clips
+   before it merges — the synthetic suites cannot stand in for that.
 3. The single most important lesson from v2.5–v3.7: **measure before building.** Every
    fixture must be validated against real footage numbers (a tracking report or counted
    pixels from real frames) before any conclusion is drawn from it. Nine builds chased
@@ -1778,6 +1788,62 @@ advertising, not whether a parent may use them.
 
 ---
 
+## 🚧 Current epic — v9 "Less hand-holding" (the run carries on, the reel makes itself)
+
+**Goal (user, 2026-09-05):** the ring should hold him for longer stretches without a
+tap from the parent, and a highlight reel should take as little effort as possible.
+The audit of the same day (`docs/AUDIT-2026-09-05.md`) traced both to mechanics rather
+than to the matcher: a run ended at the first honest loss after a 5-second hunt, the
+Moment Finder only ever saw the LAST run's report, and a reel cost a click per moment
+plus a click per clip.
+
+- [x] **Carry on by itself (detection path).** The hunt keeps looking for up to 30 s
+      (`HUNT_FOR` 40 → 240 steps). The identity rules do not loosen with time, they
+      tighten: inside 5 s (`HUNT_LOCAL`) the old reach-from-where-he-vanished rule
+      stands; beyond it position memory is stale, so the reach opens to the whole frame
+      and a far candidate earns ONE full-frame look on the confirming step (`x.sweepNext`
+      → every hunt tile detected at once): he counts only if he is the only unassigned
+      wearer of his kit anywhere in the picture. Two wearers → the hunt goes on, and after 30 s the run ends LOST with the ring parked where he was last
+      seen, exactly as before. A re-find after ≥ 2 s (`TRACK_GAP_MIN`) records a **gap**
+      on the ring (`spot.gaps = [{from, to}]`, optional field, JSON stays compatible)
+      and `drawSpot()` draws nothing inside it — shared by the live overlay and every
+      export — so the ring never glides across ground nobody saw him on. The one-tap
+      resume records the tapped-over stretch as the same kind of gap, and the resumed
+      run now **joins its report onto the one that ended lost** (`ui.stitchFrom`;
+      `report.stitched` counts the joins, `startedAt` reaches back), so the Moment
+      Finder and Auto-Cut read the whole game rather than the last segment. Template
+      path untouched. `tests/lockontrack.js` S3 (resume stitches report + gap, ring
+      hidden inside it), S10 (8 s absence carried on alone, gap recorded, followed to
+      40 s), S11 (same absence with a same-kit team-mate walking in → LOST, no swap).
+- [x] **The real-clip gate for the carry-on change — PASSED as a TIE (user's Mac,
+      2026-09-05).** Cases built by `realeval/import.js` from the iCloud Game-Film
+      folder (San Clemente, April 25, 2026), transcoded by `prep.sh`, driven in real
+      Chrome, `--path detect` on `main` (`--save-baseline`) then on this branch
+      (`--gate`). Bit-identical on both clips:
+      pan-out **84.4% on-him, err 0.0406, coverage 100%, 0 switches** (TIE);
+      same-kit **11.1% on-him, err 0.3332, coverage 83%, lost at 12.75 s, 0 switches**
+      (TIE). So the 30 s hunt changed nothing on this footage — he never came back as
+      the only wearer of his kit, which is the honest limit the rule was built around —
+      and it cost nothing either. Two things the run surfaced for later, neither this
+      change's: (1) the imported same-kit case (112 hand keys on "81" over 15.4 s) holds
+      him only 11.1% on the CURRENT detection tracker, far below the 53.2% recorded on
+      2026-08-25 — a different, longer ground truth than that day's case, and the clip
+      where tracking most needs work; (2) it carries no ring on the look-alike, so a
+      switch cannot be counted on it until one is added. The occlusion clip was skipped
+      by the importer (its project has no hand-tracked ring). The user's local
+      `baseline.json` now holds these detection numbers for the two imported cases.
+- [x] **✨ Make his reel (one press).** In the Highlight reel box: from the ring,
+      `ensureGameScan()` (shared with the finder) runs or reuses the whole-game scan,
+      `pickReelMoments()` — PURE — ranks the finder's candidates (score, then length),
+      fills a ~4-minute / 8-moment budget and orders them the way the studio teaches
+      (best first, the rest in game order, second-best last), each becomes an ordinary
+      clip whose notes say where it came from, `proposeCut()` tightens it exactly as the
+      parent's own tap would, anything already in this week's list stays in front, the
+      title defaults from his card and the game, and the app lands on the reel with one
+      Save button and a toast whose Undo removes the whole draft. Judgment stays with
+      the parent — one look instead of one click per moment. `tests/autoreel.js`, 19
+      checks. Not automated on purpose: pressing Save (the v6 draft-only rule).
+
 ## 🚧 Current epic — v8 "Phone-first" (the iPhone as the primary device)
 
 **Goal:** the parent films the game on the iPhone and breaks it down *on the iPhone*,
@@ -2295,6 +2361,12 @@ checking on the real account, and it overlaps the standing Trace-footage questio
 | 2026-08-27 | Rotating the phone IS the watch gesture: landscape hides the top bar and auto-tucks the panel | The bar's jobs (open, export, help) are portrait jobs; sideways exists to see the film. Everything returns on turning upright or tapping a tab, and a one-time hint says so — hiding chrome is safe only when the way back is the same motion that hid it |
 | 2026-08-27 | Pinch zoom is a view transform on the wrap, never a change to coordinates or exports | evNorm() reads getBoundingClientRect(), which already reflects CSS transforms — so drawing stays exact at any zoom with zero new math, and drawScene/export code paths are untouched. A second finger unwinds what the first started: zooming must never leave an accidental ring behind |
 | 2026-08-27 | Sideways chrome OVERLAYS the film; nothing stacks below it — and icon-only buttons are allowed on the thumb rail | Stacked strips left the landscape picture smaller than portrait on a real iPhone once Safari took its share; every strip now floats translucent over the film. The rail breaks the plain-words rule deliberately: it is an accelerator whose worded twin (the toolGrid) is one 🧰 tap away, and each rail button carries a full-sentence tip — the same bargain ⌘K made |
+| 2026-09-05 | Audit finding kept as a test: the real model's detection path is proven on `feet.webm` in `tests/lockon.js`, tolerance 0.03 | The suite proved the fallback with the real model and the detection path only with a scripted detector — nothing asserted that the real model ever binds a ring and holds a player. The one body-shaped fixture measures 0.011 worst, so 0.03 catches a real regression without flaking; it is a regression check, never a real-footage conclusion (that gate stays `realeval/`). Also recorded, unchanged: `APP_BUILD` still stamps v6.0, backward detection runs have no 25 s cap, `c.ramp` is stored but never rendered |
+| 2026-09-05 | The hunt runs 30 s, and past 5 s the reach opens to the whole frame but the candidate must be the ONLY unassigned wearer of his kit in one full-frame look | Five seconds of hunting ended most real losses with a tap from the parent. Position memory is what made a short reach honest, and after a few seconds it is stale — so the far rule stops trusting distance and trusts uniqueness instead — measured in ONE step's whole-frame detection, so his own motion between steps can never make him look like two people. Two wearers anywhere means no answer, which is the epic's invariant (never a silent switch) stated for long absences. Gated on the real clips like every tracker change |
+| 2026-09-05 | A re-find after ≥ 2 s records a GAP on the ring and nothing is drawn inside it; the resume records the tapped-over stretch the same way | Linear interpolation across a long absence draws the ring gliding over ground he was never seen on — the same bluff the tracker refuses everywhere else. Under 2 s the glide matches the accepted coasting behaviour and hiding would only flicker; over it, honesty wins. Stored as an optional field so old projects load unchanged and drawScene serves overlay and export alike |
+| 2026-09-05 | A resumed run JOINS the previous report instead of replacing it | The Moment Finder and Auto-Cut read one report; with every resume replacing it they only ever saw the last segment of a game. Joining is what lets one scan plus a few taps cover the whole game — and `stitched` in the report says how many taps it took |
+| 2026-09-05 | "Make his reel" drafts and orders, but never saves | The v6 rule stands — choosing the moment is the coaching — but the cost that rule had was a click per moment and per clip. Ranking by the finder's own score, the studio's order (best first, end on a high) and the auto-cut trim are mechanics, not judgment. The parent's judgment is now one look and one Save, with one Undo |
+| 2026-09-05 | The carry-on hunt shipped on a TIE, not a WIN: identical numbers to `main` on both real clips | The rule is beat OR match, and a change that removes a tap from the parent while measuring identical on real footage is exactly what a tie is for. It also says plainly what the change is not: a fix for same-kit crowds (11.1% on-him on the imported case, on both builds). That clip is the next tracker target, and it needs a look-alike ring before a switch can even be counted |
 
 ## Working agreements for future sessions
 
