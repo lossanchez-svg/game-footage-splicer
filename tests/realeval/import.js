@@ -74,8 +74,10 @@ function consider(gtPath, dir){
   const videoPath = path.join(dir, video);
   const st = fs.statSync(videoPath);
   if (!st.size) return say('SKIP', `${videoPath} — empty file; iCloud has not downloaded it yet`);
-  if (/screen ?rec/i.test(video) && /__/.test(video))
-    return say('SKIP', `${videoPath} — looks like an ANNOTATED export; the ring must not be burned in`);
+  /* the app names its exports <game>__<clip>.mp4 — those open with a title
+     card and carry the ring burned in, so they can never be eval footage */
+  if (/__/.test(video))
+    return say('SKIP', `${videoPath} — this is one of the app's own exports (title card + ring burned in); use the raw game video`);
 
   const name = safe(path.basename(dir) === path.basename(root) ? base : path.basename(dir) + '-' + base);
   const caseDir = path.join(clipsDir, name);
